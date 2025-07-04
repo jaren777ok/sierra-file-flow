@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { Upload, File, CheckCircle, AlertCircle, X, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -17,7 +18,7 @@ const FileUploader = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const { toast } = useToast();
 
-  const WEBHOOK_URL = 'https://primary-production-f0d1.up.railway.app/webhook/sierra';
+  const WEBHOOK_URL = 'https://primary-production-f0d1.up.railway.app/webhook-test/sierra';
   const TIMEOUT_DURATION = 15 * 60 * 1000; // 15 minutos
 
   const uploadFile = async (file: File) => {
