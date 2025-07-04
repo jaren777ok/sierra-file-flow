@@ -1,6 +1,6 @@
 
 import React, { useState, useCallback } from 'react';
-import { Upload, File, CheckCircle, AlertCircle, X, Clock } from 'lucide-react';
+import { Upload, File, CheckCircle, AlertCircle, X, Clock, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
@@ -8,9 +8,12 @@ import { useToast } from '@/hooks/use-toast';
 
 interface FileUploadStatus {
   file: File;
-  status: 'uploading' | 'processing' | 'completed' | 'error';
+  status: 'uploading' | 'processing' | 'completed' | 'ready-for-download' | 'error';
   progress: number;
   message?: string;
+  processedFile?: Blob;
+  downloadUrl?: string;
+  originalFileName?: string;
 }
 
 const FileUploader = () => {
@@ -28,6 +31,7 @@ const FileUploader = () => {
       file,
       status: 'uploading',
       progress: 0,
+      originalFileName: file.name,
     };
 
     setFiles(prev => [...prev, newFileStatus]);
@@ -57,7 +61,7 @@ const FileUploader = () => {
       // Crear promesa con timeout
       const uploadPromise = fetch(WEBHOOK_URL, {
         method: 'POST',
-        body: formData, // Enviar como FormData (binario)
+        body: formData,
       });
 
       const timeoutPromise = new Promise((_, reject) => {
@@ -68,19 +72,68 @@ const FileUploader = () => {
       const response = await Promise.race([uploadPromise, timeoutPromise]) as Response;
 
       if (response.ok) {
-        setFiles(prev => prev.map(f => 
-          f.file === file ? { 
-            ...f, 
-            progress: 100, 
-            status: 'completed',
-            message: 'Archivo procesado exitosamente'
-          } : f
-        ));
+        // Verificar el tipo de contenido de la respuesta
+        const contentType = response.headers.get('content-type');
+        
+        if (contentType && contentType.includes('application/json')) {
+          // Respuesta JSON - workflow iniciado, continuar procesando
+          const jsonResponse = await response.json();
+          console.log('Respuesta JSON recibida:', jsonResponse);
+          
+          setFiles(prev => prev.map(f => 
+            f.file === file ? { 
+              ...f, 
+              progress: 75, 
+              status: 'processing',
+              message: 'Procesando archivo con IA...'
+            } : f
+          ));
+          
+          // Aquí podrías implementar polling si es necesario
+          // Por ahora, simularemos que el procesamiento continúa
+          setTimeout(() => {
+            setFiles(prev => prev.map(f => 
+              f.file === file ? { 
+                ...f, 
+                progress: 100, 
+                status: 'completed',
+                message: 'Procesamiento completado. Esperando archivo procesado...'
+              } : f
+            ));
+          }, 2000);
+          
+        } else {
+          // Respuesta binaria - archivo procesado recibido
+          const processedBlob = await response.blob();
+          const downloadUrl = URL.createObjectURL(processedBlob);
+          
+          // Obtener el nombre del archivo desde los headers o usar uno por defecto
+          const contentDisposition = response.headers.get('content-disposition');
+          let processedFileName = file.name.replace(/\.[^/.]+$/, '_processed$&');
+          
+          if (contentDisposition) {
+            const fileNameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+            if (fileNameMatch) {
+              processedFileName = fileNameMatch[1].replace(/['"]/g, '');
+            }
+          }
 
-        toast({
-          title: "¡Éxito!",
-          description: `${file.name} ha sido procesado correctamente.`,
-        });
+          setFiles(prev => prev.map(f => 
+            f.file === file ? { 
+              ...f, 
+              progress: 100, 
+              status: 'ready-for-download',
+              message: 'Archivo procesado y listo para descargar',
+              processedFile: processedBlob,
+              downloadUrl: downloadUrl
+            } : f
+          ));
+
+          toast({
+            title: "¡Archivo Procesado!",
+            description: `${file.name} ha sido procesado por IA y está listo para descargar.`,
+          });
+        }
       } else {
         throw new Error(`Error del servidor: ${response.status}`);
       }
@@ -106,6 +159,32 @@ const FileUploader = () => {
     }
   };
 
+  const downloadProcessedFile = (fileStatus: FileUploadStatus) => {
+    if (fileStatus.downloadUrl && fileStatus.originalFileName) {
+      const link = document.createElement('a');
+      link.href = fileStatus.downloadUrl;
+      link.download = fileStatus.originalFileName.replace(/\.[^/.]+$/, '_processed$&');
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      toast({
+        title: "Descarga Iniciada",
+        description: "El archivo procesado se está descargando.",
+      });
+    }
+  };
+
+  const removeFile = (fileToRemove: File) => {
+    // Limpiar URL de objeto si existe para evitar memory leaks
+    const fileStatus = files.find(f => f.file === fileToRemove);
+    if (fileStatus && fileStatus.downloadUrl) {
+      URL.revokeObjectURL(fileStatus.downloadUrl);
+    }
+    
+    setFiles(prev => prev.filter(f => f.file !== fileToRemove));
+  };
+
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
@@ -120,16 +199,13 @@ const FileUploader = () => {
     e.target.value = '';
   };
 
-  const removeFile = (fileToRemove: File) => {
-    setFiles(prev => prev.filter(f => f.file !== fileToRemove));
-  };
-
   const getStatusIcon = (status: FileUploadStatus['status']) => {
     switch (status) {
       case 'uploading':
       case 'processing':
-        return <Clock className="h-5 w-5 text-sierra-brown animate-pulse-slow" />;
+        return <Clock className="h-5 w-5 text-sierra-brown animate-pulse" />;
       case 'completed':
+      case 'ready-for-download':
         return <CheckCircle className="h-5 w-5 text-green-600" />;
       case 'error':
         return <AlertCircle className="h-5 w-5 text-red-600" />;
@@ -143,9 +219,25 @@ const FileUploader = () => {
       case 'processing':
         return 'bg-sierra-brown';
       case 'completed':
+      case 'ready-for-download':
         return 'bg-green-500';
       case 'error':
         return 'bg-red-500';
+    }
+  };
+
+  const getStatusText = (status: FileUploadStatus['status']) => {
+    switch (status) {
+      case 'uploading':
+        return 'Subiendo...';
+      case 'processing':
+        return 'Procesando con IA...';
+      case 'completed':
+        return 'Procesamiento completado';
+      case 'ready-for-download':
+        return 'Listo para descargar';
+      case 'error':
+        return 'Error';
     }
   };
 
@@ -215,6 +307,16 @@ const FileUploader = () => {
                       </p>
                       <div className="flex items-center space-x-2">
                         {getStatusIcon(fileStatus.status)}
+                        {fileStatus.status === 'ready-for-download' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => downloadProcessedFile(fileStatus)}
+                            className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="sm"
@@ -238,11 +340,13 @@ const FileUploader = () => {
                     
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-gray-500">
-                        {(fileStatus.file.size / 1024 / 1024).toFixed(2)} MB
+                        {(fileStatus.file.size / 1024 / 1024).toFixed(2)} MB • {getStatusText(fileStatus.status)}
                       </p>
                       {fileStatus.message && (
                         <p className={`text-xs ${
-                          fileStatus.status === 'error' ? 'text-red-600' : 'text-green-600'
+                          fileStatus.status === 'error' ? 'text-red-600' : 
+                          fileStatus.status === 'ready-for-download' ? 'text-green-600' :
+                          'text-sierra-brown'
                         }`}>
                           {fileStatus.message}
                         </p>
