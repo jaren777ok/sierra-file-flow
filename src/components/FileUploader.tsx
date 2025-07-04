@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { Upload, File, CheckCircle, AlertCircle, X, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -21,18 +20,6 @@ const FileUploader = () => {
   const WEBHOOK_URL = 'https://primary-production-f0d1.up.railway.app/webhook/sierra';
   const TIMEOUT_DURATION = 15 * 60 * 1000; // 15 minutos
 
-  const convertToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => {
-        const base64 = reader.result as string;
-        resolve(base64.split(',')[1]); // Remover el prefijo data:type;base64,
-      };
-      reader.onerror = error => reject(error);
-    });
-  };
-
   const uploadFile = async (file: File) => {
     const fileId = Math.random().toString(36).substr(2, 9);
     
@@ -45,22 +32,19 @@ const FileUploader = () => {
     setFiles(prev => [...prev, newFileStatus]);
 
     try {
-      // Convertir archivo a base64
-      const base64Content = await convertToBase64(file);
-      
       // Actualizar progreso a 30%
       setFiles(prev => prev.map(f => 
         f.file === file ? { ...f, progress: 30 } : f
       ));
 
-      const payload = {
-        filename: file.name,
-        fileSize: file.size,
-        fileType: file.type,
-        content: base64Content,
-        timestamp: new Date().toISOString(),
-        id: fileId
-      };
+      // Crear FormData para enviar archivo binario
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('filename', file.name);
+      formData.append('fileSize', file.size.toString());
+      formData.append('fileType', file.type);
+      formData.append('timestamp', new Date().toISOString());
+      formData.append('id', fileId);
 
       // Actualizar progreso a 50%
       setFiles(prev => prev.map(f => 
@@ -72,10 +56,7 @@ const FileUploader = () => {
       // Crear promesa con timeout
       const uploadPromise = fetch(WEBHOOK_URL, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
+        body: formData, // Enviar como FormData (binario)
       });
 
       const timeoutPromise = new Promise((_, reject) => {
