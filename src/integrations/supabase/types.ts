@@ -272,6 +272,7 @@ export type Database = {
           created_at: string
           drive_url: string
           id: string
+          notes: string | null
           project_title: string
           status: string
           updated_at: string
@@ -282,6 +283,7 @@ export type Database = {
           created_at?: string
           drive_url: string
           id?: string
+          notes?: string | null
           project_title: string
           status?: string
           updated_at?: string
@@ -292,6 +294,7 @@ export type Database = {
           created_at?: string
           drive_url?: string
           id?: string
+          notes?: string | null
           project_title?: string
           status?: string
           updated_at?: string

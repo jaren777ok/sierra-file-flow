@@ -2,41 +2,37 @@
 import React, { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { useSavedFiles } from '@/hooks/useSavedFiles';
-import { Download, Search, FileText, Calendar, Building2, RefreshCw } from 'lucide-react';
+import { Download, Search, FileText, Calendar, RefreshCw, Edit2, Save, X } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 const SavedFiles = () => {
-  const { files, loading, fetchSavedFiles, downloadFile } = useSavedFiles();
+  const { files, loading, fetchSavedFiles, downloadFile, updateFileNotes } = useSavedFiles();
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedArea, setSelectedArea] = useState<string>('all');
+  const [editingNotes, setEditingNotes] = useState<string | null>(null);
+  const [noteText, setNoteText] = useState('');
 
-  const areas = [
-    { id: 'all', name: 'Todas las Áreas', color: 'bg-gray-500' },
-    { id: 'comercial', name: 'Comercial', color: 'bg-blue-500' },
-    { id: 'operaciones', name: 'Operaciones', color: 'bg-green-500' },
-    { id: 'pricing', name: 'Pricing', color: 'bg-purple-500' },
-    { id: 'administracion', name: 'Administración', color: 'bg-orange-500' }
-  ];
+  const filteredFiles = files.filter(file => 
+    file.project_title.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const filteredFiles = files.filter(file => {
-    const matchesSearch = file.project_title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         file.area.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesArea = selectedArea === 'all' || file.area === selectedArea;
-    return matchesSearch && matchesArea;
-  });
-
-  const getAreaColor = (area: string) => {
-    const areaConfig = areas.find(a => a.id === area);
-    return areaConfig?.color || 'bg-gray-500';
+  const handleEditNotes = (fileId: string, currentNotes: string) => {
+    setEditingNotes(fileId);
+    setNoteText(currentNotes || '');
   };
 
-  const getAreaName = (area: string) => {
-    const areaConfig = areas.find(a => a.id === area);
-    return areaConfig?.name || area.toUpperCase();
+  const handleSaveNotes = async (fileId: string) => {
+    await updateFileNotes(fileId, noteText);
+    setEditingNotes(null);
+    setNoteText('');
+  };
+
+  const handleCancelEdit = () => {
+    setEditingNotes(null);
+    setNoteText('');
   };
 
   if (loading) {
@@ -69,35 +65,18 @@ const SavedFiles = () => {
           </p>
         </div>
 
-        {/* Filters and Search */}
+        {/* Search and Refresh */}
         <Card className="mb-6 shadow-lg border-0">
           <CardContent className="p-6">
             <div className="flex flex-col md:flex-row gap-4 items-center">
               <div className="relative flex-1">
                 <Search className="absolute left-3 top-3 h-4 w-4 text-sierra-gray" />
                 <Input
-                  placeholder="Buscar por proyecto o área..."
+                  placeholder="Buscar por proyecto..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 h-12 border-sierra-teal/20 focus:border-sierra-teal"
                 />
-              </div>
-              
-              <div className="flex flex-wrap gap-2">
-                {areas.map((area) => (
-                  <Badge
-                    key={area.id}
-                    variant={selectedArea === area.id ? "default" : "outline"}
-                    className={`cursor-pointer px-4 py-2 transition-all ${
-                      selectedArea === area.id 
-                        ? 'bg-sierra-teal text-white' 
-                        : 'hover:bg-sierra-teal/10 border-sierra-teal text-sierra-teal'
-                    }`}
-                    onClick={() => setSelectedArea(area.id)}
-                  >
-                    {area.name}
-                  </Badge>
-                ))}
               </div>
 
               <Button
@@ -134,14 +113,9 @@ const SavedFiles = () => {
             {filteredFiles.map((file) => (
               <Card key={file.id} className="shadow-lg border-0 hover:shadow-xl transition-all duration-200 hover:scale-105">
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg text-sierra-teal line-clamp-2">
-                      {file.project_title}
-                    </CardTitle>
-                    <Badge className={`${getAreaColor(file.area)} text-white shrink-0 ml-2`}>
-                      {getAreaName(file.area)}
-                    </Badge>
-                  </div>
+                  <CardTitle className="text-lg text-sierra-teal line-clamp-2">
+                    {file.project_title}
+                  </CardTitle>
                 </CardHeader>
                 
                 <CardContent className="space-y-4">
@@ -149,15 +123,61 @@ const SavedFiles = () => {
                     <Calendar className="h-4 w-4" />
                     {format(new Date(file.created_at), 'PPP', { locale: es })}
                   </div>
-                  
-                  <div className="flex items-center gap-2 text-sm text-sierra-gray">
-                    <Building2 className="h-4 w-4" />
-                    {getAreaName(file.area)}
+
+                  {/* Notes Section */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-sierra-gray">Notas:</span>
+                      {editingNotes !== file.id && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditNotes(file.id, file.notes)}
+                          className="h-6 w-6 p-0"
+                        >
+                          <Edit2 className="h-3 w-3" />
+                        </Button>
+                      )}
+                    </div>
+                    
+                    {editingNotes === file.id ? (
+                      <div className="space-y-2">
+                        <Textarea
+                          value={noteText}
+                          onChange={(e) => setNoteText(e.target.value)}
+                          placeholder="Agregar una nota..."
+                          className="min-h-[60px] text-xs"
+                        />
+                        <div className="flex gap-1">
+                          <Button
+                            size="sm"
+                            onClick={() => handleSaveNotes(file.id)}
+                            className="h-6 px-2 text-xs sierra-gradient"
+                          >
+                            <Save className="h-3 w-3 mr-1" />
+                            Guardar
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={handleCancelEdit}
+                            className="h-6 px-2 text-xs"
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="text-xs text-sierra-gray bg-gray-50 p-2 rounded min-h-[40px]">
+                        {file.notes || 'Sin notas'}
+                      </p>
+                    )}
                   </div>
 
                   <div className="pt-2">
                     <Button
-                      onClick={() => downloadFile(file.drive_url, `${file.project_title}_${file.area}`)}
+                      onClick={() => downloadFile(file.drive_url, file.project_title)}
                       className="w-full sierra-gradient hover:opacity-90 transition-opacity"
                     >
                       <Download className="h-4 w-4 mr-2" />
@@ -168,38 +188,6 @@ const SavedFiles = () => {
               </Card>
             ))}
           </div>
-        )}
-
-        {/* Stats */}
-        {files.length > 0 && (
-          <Card className="mt-8 shadow-lg border-0">
-            <CardContent className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
-                <div>
-                  <h3 className="text-2xl font-bold text-sierra-teal">{files.length}</h3>
-                  <p className="text-sierra-gray">Total de Archivos</p>
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-sierra-teal">
-                    {new Set(files.map(f => f.area)).size}
-                  </h3>
-                  <p className="text-sierra-gray">Áreas Procesadas</p>
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-sierra-teal">
-                    {new Set(files.map(f => f.project_title)).size}
-                  </h3>
-                  <p className="text-sierra-gray">Proyectos Únicos</p>
-                </div>
-                <div>
-                  <h3 className="text-2xl font-bold text-sierra-teal">
-                    {filteredFiles.length}
-                  </h3>
-                  <p className="text-sierra-gray">Resultados Filtrados</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
         )}
       </div>
     </div>

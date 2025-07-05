@@ -10,6 +10,7 @@ interface SavedFile {
   area: string;
   drive_url: string;
   status: string;
+  notes: string;
   created_at: string;
   updated_at: string;
 }
@@ -58,7 +59,8 @@ export const useSavedFiles = () => {
           project_title: projectTitle,
           area: area,
           drive_url: driveUrl,
-          status: 'completed'
+          status: 'completed',
+          notes: ''
         });
 
       if (error) {
@@ -77,6 +79,41 @@ export const useSavedFiles = () => {
       toast({
         title: "Error",
         description: "No se pudo guardar el archivo procesado",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const updateFileNotes = async (fileId: string, notes: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('processed_files')
+        .update({ notes })
+        .eq('id', fileId)
+        .eq('user_id', user.id);
+
+      if (error) {
+        throw error;
+      }
+
+      // Update local state
+      setFiles(prevFiles => 
+        prevFiles.map(file => 
+          file.id === fileId ? { ...file, notes } : file
+        )
+      );
+
+      toast({
+        title: "Nota Actualizada",
+        description: "La nota se ha guardado correctamente.",
+      });
+    } catch (error) {
+      console.error('Error updating file notes:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo actualizar la nota",
         variant: "destructive",
       });
     }
@@ -108,6 +145,7 @@ export const useSavedFiles = () => {
     loading,
     fetchSavedFiles,
     saveProcessedFile,
+    updateFileNotes,
     downloadFile
   };
 };
