@@ -47,7 +47,7 @@ const Index = () => {
             gruposierras.mx - Procesamiento inteligente de documentos
           </p>
         </div>
-      </main>
+      </footer>
     </div>
   );
 };
