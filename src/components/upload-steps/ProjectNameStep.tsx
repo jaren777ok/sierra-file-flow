@@ -9,9 +9,10 @@ interface ProjectNameStepProps {
   projectName: string;
   setProjectName: (name: string) => void;
   onNext: () => void;
+  disabled?: boolean;
 }
 
-const ProjectNameStep = ({ projectName, setProjectName, onNext }: ProjectNameStepProps) => {
+const ProjectNameStep = ({ projectName, setProjectName, onNext, disabled = false }: ProjectNameStepProps) => {
   return (
     <div className="text-center max-w-2xl mx-auto">
       <div className="mb-8">
@@ -40,6 +41,7 @@ const ProjectNameStep = ({ projectName, setProjectName, onNext }: ProjectNameSte
           onChange={(e) => setProjectName(e.target.value)}
           className="text-center text-xl py-6 focus:ring-sierra-teal focus:border-sierra-teal border-2 bg-white/50 backdrop-blur-sm"
           autoFocus
+          disabled={disabled}
         />
       </div>
 
@@ -47,7 +49,7 @@ const ProjectNameStep = ({ projectName, setProjectName, onNext }: ProjectNameSte
         onClick={onNext}
         size="lg"
         className="sierra-gradient hover:opacity-90 transition-all duration-300 px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
-        disabled={!projectName.trim()}
+        disabled={!projectName.trim() || disabled}
       >
         Continuar
         <ArrowRight className="ml-2 h-5 w-5" />

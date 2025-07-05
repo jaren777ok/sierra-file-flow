@@ -16,15 +16,18 @@ interface FileUploadStepProps {
   onFilesChange: (files: File[]) => void;
   onNext: () => void;
   onPrev: () => void;
+  disabled?: boolean;
 }
 
-const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev }: FileUploadStepProps) => {
+const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev, disabled = false }: FileUploadStepProps) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const { toast } = useToast();
 
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
     setIsDragOver(false);
+    
+    if (disabled) return;
     
     const droppedFiles = Array.from(e.dataTransfer.files);
     const newFiles = [...files, ...droppedFiles].slice(0, 5);
@@ -38,9 +41,11 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev }: FileUplo
     }
     
     onFilesChange(newFiles);
-  }, [files, onFilesChange, toast]);
+  }, [files, onFilesChange, toast, disabled]);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled) return;
+    
     const selectedFiles = Array.from(e.target.files || []);
     const newFiles = [...files, ...selectedFiles].slice(0, 5);
     
@@ -57,6 +62,7 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev }: FileUplo
   };
 
   const removeFile = (index: number) => {
+    if (disabled) return;
     const newFiles = files.filter((_, i) => i !== index);
     onFilesChange(newFiles);
   };
@@ -82,11 +88,11 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev }: FileUplo
           isDragOver 
             ? 'border-sierra-teal bg-sierra-teal/10 scale-105' 
             : 'border-sierra-teal/30 hover:border-sierra-teal hover:bg-sierra-teal/5'
-        }`}
+        } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         onDrop={handleDrop}
         onDragOver={(e) => {
           e.preventDefault();
-          setIsDragOver(true);
+          if (!disabled) setIsDragOver(true);
         }}
         onDragLeave={() => setIsDragOver(false)}
       >
@@ -104,13 +110,13 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev }: FileUplo
           onChange={handleFileSelect}
           className="hidden"
           id={`file-upload-${area.key}`}
-          disabled={files.length >= 5}
+          disabled={files.length >= 5 || disabled}
         />
         
         <Button
           asChild
           className="sierra-gradient hover:opacity-90 transition-opacity"
-          disabled={files.length >= 5}
+          disabled={files.length >= 5 || disabled}
         >
           <label htmlFor={`file-upload-${area.key}`} className="cursor-pointer">
             {files.length >= 5 ? 'Límite alcanzado' : 'Seleccionar Archivos'}
@@ -139,6 +145,7 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev }: FileUplo
                   size="sm"
                   onClick={() => removeFile(index)}
                   className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  disabled={disabled}
                 >
                   <X className="h-4 w-4" />
                 </Button>
@@ -154,6 +161,7 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev }: FileUplo
           variant="outline"
           onClick={onPrev}
           className="px-6 py-3 border-sierra-teal text-sierra-teal hover:bg-sierra-teal hover:text-white"
+          disabled={disabled}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Anterior
@@ -162,6 +170,7 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev }: FileUplo
         <Button
           onClick={onNext}
           className="sierra-gradient hover:opacity-90 px-6 py-3"
+          disabled={disabled}
         >
           {files.length === 0 ? 'Saltar' : 'Siguiente'}
           <ArrowRight className="ml-2 h-4 w-4" />

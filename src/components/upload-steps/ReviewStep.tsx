@@ -3,6 +3,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Sparkles, FileText } from 'lucide-react';
 import { AreaFiles } from '@/hooks/useMultiStepUpload';
+import { ProcessingJob } from '@/hooks/useProcessingPersistence';
 
 interface Area {
   key: keyof AreaFiles;
@@ -17,9 +18,11 @@ interface ReviewStepProps {
   totalFiles: number;
   onNext: () => void;
   onPrev: () => void;
+  disabled?: boolean;
+  activeJob?: ProcessingJob | null;
 }
 
-const ReviewStep = ({ projectName, areaFiles, areas, totalFiles, onNext, onPrev }: ReviewStepProps) => {
+const ReviewStep = ({ projectName, areaFiles, areas, totalFiles, onNext, onPrev, disabled = false }: ReviewStepProps) => {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="text-center mb-8">
@@ -109,6 +112,7 @@ const ReviewStep = ({ projectName, areaFiles, areas, totalFiles, onNext, onPrev 
           variant="outline"
           onClick={onPrev}
           className="px-6 py-3 border-sierra-teal text-sierra-teal hover:bg-sierra-teal hover:text-white"
+          disabled={disabled}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
           Volver
@@ -117,6 +121,7 @@ const ReviewStep = ({ projectName, areaFiles, areas, totalFiles, onNext, onPrev 
         <Button
           onClick={onNext}
           className="sierra-gradient hover:opacity-90 px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105"
+          disabled={disabled}
         >
           <Sparkles className="mr-2 h-5 w-5 animate-pulse" />
           Generar Informe IA
