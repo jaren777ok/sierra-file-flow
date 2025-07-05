@@ -24,16 +24,17 @@ const MultiStepUploader = () => {
     prevStep,
     processAllFiles,
     resetFlow,
+    startNewJob,
     getTotalFiles,
     activeJob,
     isRecovering,
     setCurrentStep
   } = useMultiStepUpload();
 
-  // Función optimizada para saltar al procesamiento - SIN BUCLES
+  // Función optimizada para saltar al procesamiento
   const jumpToProcessing = useCallback(() => {
     console.log('Jumping directly to processing step');
-    setCurrentStep(6); // Directo al paso 6, sin bucles while
+    setCurrentStep(6);
   }, [setCurrentStep]);
 
   // Effect optimizado para manejo de trabajos activos
@@ -64,7 +65,7 @@ const MultiStepUploader = () => {
 
   // Memoizar el estado de navegación
   const canNavigate = useMemo(() => {
-    return !activeJob || activeJob.status !== 'processing';
+    return !activeJob || (activeJob.status !== 'processing');
   }, [activeJob?.status]);
 
   // Memoizar el mensaje de alerta de trabajo activo
@@ -166,6 +167,7 @@ const MultiStepUploader = () => {
             processingStatus={processingStatus}
             projectName={projectName || activeJob?.project_title || ''}
             activeJob={activeJob}
+            onStartNew={startNewJob}
           />
         );
       default:
@@ -198,7 +200,12 @@ const MultiStepUploader = () => {
       {activeJobAlert}
 
       {/* Main Content */}
-      {currentStep === 6 && (processingStatus.status === 'processing' || processingStatus.status === 'uploading' || activeJob?.status === 'processing') ? (
+      {currentStep === 6 && (
+        processingStatus.status === 'processing' || 
+        processingStatus.status === 'uploading' || 
+        processingStatus.status === 'timeout' ||
+        activeJob?.status === 'processing'
+      ) ? (
         // Pantalla de procesamiento a pantalla completa
         renderStep()
       ) : (

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -7,7 +6,7 @@ export interface ProcessingJob {
   id: string;
   project_title: string;
   total_files: number;
-  status: 'processing' | 'completed' | 'error';
+  status: 'processing' | 'completed' | 'error' | 'timeout';
   progress: number;
   started_at: string;
   completed_at?: string;
@@ -220,6 +219,37 @@ export const useProcessingPersistence = () => {
     }
   };
 
+  const markJobAsTimeout = async (requestId: string) => {
+    try {
+      const { error } = await supabase
+        .from('processing_jobs')
+        .update({
+          status: 'timeout',
+          completed_at: new Date().toISOString(),
+          error_message: 'El procesamiento excedió el tiempo límite de 15 minutos',
+          updated_at: new Date().toISOString()
+        })
+        .eq('request_id', requestId);
+
+      if (error) {
+        console.error('Error marking job as timeout:', error);
+        return;
+      }
+
+      setActiveJob(prev => prev ? {
+        ...prev,
+        status: 'timeout' as const,
+        completed_at: new Date().toISOString(),
+        error_message: 'El procesamiento excedió el tiempo límite de 15 minutos'
+      } : null);
+      
+      // Limpiar cache
+      cacheRef.current = { lastCheck: 0, cachedJob: null };
+    } catch (error) {
+      console.error('Error in markJobAsTimeout:', error);
+    }
+  };
+
   const completeJob = async (requestId: string, resultUrl?: string, errorMessage?: string) => {
     try {
       const status = errorMessage ? 'error' : 'completed';
@@ -270,6 +300,7 @@ export const useProcessingPersistence = () => {
     updateJobProgress,
     checkJobCompletion,
     completeJob,
+    markJobAsTimeout,
     clearActiveJob
   };
 };

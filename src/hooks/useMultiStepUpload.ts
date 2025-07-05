@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useSavedFiles } from '@/hooks/useSavedFiles';
@@ -13,7 +12,7 @@ export interface AreaFiles {
 }
 
 export interface ProcessingStatus {
-  status: 'idle' | 'uploading' | 'processing' | 'completed' | 'error';
+  status: 'idle' | 'uploading' | 'processing' | 'completed' | 'error' | 'timeout';
   progress: number;
   timeElapsed: number;
   message?: string;
@@ -51,9 +50,10 @@ export const useMultiStepUpload = () => {
   // Estado de recuperación para mejorar UX
   const isRecovering = isLoadingActiveJob;
 
-  // Hook de polling optimizado
+  // Hook de polling con manejo de timeout mejorado
   const { startPolling, stopPolling } = useJobPolling({
     requestId: processingStatus.requestId || activeJob?.request_id || null,
+    activeJobStartTime: activeJob?.started_at || null,
     onJobCompleted: async (resultUrl: string) => {
       console.log('Job completed with URL:', resultUrl);
       
@@ -97,6 +97,25 @@ export const useMultiStepUpload = () => {
         title: "Error",
         description: `Error al procesar archivos: ${errorMessage}`,
         variant: "destructive",
+      });
+    },
+    onJobTimeout: async () => {
+      console.log('Job timed out after 15 minutes');
+      
+      setProcessingStatus({
+        status: 'timeout',
+        progress: 0,
+        timeElapsed: 15 * 60, // 15 minutos en segundos
+        message: 'El procesamiento excedió el tiempo límite de 15 minutos. Puedes iniciar un nuevo trabajo.',
+        requestId: processingStatus.requestId || activeJob?.request_id
+      });
+
+      // Limpiar el trabajo activo para permitir nuevos trabajos
+      clearActiveJob();
+
+      toast({
+        title: "Tiempo límite alcanzado",
+        description: "Puedes iniciar un nuevo procesamiento cuando gustes.",
       });
     }
   });
@@ -294,6 +313,24 @@ export const useMultiStepUpload = () => {
     clearActiveJob();
   }, [stopPolling, clearActiveJob]);
 
+  // Función para iniciar un nuevo trabajo después de timeout
+  const startNewJob = useCallback(() => {
+    // Mantener el nombre del proyecto para facilitar retry
+    const savedProjectName = projectName || activeJob?.project_title || '';
+    
+    resetFlow();
+    
+    // Restaurar el nombre del proyecto si existía
+    if (savedProjectName) {
+      setProjectName(savedProjectName);
+    }
+    
+    toast({
+      title: "Nuevo trabajo iniciado",
+      description: "Puedes subir nuevos archivos y comenzar el procesamiento.",
+    });
+  }, [resetFlow, projectName, activeJob?.project_title, toast]);
+
   return {
     currentStep,
     projectName,
@@ -306,6 +343,7 @@ export const useMultiStepUpload = () => {
     prevStep,
     processAllFiles,
     resetFlow,
+    startNewJob,
     getTotalFiles,
     activeJob,
     isRecovering,

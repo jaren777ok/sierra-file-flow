@@ -1,24 +1,26 @@
-
 import React, { useEffect, useState } from 'react';
-import { Sparkles, Clock, Brain, Zap, Cpu, Activity, Database, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Sparkles, Clock, Brain, Zap, Cpu, Activity, Database, FileText, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { ProcessingStatus } from '@/hooks/useMultiStepUpload';
 import { ProcessingJob } from '@/hooks/useProcessingPersistence';
+import { Button } from '@/components/ui/button';
 
 interface FuturisticAIProcessingScreenProps {
   processingStatus: ProcessingStatus;
   projectName: string;
   activeJob?: ProcessingJob | null;
+  onStartNew?: () => void;
 }
 
 const FuturisticAIProcessingScreen = ({ 
   processingStatus, 
   projectName, 
-  activeJob 
+  activeJob,
+  onStartNew 
 }: FuturisticAIProcessingScreenProps) => {
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [smartProgress, setSmartProgress] = useState(processingStatus.progress || 0);
   const [aiThoughts, setAiThoughts] = useState('Inicializando sistema de IA...');
-  const [currentPhase, setCurrentPhase] = useState<'webhook' | 'processing' | 'polling' | 'generating' | 'completed'>('webhook');
+  const [currentPhase, setCurrentPhase] = useState<'webhook' | 'processing' | 'polling' | 'generating' | 'completed' | 'timeout'>('webhook');
   const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([]);
 
   const MAX_TIME = 15 * 60; // 15 minutos en segundos
@@ -38,6 +40,13 @@ const FuturisticAIProcessingScreen = ({
   }, [startTime]);
 
   useEffect(() => {
+    // Detectar si es timeout
+    if (processingStatus.status === 'timeout' || (activeJob?.status === 'timeout')) {
+      setCurrentPhase('timeout');
+      setSmartProgress(0);
+      return;
+    }
+
     // Lógica de progreso inteligente basada en fases
     const updatePhaseAndProgress = () => {
       const elapsedMinutes = timeElapsed / 60;
@@ -64,7 +73,7 @@ const FuturisticAIProcessingScreen = ({
     };
 
     updatePhaseAndProgress();
-  }, [timeElapsed, webhookConfirmedTime]);
+  }, [timeElapsed, webhookConfirmedTime, processingStatus.status, activeJob?.status]);
 
   useEffect(() => {
     // Generar partículas flotantes
@@ -106,6 +115,10 @@ const FuturisticAIProcessingScreen = ({
       completed: [
         '¡Análisis completado exitosamente!',
         'Informe listo para descarga',
+      ],
+      timeout: [
+        'Tiempo límite alcanzado',
+        'Puedes iniciar un nuevo procesamiento',
       ]
     };
 
@@ -135,6 +148,7 @@ const FuturisticAIProcessingScreen = ({
       case 'polling': return 'from-emerald-400 to-sierra-teal';
       case 'generating': return 'from-amber-400 to-emerald-400';
       case 'completed': return 'from-green-400 to-emerald-400';
+      case 'timeout': return 'from-red-400 to-orange-400';
       default: return 'from-sierra-teal to-cyan-400';
     }
   };
@@ -146,9 +160,92 @@ const FuturisticAIProcessingScreen = ({
       case 'polling': return 'Generando insights avanzados...';
       case 'generating': return 'Compilando informe final...';
       case 'completed': return '¡Procesamiento completado!';
+      case 'timeout': return 'Tiempo límite alcanzado - Puedes iniciar nuevo trabajo';
       default: return 'Procesando con IA...';
     }
   };
+
+  // Renderizar vista de timeout
+  if (currentPhase === 'timeout') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-red-900/10 to-slate-900 relative overflow-hidden">
+        {/* Partículas flotantes de fondo */}
+        <div className="absolute inset-0">
+          {particles.map((particle) => (
+            <div
+              key={particle.id}
+              className="absolute w-1 h-1 bg-sierra-teal/30 rounded-full animate-pulse"
+              style={{
+                left: `${particle.x}%`,
+                top: `${particle.y}%`,
+                animationDelay: `${particle.delay}s`,
+                animationDuration: '3s'
+              }}
+            />
+          ))}
+        </div>
+
+        {/* Grid futurista de fondo */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.1)_1px,transparent_1px)] bg-[size:50px_50px]" />
+
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-8">
+          {/* Icono de timeout */}
+          <div className="relative mb-12">
+            <div className="w-40 h-40 mx-auto rounded-full bg-gradient-to-r from-red-400 to-orange-400 flex items-center justify-center relative overflow-hidden border-2 border-red-500/50 opacity-90">
+              <div className="absolute inset-0 rounded-full border-2 border-red-500/20 animate-ping"></div>
+              <div className="relative z-10">
+                <Clock className="h-16 w-16 text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* Información del timeout */}
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-white mb-2 font-mono">
+              TIEMPO LÍMITE <span className="text-red-400">ALCANZADO</span>
+            </h1>
+            <div className="inline-flex items-center gap-2 bg-red-500/20 px-6 py-3 rounded-full border border-red-500/30 backdrop-blur-sm">
+              <AlertCircle className="h-5 w-5 text-red-400 animate-pulse" />
+              <span className="text-red-400 font-mono text-lg">
+                15:00 MINUTOS COMPLETADOS
+              </span>
+            </div>
+          </div>
+
+          {/* Mensaje y botón para nuevo trabajo */}
+          <div className="bg-slate-900/50 backdrop-blur-sm border border-red-500/30 rounded-xl p-6 max-w-lg mb-8">
+            <div className="text-center">
+              <p className="text-red-300 font-mono text-lg mb-4">
+                El procesamiento ha excedido el tiempo límite de 15 minutos.
+              </p>
+              <p className="text-cyan-300 text-sm mb-6">
+                Puedes iniciar un nuevo trabajo de procesamiento cuando gustes.
+              </p>
+              
+              {onStartNew && (
+                <Button
+                  onClick={onStartNew}
+                  className="bg-gradient-to-r from-sierra-teal to-cyan-500 hover:from-sierra-teal/80 hover:to-cyan-500/80 text-white px-8 py-3 rounded-lg font-medium transition-all duration-200 flex items-center gap-2 mx-auto"
+                >
+                  <RefreshCw className="h-5 w-5" />
+                  Iniciar Nuevo Trabajo
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Información del proyecto anterior */}
+          <div className="text-center">
+            <div className="bg-slate-900/30 backdrop-blur-sm border border-red-500/20 rounded-xl p-4 max-w-md">
+              <p className="text-red-300/70 font-mono text-sm">
+                Proyecto anterior: <span className="text-white">{projectName || activeJob?.project_title || 'Sin título'}</span>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-sierra-teal/10 to-slate-900 relative overflow-hidden">
