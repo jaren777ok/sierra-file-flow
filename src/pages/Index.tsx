@@ -1,7 +1,7 @@
 
 import React from 'react';
 import Header from '@/components/Header';
-import FileUploader from '@/components/FileUploader';
+import BusinessAreasUploader from '@/components/BusinessAreasUploader';
 import Stats from '@/components/Stats';
 
 const Index = () => {
@@ -10,22 +10,22 @@ const Index = () => {
       <Header />
       
       <main className="container mx-auto px-4 py-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <Stats />
           
           <div className="mb-8">
             <div className="text-center mb-6">
               <h3 className="text-2xl font-bold text-sierra-brown mb-2">
-                Procesamiento Inteligente de Archivos
+                Procesamiento Inteligente por Áreas
               </h3>
-              <p className="text-sierra-gray max-w-2xl mx-auto">
-                Nuestra plataforma utiliza inteligencia artificial avanzada para procesar tus documentos. 
-                Sube tus archivos y recíbelos optimizados y analizados en cuestión de minutos.
+              <p className="text-sierra-gray max-w-3xl mx-auto">
+                Selecciona el área correspondiente y sube exactamente 2 archivos para cada una. 
+                Nuestra IA procesará los documentos y te proporcionará los resultados optimizados.
               </p>
             </div>
           </div>
           
-          <FileUploader />
+          <BusinessAreasUploader />
           
           <div className="mt-12 text-center">
             <div className="inline-flex items-center px-4 py-2 bg-sierra-brown/10 rounded-full">
@@ -47,7 +47,7 @@ const Index = () => {
             gruposierras.mx - Procesamiento inteligente de documentos
           </p>
         </div>
-      </footer>
+      </main>
     </div>
   );
 };
