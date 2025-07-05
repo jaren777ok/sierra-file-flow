@@ -67,9 +67,53 @@ export const useProcessingPersistence = () => {
     return elapsed < fifteenMinutes;
   };
 
-  // Función para buscar trabajo por request_id (creado por N8N)
+  // Función para auto-corregir trabajos con result_url pero status incorrecto
+  const autoCorrectJobStatus = async (job: ProcessingJob): Promise<ProcessingJob> => {
+    // Si el trabajo tiene result_url pero status es processing, auto-corregir
+    if (job.result_url && job.status === 'processing') {
+      console.log('Auto-correcting job status: found result_url but status is processing', {
+        jobId: job.id,
+        requestId: job.request_id,
+        resultUrl: job.result_url
+      });
+      
+      try {
+        const { error } = await supabase
+          .from('processing_jobs')
+          .update({
+            status: 'completed',
+            progress: 100,
+            completed_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', job.id);
+
+        if (error) {
+          console.error('Error auto-correcting job status:', error);
+          return job;
+        }
+
+        // Retornar el trabajo con status corregido
+        return {
+          ...job,
+          status: 'completed' as const,
+          progress: 100,
+          completed_at: new Date().toISOString()
+        };
+      } catch (error) {
+        console.error('Error in autoCorrectJobStatus:', error);
+        return job;
+      }
+    }
+    
+    return job;
+  };
+
+  // Función para buscar trabajo por request_id (creado por N8N) - MEJORADA
   const trackJobByRequestId = async (requestId: string): Promise<ProcessingJob | null> => {
     try {
+      console.log('Tracking job by request_id:', requestId);
+      
       const { data, error } = await supabase
         .from('processing_jobs')
         .select('*')
@@ -81,21 +125,38 @@ export const useProcessingPersistence = () => {
         return null;
       }
 
-      return data as ProcessingJob || null;
+      if (!data) {
+        console.log('No job found with request_id:', requestId);
+        return null;
+      }
+
+      console.log('Found job by request_id:', {
+        jobId: data.id,
+        status: data.status,
+        hasResultUrl: !!data.result_url,
+        progress: data.progress
+      });
+
+      // Auto-corregir estado si es necesario
+      const correctedJob = await autoCorrectJobStatus(data as ProcessingJob);
+      return correctedJob;
     } catch (error) {
       console.error('Error in trackJobByRequestId:', error);
       return null;
     }
   };
 
-  // Función para buscar el último trabajo del usuario
+  // Función para buscar el último trabajo del usuario - MEJORADA
   const findLatestUserJob = async (userId: string): Promise<ProcessingJob | null> => {
     try {
+      console.log('Finding latest user job for userId:', userId);
+      
+      // Buscar trabajos en processing O trabajos con result_url disponible
       const { data, error } = await supabase
         .from('processing_jobs')
         .select('*')
         .eq('user_id', userId)
-        .eq('status', 'processing')
+        .or('status.eq.processing,and(result_url.not.is.null,status.eq.processing)')
         .order('created_at', { ascending: false })
         .limit(1);
 
@@ -104,60 +165,103 @@ export const useProcessingPersistence = () => {
         return null;
       }
 
-      return data && data.length > 0 ? data[0] as ProcessingJob : null;
+      if (!data || data.length === 0) {
+        console.log('No active/completed jobs found for user');
+        return null;
+      }
+
+      const job = data[0] as ProcessingJob;
+      console.log('Found latest user job:', {
+        jobId: job.id,
+        status: job.status,
+        hasResultUrl: !!job.result_url,
+        progress: job.progress
+      });
+
+      // Auto-corregir estado si es necesario
+      const correctedJob = await autoCorrectJobStatus(job);
+      return correctedJob;
     } catch (error) {
       console.error('Error in findLatestUserJob:', error);
       return null;
     }
   };
 
-  // Verificar si hay un trabajo activo al cargar - REFACTORIZADO
+  // Verificar si hay un trabajo activo al cargar - MEJORADO
   useEffect(() => {
     let isMounted = true;
     
     const checkActiveJob = async () => {
       try {
+        console.log('=== Starting active job check ===');
+        
         const { data: { user } } = await supabase.auth.getUser();
         if (!user || !isMounted) {
+          console.log('No user authenticated or component unmounted');
           setIsLoading(false);
           return;
         }
+
+        console.log('Checking active job for user:', user.id);
 
         // Primero verificar si hay datos de tracking locales
         const trackingData = getTrackingData();
         
         if (trackingData && trackingData.userId === user.id) {
+          console.log('Found local tracking data:', {
+            requestId: trackingData.requestId,
+            sendTimestamp: trackingData.sendTimestamp,
+            withinTimeLimit: isJobWithinTimeLimit(trackingData.sendTimestamp)
+          });
+          
           // Verificar si el trabajo local aún está dentro del límite de tiempo
           if (isJobWithinTimeLimit(trackingData.sendTimestamp)) {
-            console.log('Checking for job created by N8N with request_id:', trackingData.requestId);
+            console.log('Checking for N8N job with request_id:', trackingData.requestId);
             
             // Buscar el trabajo que N8N debería haber creado
             const trackedJob = await trackJobByRequestId(trackingData.requestId);
             
             if (trackedJob) {
-              console.log('Found job created by N8N:', trackedJob);
+              console.log('✅ Found and recovered N8N job:', {
+                jobId: trackedJob.id,
+                status: trackedJob.status,
+                hasResultUrl: !!trackedJob.result_url,
+                wasCorrected: trackedJob.result_url && trackedJob.status === 'completed'
+              });
+              
               setActiveJob(trackedJob);
               
+              // Si el trabajo ya está completado, limpiar tracking local
+              if (trackedJob.status === 'completed') {
+                console.log('Job is completed, clearing local tracking');
+                clearTrackingData();
+              }
+              
               toast({
-                title: "Trabajo en progreso recuperado",
-                description: `Continuando procesamiento de "${trackedJob.project_title}"`,
+                title: "Trabajo recuperado",
+                description: trackedJob.status === 'completed' 
+                  ? `Trabajo "${trackedJob.project_title}" completado exitosamente`
+                  : `Continuando procesamiento de "${trackedJob.project_title}"`,
               });
             } else {
-              console.log('N8N job not found yet, will continue tracking...');
-              // El trabajo aún no fue creado por N8N, pero está dentro del límite de tiempo
-              // Mantener el tracking activo
+              console.log('N8N job not found yet, keeping local tracking active');
             }
           } else {
             console.log('Local tracking data expired, cleaning up');
             clearTrackingData();
           }
         } else {
-          // No hay datos locales, buscar el último trabajo del usuario
-          console.log('No local tracking data, checking for latest user job...');
+          // No hay datos locales, buscar el último trabajo del usuario (incluyendo completados)
+          console.log('No valid local tracking data, checking for latest user job...');
           const latestJob = await findLatestUserJob(user.id);
           
           if (latestJob) {
-            console.log('Found latest user job:', latestJob);
+            console.log('✅ Found latest user job:', {
+              jobId: latestJob.id,
+              status: latestJob.status,
+              hasResultUrl: !!latestJob.result_url
+            });
+            
             setActiveJob(latestJob);
             
             const startTime = new Date(latestJob.started_at).getTime();
@@ -165,9 +269,13 @@ export const useProcessingPersistence = () => {
             const elapsedMinutes = Math.floor((currentTime - startTime) / 60000);
             
             toast({
-              title: "Trabajo en progreso recuperado",
-              description: `Continuando procesamiento de "${latestJob.project_title}" (${elapsedMinutes} min transcurridos)`,
+              title: "Trabajo recuperado",
+              description: latestJob.status === 'completed'
+                ? `Trabajo "${latestJob.project_title}" completado exitosamente`
+                : `Continuando procesamiento de "${latestJob.project_title}" (${elapsedMinutes} min transcurridos)`,
             });
+          } else {
+            console.log('No active or recent jobs found');
           }
         }
 
@@ -177,6 +285,7 @@ export const useProcessingPersistence = () => {
           cachedJob: activeJob
         };
 
+        console.log('=== Active job check completed ===');
       } catch (error) {
         console.error('Error in checkActiveJob:', error);
       } finally {
@@ -229,8 +338,21 @@ export const useProcessingPersistence = () => {
     }
   };
 
+  // MEJORADA - checkJobCompletion con auto-corrección
   const checkJobCompletion = async (requestId: string): Promise<ProcessingJob | null> => {
-    return await trackJobByRequestId(requestId);
+    console.log('Checking job completion for request_id:', requestId);
+    const job = await trackJobByRequestId(requestId);
+    
+    if (job) {
+      console.log('Job completion check result:', {
+        jobId: job.id,
+        status: job.status,
+        hasResultUrl: !!job.result_url,
+        progress: job.progress
+      });
+    }
+    
+    return job;
   };
 
   const markJobAsTimeout = async (requestId: string) => {
@@ -316,15 +438,15 @@ export const useProcessingPersistence = () => {
   return {
     activeJob,
     isLoading,
-    startJobTracking, // Nueva función que reemplaza createJob
-    trackJobByRequestId, // Nueva función para tracking
-    findLatestUserJob, // Nueva función para recuperación
+    startJobTracking,
+    trackJobByRequestId,
+    findLatestUserJob,
     updateJobProgress,
     checkJobCompletion,
     completeJob,
     markJobAsTimeout,
     clearActiveJob,
-    getTrackingData, // Para acceso externo a datos de tracking
-    isJobWithinTimeLimit // Para verificaciones externas
+    getTrackingData,
+    isJobWithinTimeLimit
   };
 };

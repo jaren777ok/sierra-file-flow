@@ -83,7 +83,37 @@ export const useJobPolling = ({
     });
   }, [requestId, markJobAsTimeout, stopPolling, onJobTimeout, toast]);
 
-  const startPolling = useCallback(() => {
+  // MEJORADA - Verificar trabajo existente antes de iniciar polling
+  const checkExistingJob = useCallback(async () => {
+    if (!requestId) return null;
+    
+    console.log('Checking for existing job before starting polling...');
+    const job = await checkJobCompletion(requestId);
+    
+    if (job) {
+      console.log('Found existing job:', {
+        jobId: job.id,
+        status: job.status,
+        hasResultUrl: !!job.result_url,
+        progress: job.progress
+      });
+      
+      // Si ya está completado o tiene error, manejar inmediatamente
+      if (job.status === 'completed' && job.result_url) {
+        console.log('Job already completed, triggering completion callback');
+        onJobCompleted(job.result_url);
+        return job;
+      } else if (job.status === 'error' && job.error_message) {
+        console.log('Job already has error, triggering error callback');
+        onJobError(job.error_message);
+        return job;
+      }
+    }
+    
+    return job;
+  }, [requestId, checkJobCompletion, onJobCompleted, onJobError]);
+
+  const startPolling = useCallback(async () => {
     console.log('Starting polling for request:', requestId);
     
     if (!requestId || isPollingRef.current) {
@@ -95,6 +125,13 @@ export const useJobPolling = ({
     if (checkTimeout()) {
       console.log('Job already timed out, handling timeout immediately');
       handleTimeout();
+      return;
+    }
+
+    // NUEVO - Verificar si el trabajo ya existe y está completado
+    const existingJob = await checkExistingJob();
+    if (existingJob && (existingJob.status === 'completed' || existingJob.status === 'error')) {
+      console.log('Job already finished, no need to poll');
       return;
     }
     
@@ -141,14 +178,28 @@ export const useJobPolling = ({
         try {
           const job = await checkJobCompletion(requestId);
           if (job) {
-            if (job.result_url) {
-              console.log('Job completed with result URL:', job.result_url);
+            console.log('Job status during polling:', {
+              jobId: job.id,
+              status: job.status,
+              hasResultUrl: !!job.result_url,
+              hasError: !!job.error_message,
+              progress: job.progress
+            });
+            
+            // Verificar si está completado (status completed O tiene result_url)
+            if (job.status === 'completed' && job.result_url) {
+              console.log('✅ Job completed with result URL:', job.result_url);
               stopPolling();
               onJobCompleted(job.result_url);
-            } else if (job.error_message) {
-              console.log('Job completed with error:', job.error_message);
+            } else if (job.status === 'error' && job.error_message) {
+              console.log('❌ Job completed with error:', job.error_message);
               stopPolling();
               onJobError(job.error_message);
+            } else if (job.result_url && job.status === 'processing') {
+              // Caso especial: N8N subió URL pero no cambió status
+              console.log('🔄 Found result_url but status still processing, job should be completed');
+              stopPolling();
+              onJobCompleted(job.result_url);
             }
           }
         } catch (error) {
@@ -171,7 +222,7 @@ export const useJobPolling = ({
       }
       
     }, waitTime);
-  }, [requestId, activeJobStartTime, checkJobCompletion, onJobCompleted, onJobError, checkTimeout, handleTimeout, stopPolling, getTrackingData]);
+  }, [requestId, activeJobStartTime, checkJobCompletion, onJobCompleted, onJobError, checkTimeout, handleTimeout, stopPolling, getTrackingData, checkExistingJob]);
 
   // Cleanup al desmontar
   useEffect(() => {
