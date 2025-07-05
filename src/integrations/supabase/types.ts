@@ -266,6 +266,63 @@ export type Database = {
         }
         Relationships: []
       }
+      processed_files: {
+        Row: {
+          area: string
+          created_at: string
+          drive_url: string
+          id: string
+          project_title: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          area: string
+          created_at?: string
+          drive_url: string
+          id?: string
+          project_title: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          area?: string
+          created_at?: string
+          drive_url?: string
+          id?: string
+          project_title?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_video_configs: {
         Row: {
           api_key_id: string | null

@@ -1,6 +1,7 @@
 
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useSavedFiles } from '@/hooks/useSavedFiles';
 
 interface FileUploadStatus {
   file: File;
@@ -15,6 +16,7 @@ interface FileUploadStatus {
 export const useFileUpload = (areaName: string) => {
   const [files, setFiles] = useState<FileUploadStatus[]>([]);
   const { toast } = useToast();
+  const { saveProcessedFile } = useSavedFiles();
 
   const WEBHOOK_URL = 'https://primary-production-f0d1.up.railway.app/webhook-test/sierra';
   const TIMEOUT_DURATION = 15 * 60 * 1000; // 15 minutos
@@ -92,25 +94,60 @@ export const useFileUpload = (areaName: string) => {
         const contentType = response.headers.get('content-type');
         
         if (contentType && contentType.includes('application/json')) {
-          // Respuesta JSON - workflow iniciado
+          // Respuesta JSON - puede ser el enlace de drive o confirmación
           const jsonResponse = await response.json();
           console.log('Respuesta JSON recibida:', jsonResponse);
           
-          setFiles(prev => prev.map(f => ({ 
-            ...f, 
-            progress: 75, 
-            status: 'processing' as const,
-            message: 'Procesando archivos con IA...'
-          })));
+          // Buscar si hay un enlace de Google Drive en la respuesta
+          let driveUrl = null;
+          if (Array.isArray(jsonResponse) && jsonResponse.length > 0) {
+            if (jsonResponse[0].EXITO) {
+              driveUrl = jsonResponse[0].EXITO;
+            }
+          }
           
-          setTimeout(() => {
+          if (driveUrl) {
+            // Guardar en Supabase
+            await saveProcessedFile(projectTitle, areaName, driveUrl);
+            
+            // Actualizar estado con enlace de descarga
+            setFiles(prev => prev.map((f, index) => 
+              index === 0 ? { 
+                ...f, 
+                progress: 100, 
+                status: 'ready-for-download' as const,
+                message: 'Archivos procesados y guardados correctamente',
+                downloadUrl: driveUrl
+              } : {
+                ...f,
+                progress: 100,
+                status: 'completed' as const,
+                message: 'Incluido en archivo procesado'
+              }
+            ));
+
+            toast({
+              title: "¡Archivos Procesados y Guardados!",
+              description: `Los archivos de ${areaName} han sido procesados, guardados en tu cuenta y están listos para descargar.`,
+            });
+          } else {
+            // Workflow iniciado, esperando resultado
             setFiles(prev => prev.map(f => ({ 
               ...f, 
-              progress: 100, 
-              status: 'completed' as const,
-              message: 'Procesamiento completado. Esperando archivo procesado...'
+              progress: 75, 
+              status: 'processing' as const,
+              message: 'Procesando archivos con IA...'
             })));
-          }, 2000);
+            
+            setTimeout(() => {
+              setFiles(prev => prev.map(f => ({ 
+                ...f, 
+                progress: 100, 
+                status: 'completed' as const,
+                message: 'Procesamiento completado. Revisa "Archivos Guardados" en unos minutos.'
+              })));
+            }, 2000);
+          }
           
         } else {
           // Respuesta binaria - archivo procesado recibido
@@ -173,13 +210,19 @@ export const useFileUpload = (areaName: string) => {
   };
 
   const downloadProcessedFile = (fileStatus: FileUploadStatus) => {
-    if (fileStatus.downloadUrl && fileStatus.originalFileName) {
-      const link = document.createElement('a');
-      link.href = fileStatus.downloadUrl;
-      link.download = `${areaName}_procesado.zip`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+    if (fileStatus.downloadUrl) {
+      if (fileStatus.downloadUrl.includes('drive.google.com')) {
+        // Enlace de Google Drive - abrir en nueva pestaña
+        window.open(fileStatus.downloadUrl, '_blank');
+      } else {
+        // Archivo local - descargar directamente
+        const link = document.createElement('a');
+        link.href = fileStatus.downloadUrl;
+        link.download = `${areaName}_procesado.zip`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
       
       toast({
         title: "Descarga Iniciada",
@@ -191,7 +234,7 @@ export const useFileUpload = (areaName: string) => {
   const removeFiles = () => {
     // Limpiar URLs de objeto para evitar memory leaks
     files.forEach(fileStatus => {
-      if (fileStatus.downloadUrl) {
+      if (fileStatus.downloadUrl && !fileStatus.downloadUrl.includes('drive.google.com')) {
         URL.revokeObjectURL(fileStatus.downloadUrl);
       }
     });
