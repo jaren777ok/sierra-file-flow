@@ -116,8 +116,8 @@ export const useMultiStepUpload = () => {
 
       // Add files with area-specific naming
       Object.entries(areaFiles).forEach(([areaKey, files]) => {
+        const areaName = areas.find(a => a.key === areaKey)?.name || areaKey;
         files.forEach((file, index) => {
-          const areaName = areas.find(a => a.key === areaKey)?.name || areaKey;
           formData.append(`file${fileIndex}`, file);
           formData.append(`filename${fileIndex}`, `${areaName}${index}`);
           fileIndex++;
