@@ -3,7 +3,7 @@ import React from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import Header from '@/components/Header';
-import BusinessAreasUploader from '@/components/BusinessAreasUploader';
+import MultiStepUploader from '@/components/MultiStepUploader';
 import Stats from '@/components/Stats';
 import { 
   Sparkles, 
@@ -11,7 +11,8 @@ import {
   Shield, 
   Clock,
   ArrowRight,
-  CheckCircle 
+  CheckCircle,
+  Brain 
 } from 'lucide-react';
 
 const Index = () => {
@@ -34,14 +35,14 @@ const Index = () => {
 
   const features = [
     {
-      icon: Sparkles,
+      icon: Brain,
       title: "IA Avanzada",
-      description: "Procesamiento inteligente con tecnología de última generación"
+      description: "Procesamiento inteligente multi-área con tecnología de última generación"
     },
     {
       icon: Zap,
-      title: "Rápido y Eficiente",
-      description: "Resultados en minutos, no en horas"
+      title: "Flujo Optimizado",
+      description: "Proceso guiado paso a paso para máxima eficiencia"
     },
     {
       icon: Shield,
@@ -50,16 +51,16 @@ const Index = () => {
     },
     {
       icon: Clock,
-      title: "Disponible 24/7",
-      description: "Procesa tus archivos cuando lo necesites"
+      title: "Procesamiento Rápido",
+      description: "Informes IA listos en máximo 15 minutos"
     }
   ];
 
-  const steps = [
-    "Selecciona el área de trabajo",
-    "Ingresa el nombre del proyecto",
-    "Sube exactamente 2 archivos",
-    "¡Recibe tus archivos procesados!"
+  const areas = [
+    { name: 'Comercial', icon: '💼', description: 'Análisis de ventas y estrategias comerciales' },
+    { name: 'Operaciones', icon: '⚙️', description: 'Optimización de procesos operativos' },
+    { name: 'Pricing', icon: '💰', description: 'Estrategias de precios y rentabilidad' },
+    { name: 'Administración', icon: '📊', description: 'Gestión administrativa y reportes' }
   ];
 
   return (
@@ -71,21 +72,31 @@ const Index = () => {
           {/* Welcome Section */}
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 bg-sierra-teal/10 px-4 py-2 rounded-full mb-6">
-              <Sparkles className="h-5 w-5 text-sierra-teal" />
+              <Sparkles className="h-5 w-5 text-sierra-teal animate-pulse" />
               <span className="text-sierra-teal font-medium">¡Bienvenido, {user.email?.split('@')[0]}!</span>
             </div>
             
             <h1 className="text-4xl md:text-5xl font-bold text-sierra-teal mb-4">
-              Procesamiento Inteligente
+              Generador de Informes
               <span className="block text-3xl md:text-4xl bg-gradient-to-r from-sierra-teal to-sierra-teal/70 bg-clip-text text-transparent">
-                de Archivos con IA
+                Multi-Área con IA
               </span>
             </h1>
             
-            <p className="text-xl text-sierra-gray max-w-3xl mx-auto leading-relaxed">
-              Transforma tus documentos con nuestra tecnología de inteligencia artificial. 
-              Selecciona el área, sube tus archivos y recibe resultados optimizados en minutos.
+            <p className="text-xl text-sierra-gray max-w-3xl mx-auto leading-relaxed mb-8">
+              Sube archivos de todas las áreas de tu empresa y genera un informe integral 
+              procesado con inteligencia artificial en un flujo guiado paso a paso.
             </p>
+
+            {/* Areas Preview */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-2xl mx-auto mb-8">
+              {areas.map((area, index) => (
+                <div key={index} className="text-center p-3 bg-white/60 rounded-xl border border-sierra-teal/10">
+                  <div className="text-2xl mb-1">{area.icon}</div>
+                  <div className="text-sm font-medium text-sierra-teal">{area.name}</div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Features Section */}
@@ -110,17 +121,25 @@ const Index = () => {
           {/* How it Works */}
           <div className="bg-white/60 backdrop-blur-sm rounded-3xl p-8 mb-12 shadow-lg border border-sierra-teal/10">
             <h2 className="text-2xl font-bold text-sierra-teal text-center mb-8">
-              ¿Cómo Funciona?
+              ¿Cómo Funciona el Proceso?
             </h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-              {steps.map((step, index) => (
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+              {[
+                { step: '1', title: 'Proyecto', desc: 'Nombre del proyecto' },
+                { step: '2', title: 'Comercial', desc: 'Sube archivos comerciales' },
+                { step: '3', title: 'Operaciones', desc: 'Sube archivos operativos' },
+                { step: '4', title: 'Pricing', desc: 'Sube archivos de precios' },
+                { step: '5', title: 'Admin', desc: 'Sube archivos administrativos' },
+                { step: '6', title: 'IA Report', desc: '¡Informe generado!' }
+              ].map((item, index) => (
                 <div key={index} className="text-center">
-                  <div className="w-10 h-10 bg-sierra-teal text-white rounded-full flex items-center justify-center mx-auto mb-4 font-bold">
-                    {index + 1}
+                  <div className="w-12 h-12 bg-sierra-teal text-white rounded-full flex items-center justify-center mx-auto mb-3 font-bold text-lg">
+                    {item.step}
                   </div>
-                  <p className="text-sierra-gray font-medium">{step}</p>
-                  {index < steps.length - 1 && (
-                    <ArrowRight className="h-5 w-5 text-sierra-teal/50 mx-auto mt-4 hidden md:block" />
+                  <h4 className="font-semibold text-sierra-teal text-sm mb-1">{item.title}</h4>
+                  <p className="text-xs text-sierra-gray">{item.desc}</p>
+                  {index < 5 && (
+                    <ArrowRight className="h-4 w-4 text-sierra-teal/50 mx-auto mt-2 hidden md:block" />
                   )}
                 </div>
               ))}
@@ -136,28 +155,28 @@ const Index = () => {
           <div className="mb-8">
             <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-sierra-teal mb-4">
-                Procesamiento por Áreas Especializadas
+                Generador de Informes Multi-Área
               </h2>
               <p className="text-sierra-gray max-w-4xl mx-auto text-lg">
-                Cada área tiene su propio algoritmo de IA especializado para obtener los mejores resultados. 
-                Selecciona el área correspondiente y comienza el procesamiento inteligente.
+                Sigue el proceso guiado para subir archivos de cada área y generar 
+                un informe integral procesado con IA. Máximo 5 archivos por área.
               </p>
             </div>
             
-            <BusinessAreasUploader />
+            <MultiStepUploader />
           </div>
           
           {/* Bottom CTA */}
           <div className="text-center mt-16">
             <div className="bg-gradient-to-r from-sierra-teal to-sierra-teal/80 rounded-3xl p-8 text-white">
               <h3 className="text-2xl font-bold mb-4">¿Necesitas ayuda?</h3>
-              <p className="text-sierra-teal/10 mb-6 text-lg">
-                Nuestro sistema está diseñado para ser intuitivo, pero si tienes dudas, 
-                recuerda que cada área requiere exactamente 2 archivos y un nombre de proyecto.
+              <p className="text-white/90 mb-6 text-lg">
+                El sistema te guiará paso a paso. Cada área puede tener hasta 5 archivos. 
+                El procesamiento IA toma máximo 15 minutos.
               </p>
               <div className="flex items-center justify-center gap-2">
                 <CheckCircle className="h-5 w-5" />
-                <span>Sistema funcionando correctamente</span>
+                <span>Sistema IA funcionando correctamente</span>
               </div>
             </div>
           </div>
@@ -178,7 +197,7 @@ const Index = () => {
             © 2024 Grupo Sierras. Todos los derechos reservados.
           </p>
           <p className="text-xs opacity-75">
-            Procesamiento inteligente de documentos con IA - gruposierras.mx
+            Procesamiento inteligente multi-área con IA - gruposierras.mx
           </p>
         </div>
       </footer>
