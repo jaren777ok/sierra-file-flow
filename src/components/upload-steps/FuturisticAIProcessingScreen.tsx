@@ -1,82 +1,142 @@
+
 import React, { useEffect, useState } from 'react';
 import { Sparkles, Clock, Brain, Zap, Cpu, Activity, Database, FileText, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { ProcessingStatus } from '@/hooks/useMultiStepUpload';
 import { ProcessingJob } from '@/hooks/useProcessingPersistence';
 import { Button } from '@/components/ui/button';
+import Confetti from 'react-confetti';
 
 interface FuturisticAIProcessingScreenProps {
   processingStatus: ProcessingStatus;
   projectName: string;
   activeJob?: ProcessingJob | null;
   onStartNew?: () => void;
+  onHideConfetti?: () => void;
 }
 
 const FuturisticAIProcessingScreen = ({ 
   processingStatus, 
   projectName, 
   activeJob,
-  onStartNew 
+  onStartNew,
+  onHideConfetti 
 }: FuturisticAIProcessingScreenProps) => {
-  const [timeElapsed, setTimeElapsed] = useState(0);
+  // TIMER UNIFICADO: Usar SOLO el send_timestamp como fuente de verdad
+  const [realTimeElapsed, setRealTimeElapsed] = useState(0);
   const [smartProgress, setSmartProgress] = useState(processingStatus.progress || 0);
   const [aiThoughts, setAiThoughts] = useState('Inicializando sistema de IA...');
   const [currentPhase, setCurrentPhase] = useState<'webhook' | 'processing' | 'polling' | 'generating' | 'completed' | 'timeout'>('webhook');
   const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([]);
+  const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
 
   const MAX_TIME = 15 * 60; // 15 minutos en segundos
-  
-  // Calcular tiempo basado en el trabajo activo si existe
-  const startTime = activeJob ? new Date(activeJob.started_at).getTime() : Date.now();
-  const webhookConfirmedTime = activeJob?.webhook_confirmed_at ? new Date(activeJob.webhook_confirmed_at).getTime() : null;
 
+  // Detectar redimensionamiento de ventana para confeti
   useEffect(() => {
-    // Timer real basado en el tiempo de inicio del trabajo
+    const handleResize = () => {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Auto-ocultar confeti después de 4 segundos
+  useEffect(() => {
+    if (processingStatus.showConfetti) {
+      const timer = setTimeout(() => {
+        if (onHideConfetti) {
+          onHideConfetti();
+        }
+      }, 4000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [processingStatus.showConfetti, onHideConfetti]);
+
+  // TIMER UNIFICADO: Obtener send_timestamp del localStorage o processingStatus
+  const getSendTimestamp = () => {
+    // Prioridad 1: ProcessingStatus
+    if (processingStatus.sendTimestamp) {
+      return processingStatus.sendTimestamp;
+    }
+    
+    // Prioridad 2: LocalStorage
+    try {
+      const trackingData = localStorage.getItem('current_job_tracking');
+      if (trackingData) {
+        const parsed = JSON.parse(trackingData);
+        if (parsed.sendTimestamp) {
+          return parsed.sendTimestamp;
+        }
+      }
+    } catch (error) {
+      console.error('Error reading tracking data:', error);
+    }
+    
+    // Prioridad 3: ActiveJob
+    if (activeJob?.started_at) {
+      return new Date(activeJob.started_at).getTime();
+    }
+    
+    // Fallback: Tiempo actual
+    return Date.now();
+  };
+
+  // TIMER EN TIEMPO REAL: Actualizar cada segundo basado en send_timestamp
+  useEffect(() => {
+    const sendTimestamp = getSendTimestamp();
+    
     const timer = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      setTimeElapsed(elapsed);
+      const elapsed = Math.floor((Date.now() - sendTimestamp) / 1000);
+      setRealTimeElapsed(elapsed);
     }, 1000);
 
-    return () => clearInterval(timer);
-  }, [startTime]);
+    // Establecer valor inicial inmediatamente
+    const initialElapsed = Math.floor((Date.now() - sendTimestamp) / 1000);
+    setRealTimeElapsed(initialElapsed);
 
+    return () => clearInterval(timer);
+  }, [processingStatus.sendTimestamp, activeJob?.started_at]);
+
+  // Detectar si es timeout
   useEffect(() => {
-    // Detectar si es timeout
     if (processingStatus.status === 'timeout' || (activeJob?.status === 'timeout')) {
       setCurrentPhase('timeout');
       setSmartProgress(0);
       return;
     }
 
-    // Lógica de progreso inteligente basada en fases
-    const updatePhaseAndProgress = () => {
-      const elapsedMinutes = timeElapsed / 60;
-      
-      if (!webhookConfirmedTime) {
-        // Fase 1: Esperando confirmación de webhook (0-30s)
-        setCurrentPhase('webhook');
-        setSmartProgress(Math.min(10, (timeElapsed / 30) * 10));
-      } else {
-        const webhookElapsed = (Date.now() - webhookConfirmedTime) / 1000;
-        const webhookMinutes = webhookElapsed / 60;
-        
-        if (webhookMinutes < 5) {
-          // Fase 2: Procesamiento inicial (primeros 5 minutos)
-          setCurrentPhase('processing');
-          setSmartProgress(10 + (webhookMinutes / 5) * 40); // 10% a 50%
-        } else {
-          // Fase 3: Polling y generación (después de 5 minutos)
-          setCurrentPhase('polling');
-          const remainingProgress = Math.min(40, ((webhookMinutes - 5) / 10) * 40);
-          setSmartProgress(50 + remainingProgress); // 50% a 90%
-        }
-      }
-    };
+    if (processingStatus.status === 'completed') {
+      setCurrentPhase('completed');
+      setSmartProgress(100);
+      return;
+    }
 
-    updatePhaseAndProgress();
-  }, [timeElapsed, webhookConfirmedTime, processingStatus.status, activeJob?.status]);
+    // Lógica de progreso inteligente basada en tiempo real
+    const elapsedMinutes = realTimeElapsed / 60;
+    
+    if (elapsedMinutes < 2) {
+      // Fase 1: Primeros 2 minutos - Esperando webhook
+      setCurrentPhase('webhook');
+      setSmartProgress(Math.min(20, (elapsedMinutes / 2) * 20));
+    } else if (elapsedMinutes < 5) {
+      // Fase 2: Minutos 2-5 - Procesamiento inicial
+      setCurrentPhase('processing');
+      setSmartProgress(20 + ((elapsedMinutes - 2) / 3) * 30); // 20% a 50%
+    } else if (elapsedMinutes < 12) {
+      // Fase 3: Minutos 5-12 - Polling y generación
+      setCurrentPhase('polling');
+      setSmartProgress(50 + ((elapsedMinutes - 5) / 7) * 35); // 50% a 85%
+    } else {
+      // Fase 4: Minutos 12-15 - Generación final
+      setCurrentPhase('generating');
+      setSmartProgress(85 + ((elapsedMinutes - 12) / 3) * 10); // 85% a 95%
+    }
+  }, [realTimeElapsed, processingStatus.status, activeJob?.status]);
 
+  // Generar partículas flotantes
   useEffect(() => {
-    // Generar partículas flotantes
     const newParticles = Array.from({ length: 25 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
@@ -86,8 +146,8 @@ const FuturisticAIProcessingScreen = ({
     setParticles(newParticles);
   }, []);
 
+  // Pensamientos de IA dinámicos
   useEffect(() => {
-    // Pensamientos de IA dinámicos según la fase
     const thoughts = {
       webhook: [
         'Estableciendo conexión con sistemas de IA...',
@@ -138,8 +198,8 @@ const FuturisticAIProcessingScreen = ({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const timeRemaining = Math.max(0, MAX_TIME - timeElapsed);
-  const timeProgress = (timeElapsed / MAX_TIME) * 100;
+  const timeRemaining = Math.max(0, MAX_TIME - realTimeElapsed);
+  const timeProgress = (realTimeElapsed / MAX_TIME) * 100;
 
   const getPhaseColor = () => {
     switch (currentPhase) {
@@ -163,6 +223,23 @@ const FuturisticAIProcessingScreen = ({
       case 'timeout': return 'Tiempo límite alcanzado - Puedes iniciar nuevo trabajo';
       default: return 'Procesando con IA...';
     }
+  };
+
+  // Renderizar confeti si está activado
+  const renderConfetti = () => {
+    if (processingStatus.showConfetti) {
+      return (
+        <Confetti
+          width={windowSize.width}
+          height={windowSize.height}
+          recycle={false}
+          numberOfPieces={200}
+          gravity={0.3}
+          colors={['#14b8a6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444']}
+        />
+      );
+    }
+    return null;
   };
 
   // Renderizar vista de timeout
@@ -247,6 +324,56 @@ const FuturisticAIProcessingScreen = ({
     );
   }
 
+  // Vista de éxito completado
+  if (currentPhase === 'completed') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-green-900/10 to-slate-900 relative overflow-hidden">
+        {renderConfetti()}
+        
+        {/* Grid futurista de fondo */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.1)_1px,transparent_1px)] bg-[size:50px_50px]" />
+
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-8">
+          {/* Icono de éxito */}
+          <div className="relative mb-12">
+            <div className="w-40 h-40 mx-auto rounded-full bg-gradient-to-r from-green-400 to-emerald-400 flex items-center justify-center relative overflow-hidden border-2 border-green-500/50">
+              <div className="absolute inset-0 rounded-full border-2 border-green-500/20 animate-ping"></div>
+              <div className="relative z-10">
+                <CheckCircle2 className="h-16 w-16 text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* Mensaje de éxito */}
+          <div className="text-center mb-8">
+            <h1 className="text-4xl font-bold text-white mb-2 font-mono">
+              ¡PROCESAMIENTO <span className="text-green-400">COMPLETADO!</span>
+            </h1>
+            <div className="inline-flex items-center gap-2 bg-green-500/20 px-6 py-3 rounded-full border border-green-500/30 backdrop-blur-sm">
+              <CheckCircle2 className="h-5 w-5 text-green-400 animate-pulse" />
+              <span className="text-green-400 font-mono text-lg">
+                INFORME IA GENERADO EXITOSAMENTE
+              </span>
+            </div>
+          </div>
+
+          {/* Información del proyecto */}
+          <div className="text-center">
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-green-500/30 rounded-xl p-6 max-w-lg">
+              <p className="text-green-300 font-mono text-lg mb-4">
+                Tu informe "{projectName || activeJob?.project_title}" ha sido procesado y guardado exitosamente.
+              </p>
+              <p className="text-cyan-300 text-sm">
+                Puedes encontrar el archivo en la sección de "Archivos Guardados".
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Vista de procesamiento normal
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-sierra-teal/10 to-slate-900 relative overflow-hidden">
       {/* Partículas flotantes de fondo */}
@@ -317,9 +444,7 @@ const FuturisticAIProcessingScreen = ({
             <div className="flex items-center gap-3 mb-3">
               <Brain className="h-5 w-5 text-sierra-teal animate-pulse" />
               <span className="text-sierra-teal font-mono text-sm">AI THOUGHTS</span>
-              {webhookConfirmedTime && (
-                <CheckCircle2 className="h-4 w-4 text-green-400" />
-              )}
+              <CheckCircle2 className="h-4 w-4 text-green-400" />
             </div>
             <p className="text-cyan-300 font-mono text-lg mb-2">{aiThoughts}</p>
             <p className="text-sierra-teal text-sm font-medium">{getPhaseMessage()}</p>
@@ -350,7 +475,7 @@ const FuturisticAIProcessingScreen = ({
             {/* Indicador de fase */}
             <div className="mt-3 flex justify-center">
               <span className="text-xs text-sierra-teal/70 font-mono uppercase tracking-wider">
-                Fase: {currentPhase}
+                Fase: {currentPhase} | Verificando cada minuto
               </span>
             </div>
           </div>
@@ -363,7 +488,7 @@ const FuturisticAIProcessingScreen = ({
               <Clock className="h-5 w-5 text-sierra-teal" />
               <span className="text-sierra-teal font-mono text-sm">TRANSCURRIDO</span>
             </div>
-            <div className="text-white font-mono text-2xl">{formatTime(timeElapsed)}</div>
+            <div className="text-white font-mono text-2xl">{formatTime(realTimeElapsed)}</div>
           </div>
           
           <div className="bg-slate-900/50 backdrop-blur-sm border border-sierra-teal/30 rounded-xl p-4 text-center">
@@ -400,7 +525,7 @@ const FuturisticAIProcessingScreen = ({
             </div>
             <p className="text-cyan-300/70 font-mono text-sm">
               Este proceso continuará ejecutándose incluso si cierras esta ventana. 
-              Puedes regresar en cualquier momento para ver el progreso.
+              Verificación automática cada minuto hasta completar o timeout.
             </p>
           </div>
         </div>

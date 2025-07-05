@@ -28,7 +28,8 @@ const MultiStepUploader = () => {
     getTotalFiles,
     activeJob,
     isRecovering,
-    setCurrentStep
+    setCurrentStep,
+    hideConfetti
   } = useMultiStepUpload();
 
   // Función optimizada para saltar al procesamiento
@@ -168,6 +169,7 @@ const MultiStepUploader = () => {
             projectName={projectName || activeJob?.project_title || ''}
             activeJob={activeJob}
             onStartNew={startNewJob}
+            onHideConfetti={hideConfetti}
           />
         );
       default:
@@ -205,6 +207,7 @@ const MultiStepUploader = () => {
         processingStatus.status === 'sending' || 
         processingStatus.status === 'tracking' ||
         processingStatus.status === 'timeout' ||
+        processingStatus.status === 'completed' ||
         activeJob?.status === 'processing'
       ) ? (
         // Pantalla de procesamiento a pantalla completa

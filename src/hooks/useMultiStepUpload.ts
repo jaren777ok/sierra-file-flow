@@ -20,6 +20,7 @@ export interface ProcessingStatus {
   resultUrl?: string;
   requestId?: string;
   sendTimestamp?: number;
+  showConfetti?: boolean;
 }
 
 export const useMultiStepUpload = () => {
@@ -34,12 +35,13 @@ export const useMultiStepUpload = () => {
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>({
     status: 'idle',
     progress: 0,
-    timeElapsed: 0
+    timeElapsed: 0,
+    showConfetti: false
   });
 
   const { toast } = useToast();
   const { user } = useAuth();
-  const { saveProcessedFile } = useSavedFiles();
+  const { saveProcessedFile, fetchSavedFiles } = useSavedFiles();
   const { 
     activeJob, 
     isLoading: isLoadingActiveJob,
@@ -52,38 +54,62 @@ export const useMultiStepUpload = () => {
     isJobWithinTimeLimit
   } = useProcessingPersistence();
 
-  // Estado de recuperación para mejorar UX
   const isRecovering = isLoadingActiveJob;
 
-  // Hook de polling con manejo de timeout mejorado
+  // Hook de polling mejorado
   const { startPolling, stopPolling } = useJobPolling({
     requestId: processingStatus.requestId || activeJob?.request_id || null,
-    activeJobStartTime: processingStatus.sendTimestamp ? new Date(processingStatus.sendTimestamp).toISOString() : activeJob?.started_at || null,
     onJobCompleted: async (resultUrl: string) => {
-      console.log('Job completed with URL:', resultUrl);
+      console.log('🎉 Job completed with URL:', resultUrl);
       
       const requestId = processingStatus.requestId || activeJob?.request_id;
-      if (requestId) {
-        await completeJob(requestId, resultUrl);
-        await saveProcessedFile(projectName || activeJob?.project_title || '', 'multi-area', resultUrl);
+      const finalProjectName = projectName || activeJob?.project_title || '';
+      
+      // GARANTIZAR GUARDADO: Intentar guardar el archivo
+      try {
+        console.log('💾 Saving processed file to database...');
+        await saveProcessedFile(finalProjectName, 'multi-area', resultUrl);
+        console.log('✅ File saved successfully');
+        
+        // Refresh la lista de archivos guardados
+        await fetchSavedFiles();
+        console.log('🔄 Refreshed saved files list');
+      } catch (error) {
+        console.error('💥 Error saving file:', error);
+        // Intentar guardar de nuevo después de un segundo
+        setTimeout(async () => {
+          try {
+            await saveProcessedFile(finalProjectName, 'multi-area', resultUrl);
+            await fetchSavedFiles();
+            console.log('✅ File saved on retry');
+          } catch (retryError) {
+            console.error('💥 Failed to save file on retry:', retryError);
+          }
+        }, 1000);
       }
       
+      if (requestId) {
+        await completeJob(requestId, resultUrl);
+      }
+      
+      // Activar confeti y mostrar éxito
       setProcessingStatus({
         status: 'completed',
         progress: 100,
         timeElapsed: 0,
         message: '¡Informe IA generado exitosamente!',
         resultUrl: resultUrl,
-        requestId
+        requestId,
+        showConfetti: true // 🎊 ACTIVAR CONFETI
       });
 
       toast({
-        title: "¡Informe IA Completado!",
-        description: "Tu informe ha sido procesado y está listo para descargar.",
+        title: "🎉 ¡Informe IA Completado!",
+        description: "Tu informe ha sido procesado y guardado exitosamente.",
       });
     },
     onJobError: async (errorMessage: string) => {
-      console.log('Job completed with error:', errorMessage);
+      console.log('💥 Job completed with error:', errorMessage);
       
       const requestId = processingStatus.requestId || activeJob?.request_id;
       if (requestId) {
@@ -95,31 +121,33 @@ export const useMultiStepUpload = () => {
         progress: 0,
         timeElapsed: 0,
         message: errorMessage,
-        requestId
+        requestId,
+        showConfetti: false
       });
 
       toast({
-        title: "Error",
+        title: "💥 Error",
         description: `Error al procesar archivos: ${errorMessage}`,
         variant: "destructive",
       });
     },
     onJobTimeout: async () => {
-      console.log('Job timed out after 15 minutes');
+      console.log('⏰ Job timed out after 15 minutes');
       
       setProcessingStatus({
         status: 'timeout',
         progress: 0,
-        timeElapsed: 15 * 60, // 15 minutos en segundos
+        timeElapsed: 15 * 60,
         message: 'El procesamiento excedió el tiempo límite de 15 minutos. Puedes iniciar un nuevo trabajo.',
-        requestId: processingStatus.requestId || activeJob?.request_id
+        requestId: processingStatus.requestId || activeJob?.request_id,
+        showConfetti: false
       });
 
       // Limpiar el trabajo activo para permitir nuevos trabajos
       clearActiveJob();
 
       toast({
-        title: "Tiempo límite alcanzado",
+        title: "⏰ Tiempo límite alcanzado",
         description: "Puedes iniciar un nuevo procesamiento cuando gustes.",
       });
     }
@@ -127,7 +155,6 @@ export const useMultiStepUpload = () => {
 
   const WEBHOOK_URL = 'https://primary-production-f0d1.up.railway.app/webhook-test/sierra';
 
-  // Memoizar areas para evitar re-renders innecesarios
   const areas = useMemo(() => [
     { key: 'comercial' as keyof AreaFiles, name: 'Comercial', icon: '💼' },
     { key: 'operaciones' as keyof AreaFiles, name: 'Operaciones', icon: '⚙️' },
@@ -135,7 +162,6 @@ export const useMultiStepUpload = () => {
     { key: 'administracion' as keyof AreaFiles, name: 'Administración', icon: '📊' }
   ], []);
 
-  // Optimizar updateAreaFiles con useCallback
   const updateAreaFiles = useCallback((area: keyof AreaFiles, files: File[]) => {
     if (files.length > 5) {
       toast({
@@ -152,7 +178,6 @@ export const useMultiStepUpload = () => {
     }));
   }, [toast]);
 
-  // Optimizar nextStep con useCallback
   const nextStep = useCallback(() => {
     if (currentStep === 0 && !projectName.trim()) {
       toast({
@@ -170,7 +195,6 @@ export const useMultiStepUpload = () => {
     setCurrentStep(prev => Math.max(prev - 1, 0));
   }, []);
 
-  // Optimizar getTotalFiles con useCallback
   const getTotalFiles = useCallback(() => {
     return Object.values(areaFiles).reduce((total, files) => total + files.length, 0);
   }, [areaFiles]);
@@ -217,7 +241,7 @@ export const useMultiStepUpload = () => {
       return;
     }
 
-    // Generar request_id único con user_id para mejor rastreo
+    // Generar request_id único
     const requestId = `req_${user.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     const sendTimestamp = Date.now();
 
@@ -233,7 +257,8 @@ export const useMultiStepUpload = () => {
       timeElapsed: 0,
       message: 'Preparando archivos para envío...',
       requestId,
-      sendTimestamp
+      sendTimestamp,
+      showConfetti: false
     });
 
     try {
@@ -250,7 +275,7 @@ export const useMultiStepUpload = () => {
         });
       });
 
-      // Agregar metadatos incluyendo el user_id y request_id mejorado
+      // Agregar metadatos
       formData.append('area', 'multi-area');
       formData.append('fileCount', fileIndex.toString());
       formData.append('timestamp', new Date().toISOString());
@@ -266,7 +291,7 @@ export const useMultiStepUpload = () => {
         message: 'Enviando archivos al webhook...'
       }));
 
-      console.log(`Enviando ${fileIndex} archivos para proyecto: ${projectName} con request_id: ${requestId} y user_id: ${user.id}`);
+      console.log(`📤 Sending ${fileIndex} files for project: ${projectName} with request_id: ${requestId}`);
 
       // Enviar a webhook
       const response = await fetch(WEBHOOK_URL, {
@@ -275,7 +300,6 @@ export const useMultiStepUpload = () => {
       });
 
       if (response.ok) {
-        // Webhook recibió los archivos, ahora iniciamos tracking
         setProcessingStatus(prev => ({
           ...prev,
           status: 'tracking',
@@ -283,43 +307,20 @@ export const useMultiStepUpload = () => {
           message: 'Archivos enviados, esperando que N8N inicie el procesamiento...'
         }));
 
-        // Iniciar polling para buscar el trabajo creado por N8N
+        // Iniciar polling
         startPolling();
         
         toast({
-          title: "Archivos Enviados",
+          title: "📤 Archivos Enviados",
           description: "Los archivos se enviaron correctamente. N8N iniciará el procesamiento pronto.",
         });
-
-        // Intentar encontrar el trabajo creado por N8N cada pocos segundos
-        const checkForN8NJob = async () => {
-          const job = await trackJobByRequestId(requestId);
-          if (job) {
-            console.log('N8N created job found:', job);
-            setProcessingStatus(prev => ({
-              ...prev,
-              status: 'processing',
-              progress: 30,
-              message: 'N8N ha iniciado el procesamiento...'
-            }));
-          } else {
-            // Verificar si aún estamos dentro del límite de tiempo
-            if (isJobWithinTimeLimit(sendTimestamp)) {
-              console.log('N8N job not found yet, retrying...');
-              setTimeout(checkForN8NJob, 5000);
-            }
-          }
-        };
-
-        // Iniciar búsqueda del trabajo de N8N
-        setTimeout(checkForN8NJob, 3000);
 
       } else {
         throw new Error(`Error del servidor: ${response.status}`);
       }
 
     } catch (error) {
-      console.error('Error al procesar archivos:', error);
+      console.error('💥 Error al procesar archivos:', error);
       
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
       
@@ -328,16 +329,17 @@ export const useMultiStepUpload = () => {
         progress: 0,
         timeElapsed: 0,
         message: errorMessage,
-        requestId
+        requestId,
+        showConfetti: false
       });
 
       toast({
-        title: "Error",
+        title: "💥 Error",
         description: `Error al procesar archivos: ${errorMessage}`,
         variant: "destructive",
       });
     }
-  }, [areaFiles, projectName, areas, getTotalFiles, activeJob, user, startJobTracking, getTrackingData, isJobWithinTimeLimit, trackJobByRequestId, startPolling, toast]);
+  }, [areaFiles, projectName, areas, getTotalFiles, activeJob, user, startJobTracking, getTrackingData, isJobWithinTimeLimit, startPolling, toast]);
 
   const resetFlow = useCallback(() => {
     stopPolling();
@@ -352,28 +354,33 @@ export const useMultiStepUpload = () => {
     setProcessingStatus({
       status: 'idle',
       progress: 0,
-      timeElapsed: 0
+      timeElapsed: 0,
+      showConfetti: false
     });
     clearActiveJob();
   }, [stopPolling, clearActiveJob]);
 
-  // Función para iniciar un nuevo trabajo después de timeout
   const startNewJob = useCallback(() => {
-    // Mantener el nombre del proyecto para facilitar retry
     const savedProjectName = projectName || activeJob?.project_title || '';
     
     resetFlow();
     
-    // Restaurar el nombre del proyecto si existía
     if (savedProjectName) {
       setProjectName(savedProjectName);
     }
     
     toast({
-      title: "Nuevo trabajo iniciado",
+      title: "🚀 Nuevo trabajo iniciado",
       description: "Puedes subir nuevos archivos y comenzar el procesamiento.",
     });
   }, [resetFlow, projectName, activeJob?.project_title, toast]);
+
+  const hideConfetti = useCallback(() => {
+    setProcessingStatus(prev => ({
+      ...prev,
+      showConfetti: false
+    }));
+  }, []);
 
   return {
     currentStep,
@@ -391,6 +398,7 @@ export const useMultiStepUpload = () => {
     getTotalFiles,
     activeJob,
     isRecovering,
-    setCurrentStep
+    setCurrentStep,
+    hideConfetti
   };
 };
