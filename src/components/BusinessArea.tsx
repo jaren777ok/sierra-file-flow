@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { useFileUpload } from '@/hooks/useFileUpload';
+import ProjectNameInput from './ProjectNameInput';
 
 interface BusinessAreaProps {
   areaName: string;
@@ -15,6 +16,7 @@ interface BusinessAreaProps {
 const BusinessArea = ({ areaName, areaTitle, description }: BusinessAreaProps) => {
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [projectTitle, setProjectTitle] = useState('');
   const { files, uploadFiles, downloadProcessedFile, removeFiles } = useFileUpload(areaName);
 
   const handleDrop = useCallback((e: React.DragEvent) => {
@@ -38,8 +40,8 @@ const BusinessArea = ({ areaName, areaTitle, description }: BusinessAreaProps) =
   };
 
   const handleUpload = () => {
-    if (selectedFiles.length === 2) {
-      uploadFiles(selectedFiles);
+    if (selectedFiles.length === 2 && projectTitle.trim()) {
+      uploadFiles(selectedFiles, projectTitle);
       setSelectedFiles([]);
     }
   };
@@ -48,7 +50,7 @@ const BusinessArea = ({ areaName, areaTitle, description }: BusinessAreaProps) =
     switch (status) {
       case 'uploading':
       case 'processing':
-        return <Clock className="h-5 w-5 text-sierra-brown animate-pulse" />;
+        return <Clock className="h-5 w-5 text-sierra-teal animate-pulse" />;
       case 'completed':
       case 'ready-for-download':
         return <CheckCircle className="h-5 w-5 text-green-600" />;
@@ -78,17 +80,23 @@ const BusinessArea = ({ areaName, areaTitle, description }: BusinessAreaProps) =
     <div className="space-y-6">
       <Card className="mountain-shadow">
         <CardHeader>
-          <CardTitle className="text-sierra-brown">{areaTitle}</CardTitle>
+          <CardTitle className="text-sierra-teal">{areaTitle}</CardTitle>
           {description && (
             <p className="text-sierra-gray text-sm">{description}</p>
           )}
         </CardHeader>
         <CardContent>
+          <ProjectNameInput
+            value={projectTitle}
+            onChange={setProjectTitle}
+            areaName={areaName}
+          />
+          
           <div
             className={`border-2 border-dashed rounded-lg p-8 text-center transition-all duration-200 ${
               isDragOver 
-                ? 'border-sierra-brown bg-sierra-brown/5 scale-105' 
-                : 'border-gray-300 hover:border-sierra-brown hover:bg-sierra-brown/5'
+                ? 'border-sierra-teal bg-sierra-teal/5 scale-105' 
+                : 'border-gray-300 hover:border-sierra-teal hover:bg-sierra-teal/5'
             }`}
             onDrop={handleDrop}
             onDragOver={(e) => {
@@ -97,8 +105,8 @@ const BusinessArea = ({ areaName, areaTitle, description }: BusinessAreaProps) =
             }}
             onDragLeave={() => setIsDragOver(false)}
           >
-            <Upload className="mx-auto h-12 w-12 text-sierra-brown mb-4" />
-            <h3 className="text-lg font-semibold text-sierra-brown mb-2">
+            <Upload className="mx-auto h-12 w-12 text-sierra-teal mb-4" />
+            <h3 className="text-lg font-semibold text-sierra-teal mb-2">
               Sube exactamente 2 archivos
             </h3>
             <p className="text-sierra-gray mb-4">
@@ -137,10 +145,10 @@ const BusinessArea = ({ areaName, areaTitle, description }: BusinessAreaProps) =
                 
                 <Button
                   onClick={handleUpload}
-                  disabled={selectedFiles.length !== 2}
+                  disabled={selectedFiles.length !== 2 || !projectTitle.trim()}
                   className="sierra-gradient hover:opacity-90 transition-opacity mt-4"
                 >
-                  Procesar Archivos {selectedFiles.length === 2 ? '✓' : `(${selectedFiles.length}/2)`}
+                  Procesar Archivos {selectedFiles.length === 2 && projectTitle.trim() ? '✓' : `(${selectedFiles.length}/2)`}
                 </Button>
               </div>
             )}
@@ -152,7 +160,7 @@ const BusinessArea = ({ areaName, areaTitle, description }: BusinessAreaProps) =
         <Card className="mountain-shadow">
           <CardContent className="p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-sierra-brown">
+              <h3 className="text-lg font-semibold text-sierra-teal">
                 Estado del Procesamiento
               </h3>
               <Button
@@ -168,7 +176,7 @@ const BusinessArea = ({ areaName, areaTitle, description }: BusinessAreaProps) =
             <div className="space-y-4">
               {files.map((fileStatus, index) => (
                 <div key={index} className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
-                  <File className="h-8 w-8 text-sierra-brown flex-shrink-0" />
+                  <File className="h-8 w-8 text-sierra-teal flex-shrink-0" />
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-2">
@@ -208,7 +216,7 @@ const BusinessArea = ({ areaName, areaTitle, description }: BusinessAreaProps) =
                         <p className={`text-xs ${
                           fileStatus.status === 'error' ? 'text-red-600' : 
                           fileStatus.status === 'ready-for-download' ? 'text-green-600' :
-                          'text-sierra-brown'
+                          'text-sierra-teal'
                         }`}>
                           {fileStatus.message}
                         </p>

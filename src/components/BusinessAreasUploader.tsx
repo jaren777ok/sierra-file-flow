@@ -1,9 +1,12 @@
 
-import React from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import React, { useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import BusinessArea from './BusinessArea';
+import { Badge } from '@/components/ui/badge';
 
 const BusinessAreasUploader = () => {
+  const [activeArea, setActiveArea] = useState<string | null>(null);
+  
   const areas = [
     {
       id: 'comercial',
@@ -28,30 +31,45 @@ const BusinessAreasUploader = () => {
   ];
 
   return (
-    <div className="w-full">
-      <Tabs defaultValue="comercial" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 mb-8">
-          {areas.map((area) => (
-            <TabsTrigger 
-              key={area.id} 
-              value={area.id}
-              className="text-xs sm:text-sm font-medium"
-            >
-              {area.name}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-        
+    <div className="space-y-8">
+      {/* Indicador de áreas */}
+      <div className="flex flex-wrap justify-center gap-3 mb-8">
         {areas.map((area) => (
-          <TabsContent key={area.id} value={area.id} className="mt-0">
-            <BusinessArea
-              areaName={area.id}
-              areaTitle={area.name}
-              description={area.description}
-            />
-          </TabsContent>
+          <Badge
+            key={area.id}
+            variant={activeArea === area.id ? "default" : "outline"}
+            className={`px-4 py-2 text-sm cursor-pointer transition-all ${
+              activeArea === area.id 
+                ? 'bg-sierra-teal text-white' 
+                : 'hover:bg-sierra-teal/10 border-sierra-teal text-sierra-teal'
+            }`}
+            onClick={() => setActiveArea(activeArea === area.id ? null : area.id)}
+          >
+            {area.name}
+          </Badge>
         ))}
-      </Tabs>
+      </div>
+
+      {/* Áreas de carga */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {areas.map((area) => (
+          <div key={area.id} className="space-y-4">
+            <div 
+              className={`transition-all duration-300 ${
+                activeArea === null || activeArea === area.id 
+                  ? 'opacity-100 scale-100' 
+                  : 'opacity-50 scale-95'
+              }`}
+            >
+              <BusinessArea
+                areaName={area.id}
+                areaTitle={area.name}
+                description={area.description}
+              />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

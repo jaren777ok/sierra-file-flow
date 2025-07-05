@@ -63,11 +63,11 @@ export default {
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
 				},
-				// Colores específicos de Grupo Sierras
+				// Colores específicos de Grupo Sierras - actualizados
 				sierra: {
-					brown: '#8B4513',
-					'brown-light': '#A0522D',
-					'brown-dark': '#654321',
+					teal: '#205059',
+					'teal-light': '#2A656F',
+					'teal-dark': '#1A434A',
 					gray: '#6B7280',
 					'gray-light': '#9CA3AF',
 					'gray-dark': '#374151',

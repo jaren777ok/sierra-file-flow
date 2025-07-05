@@ -16,16 +16,16 @@
     --popover: 255 255 255;
     --popover-foreground: 39 39 42;
 
-    --primary: 19 56 81;
+    --primary: 32 80 89;
     --primary-foreground: 250 250 249;
 
-    --secondary: 139 69 19;
+    --secondary: 32 80 89;
     --secondary-foreground: 250 250 249;
 
     --muted: 245 245 244;
     --muted-foreground: 107 114 128;
 
-    --accent: 160 82 45;
+    --accent: 42 101 111;
     --accent-foreground: 250 250 249;
 
     --destructive: 239 68 68;
@@ -33,18 +33,18 @@
 
     --border: 229 231 235;
     --input: 229 231 235;
-    --ring: 139 69 19;
+    --ring: 32 80 89;
 
     --radius: 0.75rem;
 
     --sidebar-background: 250 250 249;
     --sidebar-foreground: 39 39 42;
-    --sidebar-primary: 139 69 19;
+    --sidebar-primary: 32 80 89;
     --sidebar-primary-foreground: 250 250 249;
     --sidebar-accent: 245 245 244;
     --sidebar-accent-foreground: 39 39 42;
     --sidebar-border: 229 231 235;
-    --sidebar-ring: 139 69 19;
+    --sidebar-ring: 32 80 89;
   }
 
   .dark {
@@ -60,13 +60,13 @@
     --primary: 250 250 249;
     --primary-foreground: 39 39 42;
 
-    --secondary: 101 67 33;
+    --secondary: 26 67 74;
     --secondary-foreground: 250 250 249;
 
     --muted: 68 64 60;
     --muted-foreground: 161 161 170;
 
-    --accent: 101 67 33;
+    --accent: 26 67 74;
     --accent-foreground: 250 250 249;
 
     --destructive: 239 68 68;
@@ -77,7 +77,7 @@
     --ring: 212.7 26.8% 83.9%;
     --sidebar-background: 39 39 42;
     --sidebar-foreground: 250 250 249;
-    --sidebar-primary: 139 69 19;
+    --sidebar-primary: 32 80 89;
     --sidebar-primary-foreground: 250 250 249;
     --sidebar-accent: 68 64 60;
     --sidebar-accent-foreground: 250 250 249;
@@ -99,10 +99,10 @@
 
 @layer components {
   .sierra-gradient {
-    background: linear-gradient(135deg, #8B4513 0%, #A0522D 50%, #654321 100%);
+    background: linear-gradient(135deg, #205059 0%, #2A656F 50%, #1A434A 100%);
   }
   
   .mountain-shadow {
-    box-shadow: 0 10px 25px -5px rgba(139, 69, 19, 0.1), 0 10px 10px -5px rgba(139, 69, 19, 0.04);
+    box-shadow: 0 10px 25px -5px rgba(32, 80, 89, 0.1), 0 10px 10px -5px rgba(32, 80, 89, 0.04);
   }
 }

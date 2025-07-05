@@ -19,11 +19,20 @@ export const useFileUpload = (areaName: string) => {
   const WEBHOOK_URL = 'https://primary-production-f0d1.up.railway.app/webhook-test/sierra';
   const TIMEOUT_DURATION = 15 * 60 * 1000; // 15 minutos
 
-  const uploadFiles = async (filesToUpload: File[]) => {
+  const uploadFiles = async (filesToUpload: File[], projectTitle: string) => {
     if (filesToUpload.length !== 2) {
       toast({
         title: "Error",
         description: `Debes subir exactamente 2 archivos para ${areaName}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!projectTitle.trim()) {
+      toast({
+        title: "Error",
+        description: "Debes ingresar el nombre del proyecto",
         variant: "destructive",
       });
       return;
@@ -53,6 +62,7 @@ export const useFileUpload = (areaName: string) => {
       formData.append('area', areaName);
       formData.append('fileCount', '2');
       formData.append('timestamp', new Date().toISOString());
+      formData.append('Título', projectTitle.trim());
 
       // Actualizar progreso a 30%
       setFiles(prev => prev.map(f => ({ ...f, progress: 30 })));
@@ -65,6 +75,7 @@ export const useFileUpload = (areaName: string) => {
       })));
 
       console.log(`Enviando archivos de ${areaName} a webhook:`, WEBHOOK_URL);
+      console.log(`Título del proyecto: ${projectTitle}`);
 
       const uploadPromise = fetch(WEBHOOK_URL, {
         method: 'POST',
