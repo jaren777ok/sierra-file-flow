@@ -24,11 +24,11 @@ export const useJobPolling = ({
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isPollingRef = useRef(false);
   
-  const { checkJobCompletion, markJobAsTimeout } = useProcessingPersistence();
+  const { checkJobCompletion, markJobAsTimeout, getTrackingData, isJobWithinTimeLimit } = useProcessingPersistence();
   const { toast } = useToast();
 
-  const INITIAL_WAIT_TIME = 5 * 60 * 1000; // 5 minutos
-  const POLLING_INTERVAL = 60 * 1000; // 1 minuto
+  const INITIAL_WAIT_TIME = 2 * 60 * 1000; // 2 minutos inicial
+  const POLLING_INTERVAL = 30 * 1000; // 30 segundos
   const MAX_PROCESSING_TIME = 15 * 60 * 1000; // 15 minutos TOTAL
 
   const stopPolling = useCallback(() => {
@@ -48,8 +48,15 @@ export const useJobPolling = ({
     }
   }, []);
 
-  // Función para verificar si ya se cumplió el timeout
+  // Función para verificar si ya se cumplió el timeout basado en tiempo de envío
   const checkTimeout = useCallback(() => {
+    // Primero verificar datos de tracking locales
+    const trackingData = getTrackingData();
+    if (trackingData && trackingData.sendTimestamp) {
+      return !isJobWithinTimeLimit(trackingData.sendTimestamp);
+    }
+
+    // Fallback: verificar con activeJobStartTime
     if (!activeJobStartTime) return false;
     
     const startTime = new Date(activeJobStartTime).getTime();
@@ -57,10 +64,10 @@ export const useJobPolling = ({
     const elapsedTime = currentTime - startTime;
     
     return elapsedTime >= MAX_PROCESSING_TIME;
-  }, [activeJobStartTime, MAX_PROCESSING_TIME]);
+  }, [activeJobStartTime, getTrackingData, isJobWithinTimeLimit]);
 
   const handleTimeout = useCallback(async () => {
-    console.log('Job timeout reached - 15 minutes elapsed');
+    console.log('Job timeout reached - 15 minutes elapsed from send time');
     
     if (requestId) {
       await markJobAsTimeout(requestId);
@@ -95,12 +102,18 @@ export const useJobPolling = ({
     setPollStartTime(Date.now());
     isPollingRef.current = true;
 
-    // Calcular cuánto tiempo ha pasado desde el inicio del trabajo
-    const jobStartTime = activeJobStartTime ? new Date(activeJobStartTime).getTime() : Date.now();
-    const currentTime = Date.now();
-    const elapsedTime = currentTime - jobStartTime;
+    // Calcular cuánto tiempo ha pasado desde el envío inicial
+    const trackingData = getTrackingData();
+    let elapsedTime = 0;
     
-    // Si ya pasaron más de 5 minutos, empezar polling inmediatamente
+    if (trackingData && trackingData.sendTimestamp) {
+      elapsedTime = Date.now() - trackingData.sendTimestamp;
+    } else if (activeJobStartTime) {
+      const jobStartTime = new Date(activeJobStartTime).getTime();
+      elapsedTime = Date.now() - jobStartTime;
+    }
+    
+    // Si ya pasaron más de 2 minutos, empezar polling inmediatamente
     const waitTime = Math.max(0, INITIAL_WAIT_TIME - elapsedTime);
     
     console.log(`Waiting ${waitTime}ms before starting polling (elapsed: ${elapsedTime}ms)`);
@@ -110,14 +123,14 @@ export const useJobPolling = ({
       
       console.log('Initial wait complete, starting periodic polling');
       
-      // Comenzar polling cada minuto
+      // Comenzar polling cada 30 segundos
       intervalRef.current = setInterval(async () => {
         if (!isPollingRef.current) {
           stopPolling();
           return;
         }
 
-        // Verificar timeout en cada polling
+        // Verificar timeout en cada polling basado en tiempo de envío
         if (checkTimeout()) {
           handleTimeout();
           return;
@@ -143,8 +156,8 @@ export const useJobPolling = ({
         }
       }, POLLING_INTERVAL);
 
-      // Configurar timeout final basado en tiempo restante
-      const remainingTime = Math.max(0, MAX_PROCESSING_TIME - elapsedTime - INITIAL_WAIT_TIME);
+      // Configurar timeout final basado en tiempo restante desde el envío
+      const remainingTime = Math.max(0, MAX_PROCESSING_TIME - elapsedTime - waitTime);
       
       if (remainingTime > 0) {
         setTimeout(() => {
@@ -158,7 +171,7 @@ export const useJobPolling = ({
       }
       
     }, waitTime);
-  }, [requestId, activeJobStartTime, checkJobCompletion, onJobCompleted, onJobError, checkTimeout, handleTimeout, stopPolling]);
+  }, [requestId, activeJobStartTime, checkJobCompletion, onJobCompleted, onJobError, checkTimeout, handleTimeout, stopPolling, getTrackingData]);
 
   // Cleanup al desmontar
   useEffect(() => {

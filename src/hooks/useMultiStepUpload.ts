@@ -3,6 +3,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useSavedFiles } from '@/hooks/useSavedFiles';
 import { useProcessingPersistence } from '@/hooks/useProcessingPersistence';
 import { useJobPolling } from '@/hooks/useJobPolling';
+import { useAuth } from '@/contexts/AuthContext';
 
 export interface AreaFiles {
   comercial: File[];
@@ -12,12 +13,13 @@ export interface AreaFiles {
 }
 
 export interface ProcessingStatus {
-  status: 'idle' | 'uploading' | 'processing' | 'completed' | 'error' | 'timeout';
+  status: 'idle' | 'sending' | 'tracking' | 'processing' | 'completed' | 'error' | 'timeout';
   progress: number;
   timeElapsed: number;
   message?: string;
   resultUrl?: string;
   requestId?: string;
+  sendTimestamp?: number;
 }
 
 export const useMultiStepUpload = () => {
@@ -36,15 +38,18 @@ export const useMultiStepUpload = () => {
   });
 
   const { toast } = useToast();
+  const { user } = useAuth();
   const { saveProcessedFile } = useSavedFiles();
   const { 
     activeJob, 
     isLoading: isLoadingActiveJob,
-    createJob, 
-    confirmWebhookReceived, 
+    startJobTracking,
+    trackJobByRequestId,
     updateJobProgress, 
     completeJob, 
-    clearActiveJob 
+    clearActiveJob,
+    getTrackingData,
+    isJobWithinTimeLimit
   } = useProcessingPersistence();
 
   // Estado de recuperación para mejorar UX
@@ -53,7 +58,7 @@ export const useMultiStepUpload = () => {
   // Hook de polling con manejo de timeout mejorado
   const { startPolling, stopPolling } = useJobPolling({
     requestId: processingStatus.requestId || activeJob?.request_id || null,
-    activeJobStartTime: activeJob?.started_at || null,
+    activeJobStartTime: processingStatus.sendTimestamp ? new Date(processingStatus.sendTimestamp).toISOString() : activeJob?.started_at || null,
     onJobCompleted: async (resultUrl: string) => {
       console.log('Job completed with URL:', resultUrl);
       
@@ -182,6 +187,15 @@ export const useMultiStepUpload = () => {
       return;
     }
 
+    if (!user) {
+      toast({
+        title: "Error de autenticación",
+        description: "Debes estar autenticado para procesar archivos",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Verificar si ya hay un trabajo activo
     if (activeJob && activeJob.status === 'processing') {
       toast({
@@ -192,26 +206,34 @@ export const useMultiStepUpload = () => {
       return;
     }
 
-    // Crear trabajo en Supabase y obtener request_id
-    const requestId = await createJob(projectName, totalFiles);
-    if (!requestId) {
+    // Verificar si hay datos de tracking locales válidos
+    const trackingData = getTrackingData();
+    if (trackingData && trackingData.userId === user.id && isJobWithinTimeLimit(trackingData.sendTimestamp)) {
       toast({
-        title: "Error",
-        description: "No se pudo crear el trabajo de procesamiento",
+        title: "Trabajo en progreso",
+        description: "Ya tienes un trabajo siendo procesado. Espera a que termine.",
         variant: "destructive",
       });
       return;
     }
 
+    // Generar request_id único con user_id para mejor rastreo
+    const requestId = `req_${user.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const sendTimestamp = Date.now();
+
+    // Iniciar tracking local (NO crear en BD)
+    startJobTracking(projectName, requestId, user.id);
+
     // Ir al paso de procesamiento
     setCurrentStep(6);
 
     setProcessingStatus({
-      status: 'uploading',
+      status: 'sending',
       progress: 5,
       timeElapsed: 0,
-      message: 'Preparando archivos...',
-      requestId
+      message: 'Preparando archivos para envío...',
+      requestId,
+      sendTimestamp
     });
 
     try {
@@ -228,22 +250,23 @@ export const useMultiStepUpload = () => {
         });
       });
 
-      // Agregar metadatos incluyendo el request_id
+      // Agregar metadatos incluyendo el user_id y request_id mejorado
       formData.append('area', 'multi-area');
       formData.append('fileCount', fileIndex.toString());
       formData.append('timestamp', new Date().toISOString());
       formData.append('titulo', projectName.trim());
       formData.append('request_id', requestId);
+      formData.append('user_id', user.id);
+      formData.append('send_timestamp', sendTimestamp.toString());
 
-      await updateJobProgress(requestId, 15);
       setProcessingStatus(prev => ({
         ...prev,
-        status: 'processing',
+        status: 'sending',
         progress: 15,
-        message: 'Enviando archivos a la IA...'
+        message: 'Enviando archivos al webhook...'
       }));
 
-      console.log(`Procesando ${fileIndex} archivos para proyecto: ${projectName} con request_id: ${requestId}`);
+      console.log(`Enviando ${fileIndex} archivos para proyecto: ${projectName} con request_id: ${requestId} y user_id: ${user.id}`);
 
       // Enviar a webhook
       const response = await fetch(WEBHOOK_URL, {
@@ -252,22 +275,44 @@ export const useMultiStepUpload = () => {
       });
 
       if (response.ok) {
-        // Webhook confirmó recepción
-        await confirmWebhookReceived(requestId);
-        
+        // Webhook recibió los archivos, ahora iniciamos tracking
         setProcessingStatus(prev => ({
           ...prev,
-          progress: 20,
-          message: 'Webhook confirmada, IA procesando archivos...'
+          status: 'tracking',
+          progress: 25,
+          message: 'Archivos enviados, esperando que N8N inicie el procesamiento...'
         }));
 
-        // Iniciar polling
+        // Iniciar polling para buscar el trabajo creado por N8N
         startPolling();
         
         toast({
-          title: "Procesamiento Iniciado",
-          description: "La IA está procesando tus archivos. Puedes cerrar la app y regresar más tarde.",
+          title: "Archivos Enviados",
+          description: "Los archivos se enviaron correctamente. N8N iniciará el procesamiento pronto.",
         });
+
+        // Intentar encontrar el trabajo creado por N8N cada pocos segundos
+        const checkForN8NJob = async () => {
+          const job = await trackJobByRequestId(requestId);
+          if (job) {
+            console.log('N8N created job found:', job);
+            setProcessingStatus(prev => ({
+              ...prev,
+              status: 'processing',
+              progress: 30,
+              message: 'N8N ha iniciado el procesamiento...'
+            }));
+          } else {
+            // Verificar si aún estamos dentro del límite de tiempo
+            if (isJobWithinTimeLimit(sendTimestamp)) {
+              console.log('N8N job not found yet, retrying...');
+              setTimeout(checkForN8NJob, 5000);
+            }
+          }
+        };
+
+        // Iniciar búsqueda del trabajo de N8N
+        setTimeout(checkForN8NJob, 3000);
 
       } else {
         throw new Error(`Error del servidor: ${response.status}`);
@@ -277,7 +322,6 @@ export const useMultiStepUpload = () => {
       console.error('Error al procesar archivos:', error);
       
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      await completeJob(requestId, undefined, errorMessage);
       
       setProcessingStatus({
         status: 'error',
@@ -293,7 +337,7 @@ export const useMultiStepUpload = () => {
         variant: "destructive",
       });
     }
-  }, [areaFiles, projectName, areas, getTotalFiles, activeJob, createJob, updateJobProgress, confirmWebhookReceived, completeJob, startPolling, toast]);
+  }, [areaFiles, projectName, areas, getTotalFiles, activeJob, user, startJobTracking, getTrackingData, isJobWithinTimeLimit, trackJobByRequestId, startPolling, toast]);
 
   const resetFlow = useCallback(() => {
     stopPolling();
