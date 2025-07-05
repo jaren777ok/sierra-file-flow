@@ -18,20 +18,30 @@ const ResultScreen = ({ processingStatus, onStartNew }: ResultScreenProps) => {
       if (processingStatus.resultUrl.includes('drive.google.com')) {
         // Open Google Drive link in new tab
         window.open(processingStatus.resultUrl, '_blank');
-      } else {
-        // Direct download
+        toast({
+          title: "Enlace Abierto",
+          description: "Se ha abierto el enlace a Google Drive en una nueva pestaña.",
+        });
+      } else if (processingStatus.resultUrl.startsWith('blob:')) {
+        // Direct download for blob URLs
         const link = document.createElement('a');
         link.href = processingStatus.resultUrl;
         link.download = 'informe-ia-procesado.zip';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+        toast({
+          title: "Descarga Iniciada",
+          description: "Tu informe IA se está descargando.",
+        });
+      } else {
+        // Try to open as link
+        window.open(processingStatus.resultUrl, '_blank');
+        toast({
+          title: "Enlace Abierto",
+          description: "Se ha abierto el enlace del archivo procesado.",
+        });
       }
-      
-      toast({
-        title: "Descarga Iniciada",
-        description: "Tu informe IA se está descargando.",
-      });
     }
   };
 
@@ -114,7 +124,7 @@ const ResultScreen = ({ processingStatus, onStartNew }: ResultScreenProps) => {
         ) : (
           <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
             <p className="text-yellow-800">
-              Tu informe está siendo finalizado. Revisa la sección "Archivos Guardados" en unos minutos.
+              Tu informe está siendo finalizado. El archivo se ha guardado automáticamente en "Archivos Guardados".
             </p>
           </div>
         )}
