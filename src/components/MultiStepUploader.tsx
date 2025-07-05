@@ -1,10 +1,10 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useMultiStepUpload } from '@/hooks/useMultiStepUpload';
 import ProjectNameStep from './upload-steps/ProjectNameStep';
 import FileUploadStep from './upload-steps/FileUploadStep';
 import ReviewStep from './upload-steps/ReviewStep';
-import AIProcessingScreen from './upload-steps/AIProcessingScreen';
+import FuturisticAIProcessingScreen from './upload-steps/FuturisticAIProcessingScreen';
 import ResultScreen from './upload-steps/ResultScreen';
 import StepIndicator from './upload-steps/StepIndicator';
 import { Card, CardContent } from '@/components/ui/card';
@@ -22,8 +22,21 @@ const MultiStepUploader = () => {
     prevStep,
     processAllFiles,
     resetFlow,
-    getTotalFiles
+    getTotalFiles,
+    activeJob
   } = useMultiStepUpload();
+
+  // Efecto para detectar trabajo activo y saltar al paso de procesamiento
+  useEffect(() => {
+    if (activeJob && activeJob.status === 'processing' && currentStep < 6) {
+      // Si hay un trabajo activo, saltar al paso de procesamiento
+      setProjectName(activeJob.project_title);
+      // Ir directamente al paso 6 (procesamiento)
+      for (let i = currentStep; i < 6; i++) {
+        nextStep();
+      }
+    }
+  }, [activeJob, currentStep]);
 
   const renderStep = () => {
     switch (currentStep) {
@@ -71,9 +84,10 @@ const MultiStepUploader = () => {
           );
         }
         return (
-          <AIProcessingScreen
+          <FuturisticAIProcessingScreen
             processingStatus={processingStatus}
-            projectName={projectName}
+            projectName={projectName || activeJob?.project_title || ''}
+            activeJob={activeJob}
           />
         );
       default:
@@ -83,7 +97,7 @@ const MultiStepUploader = () => {
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Step Indicator */}
+      {/* Step Indicator - Solo mostrar si no estamos en procesamiento */}
       {currentStep < 6 && (
         <div className="mb-8">
           <StepIndicator currentStep={currentStep} />
@@ -91,11 +105,17 @@ const MultiStepUploader = () => {
       )}
 
       {/* Main Content */}
-      <Card className="mountain-shadow bg-gradient-to-br from-white/90 to-sierra-teal/5 backdrop-blur-sm border-sierra-teal/20">
-        <CardContent className="p-8">
-          {renderStep()}
-        </CardContent>
-      </Card>
+      {currentStep === 6 && (processingStatus.status === 'processing' || processingStatus.status === 'uploading' || activeJob?.status === 'processing') ? (
+        // Pantalla de procesamiento a pantalla completa
+        renderStep()
+      ) : (
+        // Resto de pasos en card
+        <Card className="mountain-shadow bg-gradient-to-br from-white/90 to-sierra-teal/5 backdrop-blur-sm border-sierra-teal/20">
+          <CardContent className="p-8">
+            {renderStep()}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

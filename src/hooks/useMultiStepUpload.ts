@@ -1,7 +1,7 @@
-
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useSavedFiles } from '@/hooks/useSavedFiles';
+import { useProcessingPersistence } from '@/hooks/useProcessingPersistence';
 
 export interface AreaFiles {
   comercial: File[];
@@ -16,6 +16,7 @@ export interface ProcessingStatus {
   timeElapsed: number;
   message?: string;
   resultUrl?: string;
+  jobId?: string;
 }
 
 export const useMultiStepUpload = () => {
@@ -35,6 +36,7 @@ export const useMultiStepUpload = () => {
 
   const { toast } = useToast();
   const { saveProcessedFile } = useSavedFiles();
+  const { activeJob, createJob, updateJobProgress, completeJob, clearActiveJob } = useProcessingPersistence();
 
   const WEBHOOK_URL = 'https://primary-production-f0d1.up.railway.app/webhook-test/sierra';
   const TIMEOUT_DURATION = 15 * 60 * 1000; // 15 minutos
@@ -93,46 +95,52 @@ export const useMultiStepUpload = () => {
       return;
     }
 
+    // Crear trabajo en Supabase
+    const jobId = await createJob(projectName, getTotalFiles());
+    if (!jobId) {
+      toast({
+        title: "Error",
+        description: "No se pudo crear el trabajo de procesamiento",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setProcessingStatus({
       status: 'uploading',
-      progress: 10,
+      progress: 5,
       timeElapsed: 0,
-      message: 'Preparando archivos...'
+      message: 'Preparando archivos...',
+      jobId
     });
-
-    // Start timer
-    const startTime = Date.now();
-    const timer = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startTime) / 1000);
-      setProcessingStatus(prev => ({
-        ...prev,
-        timeElapsed: elapsed
-      }));
-    }, 1000);
 
     try {
       const formData = new FormData();
       let fileIndex = 0;
 
-      // Add files with area-specific naming
+      // Agregar archivos con nombres específicos del área directamente en FormData
       Object.entries(areaFiles).forEach(([areaKey, files]) => {
         const areaName = areas.find(a => a.key === areaKey)?.name || areaKey;
         files.forEach((file, index) => {
-          formData.append(`file${fileIndex}`, file);
-          formData.append(`filename${fileIndex}`, `${areaName}${index}`);
+          // El nombre del archivo se pone directamente en el FormData, no en el JSON
+          const fileName = `${areaName}_${index + 1}.${file.name.split('.').pop()}`;
+          formData.append(fileName, file);
           fileIndex++;
         });
       });
 
+      // Agregar metadatos como campos separados
       formData.append('area', 'multi-area');
       formData.append('fileCount', fileIndex.toString());
       formData.append('timestamp', new Date().toISOString());
-      formData.append('Título', projectName.trim());
+      formData.append('titulo', projectName.trim());
+      formData.append('jobId', jobId);
 
+      await updateJobProgress(jobId, 15);
       setProcessingStatus(prev => ({
         ...prev,
         status: 'processing',
-        progress: 30,
+        progress: 15,
         message: 'Enviando archivos a la IA...'
       }));
 
@@ -149,6 +157,7 @@ export const useMultiStepUpload = () => {
 
       const response = await Promise.race([uploadPromise, timeoutPromise]) as Response;
 
+      await updateJobProgress(jobId, 60);
       setProcessingStatus(prev => ({
         ...prev,
         progress: 60,
@@ -171,13 +180,15 @@ export const useMultiStepUpload = () => {
           
           if (driveUrl) {
             await saveProcessedFile(projectName, 'multi-area', driveUrl);
+            await completeJob(jobId, driveUrl);
             
             setProcessingStatus({
               status: 'completed',
               progress: 100,
-              timeElapsed: Math.floor((Date.now() - startTime) / 1000),
+              timeElapsed: 0,
               message: '¡Informe IA generado exitosamente!',
-              resultUrl: driveUrl
+              resultUrl: driveUrl,
+              jobId
             });
 
             toast({
@@ -185,18 +196,21 @@ export const useMultiStepUpload = () => {
               description: "Tu informe ha sido procesado y está listo para descargar.",
             });
           } else {
+            await updateJobProgress(jobId, 90);
             setProcessingStatus(prev => ({
               ...prev,
-              progress: 80,
+              progress: 90,
               message: 'Finalizando procesamiento...'
             }));
             
-            setTimeout(() => {
+            setTimeout(async () => {
+              await completeJob(jobId);
               setProcessingStatus({
                 status: 'completed',
                 progress: 100,
-                timeElapsed: Math.floor((Date.now() - startTime) / 1000),
-                message: '¡Procesamiento completado! Revisa "Archivos Guardados".'
+                timeElapsed: 0,
+                message: '¡Procesamiento completado! Revisa "Archivos Guardados".',
+                jobId
               });
             }, 3000);
           }
@@ -209,12 +223,14 @@ export const useMultiStepUpload = () => {
       console.error('Error al procesar archivos:', error);
       
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
+      await completeJob(jobId, undefined, errorMessage);
       
       setProcessingStatus({
         status: 'error',
         progress: 0,
-        timeElapsed: Math.floor((Date.now() - startTime) / 1000),
-        message: errorMessage
+        timeElapsed: 0,
+        message: errorMessage,
+        jobId
       });
 
       toast({
@@ -222,8 +238,6 @@ export const useMultiStepUpload = () => {
         description: `Error al procesar archivos: ${errorMessage}`,
         variant: "destructive",
       });
-    } finally {
-      clearInterval(timer);
     }
   };
 
@@ -241,6 +255,7 @@ export const useMultiStepUpload = () => {
       progress: 0,
       timeElapsed: 0
     });
+    clearActiveJob();
   };
 
   return {
@@ -255,6 +270,7 @@ export const useMultiStepUpload = () => {
     prevStep,
     processAllFiles,
     resetFlow,
-    getTotalFiles
+    getTotalFiles,
+    activeJob
   };
 };

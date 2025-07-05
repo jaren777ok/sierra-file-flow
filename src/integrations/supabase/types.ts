@@ -299,6 +299,54 @@ export type Database = {
         }
         Relationships: []
       }
+      processing_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          progress: number
+          project_title: string
+          result_url: string | null
+          started_at: string
+          status: string
+          total_files: number
+          updated_at: string
+          user_id: string
+          webhook_data: Json | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          progress?: number
+          project_title: string
+          result_url?: string | null
+          started_at?: string
+          status?: string
+          total_files: number
+          updated_at?: string
+          user_id: string
+          webhook_data?: Json | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          progress?: number
+          project_title?: string
+          result_url?: string | null
+          started_at?: string
+          status?: string
+          total_files?: number
+          updated_at?: string
+          user_id?: string
+          webhook_data?: Json | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
