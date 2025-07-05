@@ -1,5 +1,5 @@
 
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useSavedFiles } from '@/hooks/useSavedFiles';
 import { useProcessingPersistence } from '@/hooks/useProcessingPersistence';
@@ -97,14 +97,16 @@ export const useMultiStepUpload = () => {
 
   const WEBHOOK_URL = 'https://primary-production-f0d1.up.railway.app/webhook-test/sierra';
 
-  const areas = [
+  // Memoizar areas para evitar re-renders innecesarios
+  const areas = useMemo(() => [
     { key: 'comercial' as keyof AreaFiles, name: 'Comercial', icon: '💼' },
     { key: 'operaciones' as keyof AreaFiles, name: 'Operaciones', icon: '⚙️' },
     { key: 'pricing' as keyof AreaFiles, name: 'Pricing', icon: '💰' },
     { key: 'administracion' as keyof AreaFiles, name: 'Administración', icon: '📊' }
-  ];
+  ], []);
 
-  const updateAreaFiles = (area: keyof AreaFiles, files: File[]) => {
+  // Optimizar updateAreaFiles con useCallback
+  const updateAreaFiles = useCallback((area: keyof AreaFiles, files: File[]) => {
     if (files.length > 5) {
       toast({
         title: "Límite excedido",
@@ -118,9 +120,10 @@ export const useMultiStepUpload = () => {
       ...prev,
       [area]: files
     }));
-  };
+  }, [toast]);
 
-  const nextStep = () => {
+  // Optimizar nextStep con useCallback
+  const nextStep = useCallback(() => {
     if (currentStep === 0 && !projectName.trim()) {
       toast({
         title: "Campo requerido",
@@ -131,18 +134,21 @@ export const useMultiStepUpload = () => {
     }
     
     setCurrentStep(prev => Math.min(prev + 1, 6));
-  };
+  }, [currentStep, projectName, toast]);
 
-  const prevStep = () => {
+  const prevStep = useCallback(() => {
     setCurrentStep(prev => Math.max(prev - 1, 0));
-  };
+  }, []);
 
-  const getTotalFiles = () => {
+  // Optimizar getTotalFiles con useCallback
+  const getTotalFiles = useCallback(() => {
     return Object.values(areaFiles).reduce((total, files) => total + files.length, 0);
-  };
+  }, [areaFiles]);
 
-  const processAllFiles = async () => {
-    if (getTotalFiles() === 0) {
+  const processAllFiles = useCallback(async () => {
+    const totalFiles = getTotalFiles();
+    
+    if (totalFiles === 0) {
       toast({
         title: "No hay archivos",
         description: "Sube al menos un archivo para procesar",
@@ -152,7 +158,7 @@ export const useMultiStepUpload = () => {
     }
 
     // Crear trabajo en Supabase y obtener request_id
-    const requestId = await createJob(projectName, getTotalFiles());
+    const requestId = await createJob(projectName, totalFiles);
     if (!requestId) {
       toast({
         title: "Error",
@@ -249,9 +255,9 @@ export const useMultiStepUpload = () => {
         variant: "destructive",
       });
     }
-  };
+  }, [areaFiles, projectName, areas, getTotalFiles, createJob, updateJobProgress, confirmWebhookReceived, completeJob, startPolling, toast]);
 
-  const resetFlow = () => {
+  const resetFlow = useCallback(() => {
     stopPolling();
     setCurrentStep(0);
     setProjectName('');
@@ -267,7 +273,7 @@ export const useMultiStepUpload = () => {
       timeElapsed: 0
     });
     clearActiveJob();
-  };
+  }, [stopPolling, clearActiveJob]);
 
   return {
     currentStep,

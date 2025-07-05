@@ -1,5 +1,5 @@
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { useMultiStepUpload } from '@/hooks/useMultiStepUpload';
 import ProjectNameStep from './upload-steps/ProjectNameStep';
 import FileUploadStep from './upload-steps/FileUploadStep';
@@ -28,22 +28,34 @@ const MultiStepUploader = () => {
     activeJob
   } = useMultiStepUpload();
 
-  // Efecto para detectar trabajo activo y manejar la recuperación
-  useEffect(() => {
-    if (activeJob && activeJob.status === 'processing' && currentStep < 6) {
-      console.log('Active job detected, redirecting to processing screen');
-      
-      // Si hay un trabajo activo, configurar el estado y saltar al procesamiento
-      if (!projectName) {
-        setProjectName(activeJob.project_title);
-      }
-      
-      // Saltar directamente al paso 6 (procesamiento)
+  // Función para saltar al procesamiento
+  const jumpToProcessing = useCallback(() => {
+    if (currentStep < 6) {
+      // Saltar directamente al paso 6 sin bucles
       while (currentStep < 6) {
         nextStep();
       }
     }
-  }, [activeJob, currentStep]);
+  }, [currentStep, nextStep]);
+
+  // Efecto para manejar trabajo activo - SIMPLIFICADO
+  useEffect(() => {
+    console.log('Checking for active job...', { activeJob, currentStep });
+    
+    if (activeJob && activeJob.status === 'processing' && currentStep < 6) {
+      console.log('Active job detected, setting up recovery');
+      
+      // Configurar el nombre del proyecto si no existe
+      if (!projectName && activeJob.project_title) {
+        console.log('Setting project name from active job:', activeJob.project_title);
+        setProjectName(activeJob.project_title);
+      }
+      
+      // Saltar al procesamiento de forma segura
+      console.log('Jumping to processing step');
+      jumpToProcessing();
+    }
+  }, [activeJob?.status, activeJob?.project_title]); // Dependencias específicas
 
   // Prevenir navegación si hay trabajo activo
   const canNavigate = !activeJob || activeJob.status !== 'processing';
@@ -150,12 +162,7 @@ const MultiStepUploader = () => {
                   </div>
                 </div>
                 <button
-                  onClick={() => {
-                    // Saltar al paso de procesamiento
-                    while (currentStep < 6) {
-                      nextStep();
-                    }
-                  }}
+                  onClick={jumpToProcessing}
                   className="bg-sierra-teal text-white px-4 py-2 rounded-lg text-sm hover:bg-sierra-teal/80 transition-colors"
                 >
                   Ver Progreso

@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -23,53 +22,60 @@ export const useProcessingPersistence = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
 
-  // Verificar si hay un trabajo activo al cargar
+  // Verificar si hay un trabajo activo al cargar - OPTIMIZADO
   useEffect(() => {
+    let isMounted = true; // Prevenir actualizaciones de estado en componentes desmontados
+    
+    const checkActiveJob = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user || !isMounted) {
+          setIsLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabase
+          .from('processing_jobs')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('status', 'processing')
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (error) {
+          console.error('Error checking active job:', error);
+          if (isMounted) setIsLoading(false);
+          return;
+        }
+
+        if (data && data.length > 0 && isMounted) {
+          const jobData = data[0] as ProcessingJob;
+          setActiveJob(jobData);
+          
+          // Calcular tiempo transcurrido
+          const startTime = new Date(jobData.started_at).getTime();
+          const currentTime = Date.now();
+          const elapsedMinutes = Math.floor((currentTime - startTime) / 60000);
+          
+          toast({
+            title: "Trabajo en progreso recuperado",
+            description: `Continuando procesamiento de "${jobData.project_title}" (${elapsedMinutes} min transcurridos)`,
+          });
+        }
+      } catch (error) {
+        console.error('Error in checkActiveJob:', error);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
+
     checkActiveJob();
-  }, []);
 
-  const checkActiveJob = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setIsLoading(false);
-        return;
-      }
-
-      const { data, error } = await supabase
-        .from('processing_jobs')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('status', 'processing')
-        .order('created_at', { ascending: false })
-        .limit(1);
-
-      if (error) {
-        console.error('Error checking active job:', error);
-        setIsLoading(false);
-        return;
-      }
-
-      if (data && data.length > 0) {
-        const jobData = data[0] as ProcessingJob;
-        setActiveJob(jobData);
-        
-        // Calcular tiempo transcurrido
-        const startTime = new Date(jobData.started_at).getTime();
-        const currentTime = Date.now();
-        const elapsedMinutes = Math.floor((currentTime - startTime) / 60000);
-        
-        toast({
-          title: "Trabajo en progreso recuperado",
-          description: `Continuando procesamiento de "${jobData.project_title}" (${elapsedMinutes} min transcurridos)`,
-        });
-      }
-    } catch (error) {
-      console.error('Error in checkActiveJob:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    // Cleanup para prevenir memory leaks
+    return () => {
+      isMounted = false;
+    };
+  }, []); // Solo ejecutar una vez al montar
 
   const createJob = async (projectTitle: string, totalFiles: number): Promise<string | null> => {
     try {
@@ -203,9 +209,9 @@ export const useProcessingPersistence = () => {
     }
   };
 
-  const clearActiveJob = () => {
+  const clearActiveJob = useCallback(() => {
     setActiveJob(null);
-  };
+  }, []);
 
   return {
     activeJob,
@@ -216,6 +222,6 @@ export const useProcessingPersistence = () => {
     checkJobCompletion,
     completeJob,
     clearActiveJob,
-    checkActiveJob
+    checkActiveJob: () => {} // Función vacía para compatibilidad
   };
 };
