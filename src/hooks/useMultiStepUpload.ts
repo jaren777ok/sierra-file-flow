@@ -40,6 +40,7 @@ export const useMultiStepUpload = () => {
   const { saveProcessedFile } = useSavedFiles();
   const { 
     activeJob, 
+    isLoading: isLoadingActiveJob,
     createJob, 
     confirmWebhookReceived, 
     updateJobProgress, 
@@ -47,14 +48,18 @@ export const useMultiStepUpload = () => {
     clearActiveJob 
   } = useProcessingPersistence();
 
-  // Hook de polling para verificar completación
+  // Estado de recuperación para mejorar UX
+  const isRecovering = isLoadingActiveJob;
+
+  // Hook de polling optimizado
   const { startPolling, stopPolling } = useJobPolling({
-    requestId: processingStatus.requestId || null,
+    requestId: processingStatus.requestId || activeJob?.request_id || null,
     onJobCompleted: async (resultUrl: string) => {
       console.log('Job completed with URL:', resultUrl);
       
-      if (processingStatus.requestId) {
-        await completeJob(processingStatus.requestId, resultUrl);
+      const requestId = processingStatus.requestId || activeJob?.request_id;
+      if (requestId) {
+        await completeJob(requestId, resultUrl);
         await saveProcessedFile(projectName || activeJob?.project_title || '', 'multi-area', resultUrl);
       }
       
@@ -64,7 +69,7 @@ export const useMultiStepUpload = () => {
         timeElapsed: 0,
         message: '¡Informe IA generado exitosamente!',
         resultUrl: resultUrl,
-        requestId: processingStatus.requestId
+        requestId
       });
 
       toast({
@@ -75,8 +80,9 @@ export const useMultiStepUpload = () => {
     onJobError: async (errorMessage: string) => {
       console.log('Job completed with error:', errorMessage);
       
-      if (processingStatus.requestId) {
-        await completeJob(processingStatus.requestId, undefined, errorMessage);
+      const requestId = processingStatus.requestId || activeJob?.request_id;
+      if (requestId) {
+        await completeJob(requestId, undefined, errorMessage);
       }
       
       setProcessingStatus({
@@ -84,7 +90,7 @@ export const useMultiStepUpload = () => {
         progress: 0,
         timeElapsed: 0,
         message: errorMessage,
-        requestId: processingStatus.requestId
+        requestId
       });
 
       toast({
@@ -157,6 +163,16 @@ export const useMultiStepUpload = () => {
       return;
     }
 
+    // Verificar si ya hay un trabajo activo
+    if (activeJob && activeJob.status === 'processing') {
+      toast({
+        title: "Trabajo en progreso",
+        description: "Ya tienes un trabajo en procesamiento. Espera a que termine.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Crear trabajo en Supabase y obtener request_id
     const requestId = await createJob(projectName, totalFiles);
     if (!requestId) {
@@ -167,6 +183,9 @@ export const useMultiStepUpload = () => {
       });
       return;
     }
+
+    // Ir al paso de procesamiento
+    setCurrentStep(6);
 
     setProcessingStatus({
       status: 'uploading',
@@ -195,7 +214,7 @@ export const useMultiStepUpload = () => {
       formData.append('fileCount', fileIndex.toString());
       formData.append('timestamp', new Date().toISOString());
       formData.append('titulo', projectName.trim());
-      formData.append('request_id', requestId); // Importante: enviar request_id
+      formData.append('request_id', requestId);
 
       await updateJobProgress(requestId, 15);
       setProcessingStatus(prev => ({
@@ -207,14 +226,14 @@ export const useMultiStepUpload = () => {
 
       console.log(`Procesando ${fileIndex} archivos para proyecto: ${projectName} con request_id: ${requestId}`);
 
-      // Enviar a webhook - ahora solo esperamos confirmación inmediata
+      // Enviar a webhook
       const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
         body: formData,
       });
 
       if (response.ok) {
-        // Webhook confirmó recepción inmediatamente
+        // Webhook confirmó recepción
         await confirmWebhookReceived(requestId);
         
         setProcessingStatus(prev => ({
@@ -223,7 +242,7 @@ export const useMultiStepUpload = () => {
           message: 'Webhook confirmada, IA procesando archivos...'
         }));
 
-        // Iniciar polling inteligente
+        // Iniciar polling
         startPolling();
         
         toast({
@@ -255,7 +274,7 @@ export const useMultiStepUpload = () => {
         variant: "destructive",
       });
     }
-  }, [areaFiles, projectName, areas, getTotalFiles, createJob, updateJobProgress, confirmWebhookReceived, completeJob, startPolling, toast]);
+  }, [areaFiles, projectName, areas, getTotalFiles, activeJob, createJob, updateJobProgress, confirmWebhookReceived, completeJob, startPolling, toast]);
 
   const resetFlow = useCallback(() => {
     stopPolling();
@@ -288,6 +307,8 @@ export const useMultiStepUpload = () => {
     processAllFiles,
     resetFlow,
     getTotalFiles,
-    activeJob
+    activeJob,
+    isRecovering,
+    setCurrentStep
   };
 };

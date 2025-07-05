@@ -1,5 +1,5 @@
 
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import { useMultiStepUpload } from '@/hooks/useMultiStepUpload';
 import ProjectNameStep from './upload-steps/ProjectNameStep';
 import FileUploadStep from './upload-steps/FileUploadStep';
@@ -25,40 +25,74 @@ const MultiStepUploader = () => {
     processAllFiles,
     resetFlow,
     getTotalFiles,
-    activeJob
+    activeJob,
+    isRecovering,
+    setCurrentStep
   } = useMultiStepUpload();
 
-  // Función para saltar al procesamiento
+  // Función optimizada para saltar al procesamiento - SIN BUCLES
   const jumpToProcessing = useCallback(() => {
-    if (currentStep < 6) {
-      // Saltar directamente al paso 6 sin bucles
-      while (currentStep < 6) {
-        nextStep();
-      }
-    }
-  }, [currentStep, nextStep]);
+    console.log('Jumping directly to processing step');
+    setCurrentStep(6); // Directo al paso 6, sin bucles while
+  }, [setCurrentStep]);
 
-  // Efecto para manejar trabajo activo - SIMPLIFICADO
+  // Effect optimizado para manejo de trabajos activos
   useEffect(() => {
-    console.log('Checking for active job...', { activeJob, currentStep });
+    // Solo ejecutar si hay un trabajo activo y no estamos en modo recuperación
+    if (!activeJob || isRecovering) return;
     
-    if (activeJob && activeJob.status === 'processing' && currentStep < 6) {
-      console.log('Active job detected, setting up recovery');
+    console.log('Checking active job for recovery:', {
+      activeJobId: activeJob.id,
+      status: activeJob.status,
+      currentStep,
+      isRecovering
+    });
+    
+    // Solo recuperar si el trabajo está en procesamiento y no estamos ya en el paso correcto
+    if (activeJob.status === 'processing' && currentStep < 6) {
+      console.log('Recovering active processing job');
       
       // Configurar el nombre del proyecto si no existe
       if (!projectName && activeJob.project_title) {
-        console.log('Setting project name from active job:', activeJob.project_title);
         setProjectName(activeJob.project_title);
       }
       
-      // Saltar al procesamiento de forma segura
-      console.log('Jumping to processing step');
+      // Saltar directamente al procesamiento
       jumpToProcessing();
     }
-  }, [activeJob?.status, activeJob?.project_title]); // Dependencias específicas
+  }, [activeJob?.id, activeJob?.status, currentStep, isRecovering, projectName, activeJob?.project_title, setProjectName, jumpToProcessing]);
 
-  // Prevenir navegación si hay trabajo activo
-  const canNavigate = !activeJob || activeJob.status !== 'processing';
+  // Memoizar el estado de navegación
+  const canNavigate = useMemo(() => {
+    return !activeJob || activeJob.status !== 'processing';
+  }, [activeJob?.status]);
+
+  // Memoizar el mensaje de alerta de trabajo activo
+  const activeJobAlert = useMemo(() => {
+    if (!activeJob || activeJob.status !== 'processing' || currentStep >= 6) return null;
+
+    return (
+      <Alert className="mb-6 border-sierra-teal/30 bg-sierra-teal/5">
+        <Clock className="h-4 w-4 text-sierra-teal" />
+        <AlertDescription className="text-sierra-teal">
+          <div className="flex items-center justify-between">
+            <div>
+              <strong>Trabajo en progreso:</strong> {activeJob.project_title}
+              <div className="text-sm opacity-75 mt-1">
+                Iniciado: {new Date(activeJob.started_at).toLocaleString()}
+              </div>
+            </div>
+            <button
+              onClick={jumpToProcessing}
+              className="bg-sierra-teal text-white px-4 py-2 rounded-lg text-sm hover:bg-sierra-teal/80 transition-colors"
+            >
+              Ver Progreso
+            </button>
+          </div>
+        </AlertDescription>
+      </Alert>
+    );
+  }, [activeJob, currentStep, jumpToProcessing]);
 
   const renderStep = () => {
     switch (currentStep) {
@@ -139,6 +173,18 @@ const MultiStepUploader = () => {
     }
   };
 
+  // Mostrar loading mientras se recupera
+  if (isRecovering) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-sierra-teal mx-auto mb-4"></div>
+          <p className="text-sierra-teal">Verificando trabajos en progreso...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Step Indicator - Solo mostrar si no estamos en procesamiento */}
@@ -148,30 +194,8 @@ const MultiStepUploader = () => {
         </div>
       )}
 
-      {/* Indicador de trabajo activo en el header */}
-      {activeJob && activeJob.status === 'processing' && currentStep < 6 && (
-        <div className="mb-6">
-          <Alert className="border-sierra-teal/30 bg-sierra-teal/5">
-            <Clock className="h-4 w-4 text-sierra-teal" />
-            <AlertDescription className="text-sierra-teal">
-              <div className="flex items-center justify-between">
-                <div>
-                  <strong>Trabajo en progreso:</strong> {activeJob.project_title}
-                  <div className="text-sm opacity-75 mt-1">
-                    Iniciado: {new Date(activeJob.started_at).toLocaleString()}
-                  </div>
-                </div>
-                <button
-                  onClick={jumpToProcessing}
-                  className="bg-sierra-teal text-white px-4 py-2 rounded-lg text-sm hover:bg-sierra-teal/80 transition-colors"
-                >
-                  Ver Progreso
-                </button>
-              </div>
-            </AlertDescription>
-          </Alert>
-        </div>
-      )}
+      {/* Alert de trabajo activo */}
+      {activeJobAlert}
 
       {/* Main Content */}
       {currentStep === 6 && (processingStatus.status === 'processing' || processingStatus.status === 'uploading' || activeJob?.status === 'processing') ? (

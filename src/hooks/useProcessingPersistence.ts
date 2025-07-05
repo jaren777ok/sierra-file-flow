@@ -1,4 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
+
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -21,13 +22,35 @@ export const useProcessingPersistence = () => {
   const [activeJob, setActiveJob] = useState<ProcessingJob | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { toast } = useToast();
+  
+  // Cache para evitar consultas duplicadas
+  const cacheRef = useRef<{
+    lastCheck: number;
+    cachedJob: ProcessingJob | null;
+  }>({ lastCheck: 0, cachedJob: null });
+  
+  const CACHE_DURATION = 30000; // 30 segundos de cache
 
-  // Verificar si hay un trabajo activo al cargar - OPTIMIZADO
+  // Verificar si hay un trabajo activo al cargar - OPTIMIZADO con cache
   useEffect(() => {
-    let isMounted = true; // Prevenir actualizaciones de estado en componentes desmontados
+    let isMounted = true;
+    let timeoutId: NodeJS.Timeout;
     
     const checkActiveJob = async () => {
       try {
+        // Verificar cache primero
+        const now = Date.now();
+        if (now - cacheRef.current.lastCheck < CACHE_DURATION) {
+          console.log('Using cached active job data');
+          if (isMounted) {
+            setActiveJob(cacheRef.current.cachedJob);
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        console.log('Checking for active processing job...');
+
         const { data: { user } } = await supabase.auth.getUser();
         if (!user || !isMounted) {
           setIsLoading(false);
@@ -48,6 +71,12 @@ export const useProcessingPersistence = () => {
           return;
         }
 
+        // Actualizar cache
+        cacheRef.current = {
+          lastCheck: now,
+          cachedJob: data && data.length > 0 ? data[0] as ProcessingJob : null
+        };
+
         if (data && data.length > 0 && isMounted) {
           const jobData = data[0] as ProcessingJob;
           setActiveJob(jobData);
@@ -57,10 +86,13 @@ export const useProcessingPersistence = () => {
           const currentTime = Date.now();
           const elapsedMinutes = Math.floor((currentTime - startTime) / 60000);
           
-          toast({
-            title: "Trabajo en progreso recuperado",
-            description: `Continuando procesamiento de "${jobData.project_title}" (${elapsedMinutes} min transcurridos)`,
-          });
+          // Solo mostrar toast si es una recuperación real (no cache)
+          if (now - cacheRef.current.lastCheck >= CACHE_DURATION) {
+            toast({
+              title: "Trabajo en progreso recuperado",
+              description: `Continuando procesamiento de "${jobData.project_title}" (${elapsedMinutes} min transcurridos)`,
+            });
+          }
         }
       } catch (error) {
         console.error('Error in checkActiveJob:', error);
@@ -69,11 +101,13 @@ export const useProcessingPersistence = () => {
       }
     };
 
+    // Verificar inmediatamente
     checkActiveJob();
 
-    // Cleanup para prevenir memory leaks
+    // Limpiar timeout si el componente se desmonta
     return () => {
       isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
     };
   }, []); // Solo ejecutar una vez al montar
 
@@ -105,6 +139,10 @@ export const useProcessingPersistence = () => {
 
       const jobData = data as ProcessingJob;
       setActiveJob(jobData);
+      
+      // Limpiar cache para forzar actualización
+      cacheRef.current = { lastCheck: 0, cachedJob: jobData };
+      
       return jobData.request_id;
     } catch (error) {
       console.error('Error in createJob:', error);
@@ -133,6 +171,9 @@ export const useProcessingPersistence = () => {
         webhook_confirmed_at: new Date().toISOString(),
         progress: 10 
       } : null);
+      
+      // Limpiar cache
+      cacheRef.current.lastCheck = 0;
     } catch (error) {
       console.error('Error in confirmWebhookReceived:', error);
     }
@@ -151,6 +192,9 @@ export const useProcessingPersistence = () => {
       }
 
       setActiveJob(prev => prev ? { ...prev, progress } : null);
+      
+      // Limpiar cache
+      cacheRef.current.lastCheck = 0;
     } catch (error) {
       console.error('Error in updateJobProgress:', error);
     }
@@ -204,6 +248,9 @@ export const useProcessingPersistence = () => {
         result_url: resultUrl,
         error_message: errorMessage
       } : null);
+      
+      // Limpiar cache
+      cacheRef.current = { lastCheck: 0, cachedJob: null };
     } catch (error) {
       console.error('Error in completeJob:', error);
     }
@@ -211,6 +258,8 @@ export const useProcessingPersistence = () => {
 
   const clearActiveJob = useCallback(() => {
     setActiveJob(null);
+    // Limpiar cache
+    cacheRef.current = { lastCheck: 0, cachedJob: null };
   }, []);
 
   return {
@@ -221,7 +270,6 @@ export const useProcessingPersistence = () => {
     updateJobProgress,
     checkJobCompletion,
     completeJob,
-    clearActiveJob,
-    checkActiveJob: () => {} // Función vacía para compatibilidad
+    clearActiveJob
   };
 };
