@@ -307,12 +307,14 @@ export type Database = {
           id: string
           progress: number
           project_title: string
+          request_id: string
           result_url: string | null
           started_at: string
           status: string
           total_files: number
           updated_at: string
           user_id: string
+          webhook_confirmed_at: string | null
           webhook_data: Json | null
         }
         Insert: {
@@ -322,12 +324,14 @@ export type Database = {
           id?: string
           progress?: number
           project_title: string
+          request_id: string
           result_url?: string | null
           started_at?: string
           status?: string
           total_files: number
           updated_at?: string
           user_id: string
+          webhook_confirmed_at?: string | null
           webhook_data?: Json | null
         }
         Update: {
@@ -337,12 +341,14 @@ export type Database = {
           id?: string
           progress?: number
           project_title?: string
+          request_id?: string
           result_url?: string | null
           started_at?: string
           status?: string
           total_files?: number
           updated_at?: string
           user_id?: string
+          webhook_confirmed_at?: string | null
           webhook_data?: Json | null
         }
         Relationships: []

@@ -14,6 +14,8 @@ export interface ProcessingJob {
   result_url?: string;
   error_message?: string;
   webhook_data?: any;
+  request_id: string;
+  webhook_confirmed_at?: string;
 }
 
 export const useProcessingPersistence = () => {
@@ -49,12 +51,17 @@ export const useProcessingPersistence = () => {
       }
 
       if (data && data.length > 0) {
-        // Cast the data to ProcessingJob type
         const jobData = data[0] as ProcessingJob;
         setActiveJob(jobData);
+        
+        // Calcular tiempo transcurrido
+        const startTime = new Date(jobData.started_at).getTime();
+        const currentTime = Date.now();
+        const elapsedMinutes = Math.floor((currentTime - startTime) / 60000);
+        
         toast({
           title: "Trabajo en progreso recuperado",
-          description: `Continuando procesamiento de "${jobData.project_title}"`,
+          description: `Continuando procesamiento de "${jobData.project_title}" (${elapsedMinutes} min transcurridos)`,
         });
       }
     } catch (error) {
@@ -69,6 +76,9 @@ export const useProcessingPersistence = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return null;
 
+      // Generar request_id único
+      const requestId = `req_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
       const { data, error } = await supabase
         .from('processing_jobs')
         .insert({
@@ -76,7 +86,8 @@ export const useProcessingPersistence = () => {
           project_title: projectTitle,
           total_files: totalFiles,
           status: 'processing',
-          progress: 0
+          progress: 0,
+          request_id: requestId
         })
         .select()
         .single();
@@ -86,22 +97,47 @@ export const useProcessingPersistence = () => {
         return null;
       }
 
-      // Cast the data to ProcessingJob type
       const jobData = data as ProcessingJob;
       setActiveJob(jobData);
-      return jobData.id;
+      return jobData.request_id;
     } catch (error) {
       console.error('Error in createJob:', error);
       return null;
     }
   };
 
-  const updateJobProgress = async (jobId: string, progress: number) => {
+  const confirmWebhookReceived = async (requestId: string) => {
+    try {
+      const { error } = await supabase
+        .from('processing_jobs')
+        .update({ 
+          webhook_confirmed_at: new Date().toISOString(),
+          progress: 10,
+          updated_at: new Date().toISOString() 
+        })
+        .eq('request_id', requestId);
+
+      if (error) {
+        console.error('Error confirming webhook:', error);
+        return;
+      }
+
+      setActiveJob(prev => prev ? { 
+        ...prev, 
+        webhook_confirmed_at: new Date().toISOString(),
+        progress: 10 
+      } : null);
+    } catch (error) {
+      console.error('Error in confirmWebhookReceived:', error);
+    }
+  };
+
+  const updateJobProgress = async (requestId: string, progress: number) => {
     try {
       const { error } = await supabase
         .from('processing_jobs')
         .update({ progress, updated_at: new Date().toISOString() })
-        .eq('id', jobId);
+        .eq('request_id', requestId);
 
       if (error) {
         console.error('Error updating job progress:', error);
@@ -114,7 +150,27 @@ export const useProcessingPersistence = () => {
     }
   };
 
-  const completeJob = async (jobId: string, resultUrl?: string, errorMessage?: string) => {
+  const checkJobCompletion = async (requestId: string): Promise<ProcessingJob | null> => {
+    try {
+      const { data, error } = await supabase
+        .from('processing_jobs')
+        .select('*')
+        .eq('request_id', requestId)
+        .single();
+
+      if (error) {
+        console.error('Error checking job completion:', error);
+        return null;
+      }
+
+      return data as ProcessingJob;
+    } catch (error) {
+      console.error('Error in checkJobCompletion:', error);
+      return null;
+    }
+  };
+
+  const completeJob = async (requestId: string, resultUrl?: string, errorMessage?: string) => {
     try {
       const status = errorMessage ? 'error' : 'completed';
       const { error } = await supabase
@@ -127,7 +183,7 @@ export const useProcessingPersistence = () => {
           error_message: errorMessage,
           updated_at: new Date().toISOString()
         })
-        .eq('id', jobId);
+        .eq('request_id', requestId);
 
       if (error) {
         console.error('Error completing job:', error);
@@ -155,7 +211,9 @@ export const useProcessingPersistence = () => {
     activeJob,
     isLoading,
     createJob,
+    confirmWebhookReceived,
     updateJobProgress,
+    checkJobCompletion,
     completeJob,
     clearActiveJob,
     checkActiveJob

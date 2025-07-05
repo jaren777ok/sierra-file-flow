@@ -8,6 +8,8 @@ import FuturisticAIProcessingScreen from './upload-steps/FuturisticAIProcessingS
 import ResultScreen from './upload-steps/ResultScreen';
 import StepIndicator from './upload-steps/StepIndicator';
 import { Card, CardContent } from '@/components/ui/card';
+import { AlertCircle, Clock } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const MultiStepUploader = () => {
   const {
@@ -26,27 +28,54 @@ const MultiStepUploader = () => {
     activeJob
   } = useMultiStepUpload();
 
-  // Efecto para detectar trabajo activo y saltar al paso de procesamiento
+  // Efecto para detectar trabajo activo y manejar la recuperación
   useEffect(() => {
     if (activeJob && activeJob.status === 'processing' && currentStep < 6) {
-      // Si hay un trabajo activo, saltar al paso de procesamiento
-      setProjectName(activeJob.project_title);
-      // Ir directamente al paso 6 (procesamiento)
-      for (let i = currentStep; i < 6; i++) {
+      console.log('Active job detected, redirecting to processing screen');
+      
+      // Si hay un trabajo activo, configurar el estado y saltar al procesamiento
+      if (!projectName) {
+        setProjectName(activeJob.project_title);
+      }
+      
+      // Saltar directamente al paso 6 (procesamiento)
+      while (currentStep < 6) {
         nextStep();
       }
     }
   }, [activeJob, currentStep]);
 
+  // Prevenir navegación si hay trabajo activo
+  const canNavigate = !activeJob || activeJob.status !== 'processing';
+
   const renderStep = () => {
     switch (currentStep) {
       case 0:
         return (
-          <ProjectNameStep
-            projectName={projectName}
-            setProjectName={setProjectName}
-            onNext={nextStep}
-          />
+          <div>
+            {/* Alerta si hay trabajo activo */}
+            {activeJob && activeJob.status === 'processing' && (
+              <Alert className="mb-6 border-amber-200 bg-amber-50">
+                <AlertCircle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    <span>
+                      Tienes un trabajo en procesamiento: "<strong>{activeJob.project_title}</strong>". 
+                      Debes esperar a que termine antes de iniciar uno nuevo.
+                    </span>
+                  </div>
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            <ProjectNameStep
+              projectName={projectName}
+              setProjectName={setProjectName}
+              onNext={nextStep}
+              disabled={!canNavigate}
+            />
+          </div>
         );
       case 1:
       case 2:
@@ -61,6 +90,7 @@ const MultiStepUploader = () => {
             onFilesChange={(files) => updateAreaFiles(area.key, files)}
             onNext={nextStep}
             onPrev={prevStep}
+            disabled={!canNavigate}
           />
         );
       case 5:
@@ -72,6 +102,8 @@ const MultiStepUploader = () => {
             totalFiles={getTotalFiles()}
             onNext={processAllFiles}
             onPrev={prevStep}
+            disabled={!canNavigate}
+            activeJob={activeJob}
           />
         );
       case 6:
@@ -101,6 +133,36 @@ const MultiStepUploader = () => {
       {currentStep < 6 && (
         <div className="mb-8">
           <StepIndicator currentStep={currentStep} />
+        </div>
+      )}
+
+      {/* Indicador de trabajo activo en el header */}
+      {activeJob && activeJob.status === 'processing' && currentStep < 6 && (
+        <div className="mb-6">
+          <Alert className="border-sierra-teal/30 bg-sierra-teal/5">
+            <Clock className="h-4 w-4 text-sierra-teal" />
+            <AlertDescription className="text-sierra-teal">
+              <div className="flex items-center justify-between">
+                <div>
+                  <strong>Trabajo en progreso:</strong> {activeJob.project_title}
+                  <div className="text-sm opacity-75 mt-1">
+                    Iniciado: {new Date(activeJob.started_at).toLocaleString()}
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    // Saltar al paso de procesamiento
+                    while (currentStep < 6) {
+                      nextStep();
+                    }
+                  }}
+                  className="bg-sierra-teal text-white px-4 py-2 rounded-lg text-sm hover:bg-sierra-teal/80 transition-colors"
+                >
+                  Ver Progreso
+                </button>
+              </div>
+            </AlertDescription>
+          </Alert>
         </div>
       )}
 

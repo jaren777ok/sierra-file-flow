@@ -1,71 +1,96 @@
 
-import { useEffect, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { useProcessingPersistence } from '@/hooks/useProcessingPersistence';
+import { useEffect, useRef, useState } from 'react';
+import { useProcessingPersistence } from './useProcessingPersistence';
 import { useToast } from '@/hooks/use-toast';
-import { useSavedFiles } from '@/hooks/useSavedFiles';
 
-export const useJobPolling = (jobId?: string) => {
-  const { completeJob, checkActiveJob } = useProcessingPersistence();
-  const { saveProcessedFile } = useSavedFiles();
+interface UseJobPollingProps {
+  requestId: string | null;
+  onJobCompleted: (resultUrl: string) => void;
+  onJobError: (errorMessage: string) => void;
+}
+
+export const useJobPolling = ({ requestId, onJobCompleted, onJobError }: UseJobPollingProps) => {
+  const [isPolling, setIsPolling] = useState(false);
+  const [pollStartTime, setPollStartTime] = useState<number | null>(null);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  const { checkJobCompletion } = useProcessingPersistence();
   const { toast } = useToast();
-  const pollingRef = useRef<NodeJS.Timeout>();
 
+  const INITIAL_WAIT_TIME = 5 * 60 * 1000; // 5 minutos
+  const POLLING_INTERVAL = 60 * 1000; // 1 minuto
+  const TIMEOUT_DURATION = 15 * 60 * 1000; // 15 minutos
+
+  const startPolling = () => {
+    console.log('Starting polling for request:', requestId);
+    
+    if (!requestId || isPolling) return;
+    
+    setIsPolling(true);
+    setPollStartTime(Date.now());
+
+    // Esperar 5 minutos antes de comenzar el polling
+    timeoutRef.current = setTimeout(() => {
+      console.log('Initial wait complete, starting periodic polling');
+      
+      // Comenzar polling cada minuto
+      intervalRef.current = setInterval(async () => {
+        console.log('Polling for job completion...');
+        
+        const job = await checkJobCompletion(requestId);
+        if (job) {
+          if (job.result_url) {
+            console.log('Job completed with result URL:', job.result_url);
+            stopPolling();
+            onJobCompleted(job.result_url);
+          } else if (job.error_message) {
+            console.log('Job completed with error:', job.error_message);
+            stopPolling();
+            onJobError(job.error_message);
+          }
+        }
+      }, POLLING_INTERVAL);
+
+      // Timeout después de 15 minutos total
+      setTimeout(() => {
+        if (isPolling) {
+          console.log('Job polling timeout reached');
+          stopPolling();
+          onJobError('El procesamiento tardó más de 15 minutos. Por favor, intenta nuevamente.');
+        }
+      }, TIMEOUT_DURATION - INITIAL_WAIT_TIME);
+      
+    }, INITIAL_WAIT_TIME);
+  };
+
+  const stopPolling = () => {
+    console.log('Stopping polling');
+    setIsPolling(false);
+    setPollStartTime(null);
+    
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  };
+
+  // Cleanup al desmontar
   useEffect(() => {
-    if (!jobId) return;
-
-    // Polling cada 30 segundos para verificar si el webhook ha actualizado el trabajo
-    pollingRef.current = setInterval(async () => {
-      try {
-        const { data, error } = await supabase
-          .from('processing_jobs')
-          .select('*')
-          .eq('id', jobId)
-          .single();
-
-        if (error) {
-          console.error('Error polling job:', error);
-          return;
-        }
-
-        if (data && data.status !== 'processing') {
-          // El trabajo se completó
-          if (data.status === 'completed') {
-            if (data.result_url) {
-              // Guardar en archivos procesados
-              await saveProcessedFile(data.project_title, 'multi-area', data.result_url);
-              toast({
-                title: "¡Procesamiento Completado!",
-                description: "Tu informe IA está listo para descargar.",
-              });
-            }
-          } else if (data.status === 'error') {
-            toast({
-              title: "Error en Procesamiento",
-              description: data.error_message || "Error desconocido",
-              variant: "destructive",
-            });
-          }
-
-          // Limpiar polling
-          if (pollingRef.current) {
-            clearInterval(pollingRef.current);
-          }
-
-          // Actualizar estado local
-          await checkActiveJob();
-        }
-      } catch (error) {
-        console.error('Error in job polling:', error);
-      }
-    }, 30000); // 30 segundos
-
     return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
+      stopPolling();
     };
-  }, [jobId, completeJob, checkActiveJob, saveProcessedFile, toast]);
+  }, []);
 
-  return null;
+  return {
+    isPolling,
+    startPolling,
+    stopPolling,
+    pollStartTime
+  };
 };

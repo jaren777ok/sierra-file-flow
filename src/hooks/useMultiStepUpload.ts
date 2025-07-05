@@ -1,7 +1,9 @@
+
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useSavedFiles } from '@/hooks/useSavedFiles';
 import { useProcessingPersistence } from '@/hooks/useProcessingPersistence';
+import { useJobPolling } from '@/hooks/useJobPolling';
 
 export interface AreaFiles {
   comercial: File[];
@@ -16,7 +18,7 @@ export interface ProcessingStatus {
   timeElapsed: number;
   message?: string;
   resultUrl?: string;
-  jobId?: string;
+  requestId?: string;
 }
 
 export const useMultiStepUpload = () => {
@@ -36,10 +38,64 @@ export const useMultiStepUpload = () => {
 
   const { toast } = useToast();
   const { saveProcessedFile } = useSavedFiles();
-  const { activeJob, createJob, updateJobProgress, completeJob, clearActiveJob } = useProcessingPersistence();
+  const { 
+    activeJob, 
+    createJob, 
+    confirmWebhookReceived, 
+    updateJobProgress, 
+    completeJob, 
+    clearActiveJob 
+  } = useProcessingPersistence();
+
+  // Hook de polling para verificar completación
+  const { startPolling, stopPolling } = useJobPolling({
+    requestId: processingStatus.requestId || null,
+    onJobCompleted: async (resultUrl: string) => {
+      console.log('Job completed with URL:', resultUrl);
+      
+      if (processingStatus.requestId) {
+        await completeJob(processingStatus.requestId, resultUrl);
+        await saveProcessedFile(projectName || activeJob?.project_title || '', 'multi-area', resultUrl);
+      }
+      
+      setProcessingStatus({
+        status: 'completed',
+        progress: 100,
+        timeElapsed: 0,
+        message: '¡Informe IA generado exitosamente!',
+        resultUrl: resultUrl,
+        requestId: processingStatus.requestId
+      });
+
+      toast({
+        title: "¡Informe IA Completado!",
+        description: "Tu informe ha sido procesado y está listo para descargar.",
+      });
+    },
+    onJobError: async (errorMessage: string) => {
+      console.log('Job completed with error:', errorMessage);
+      
+      if (processingStatus.requestId) {
+        await completeJob(processingStatus.requestId, undefined, errorMessage);
+      }
+      
+      setProcessingStatus({
+        status: 'error',
+        progress: 0,
+        timeElapsed: 0,
+        message: errorMessage,
+        requestId: processingStatus.requestId
+      });
+
+      toast({
+        title: "Error",
+        description: `Error al procesar archivos: ${errorMessage}`,
+        variant: "destructive",
+      });
+    }
+  });
 
   const WEBHOOK_URL = 'https://primary-production-f0d1.up.railway.app/webhook-test/sierra';
-  const TIMEOUT_DURATION = 15 * 60 * 1000; // 15 minutos
 
   const areas = [
     { key: 'comercial' as keyof AreaFiles, name: 'Comercial', icon: '💼' },
@@ -95,9 +151,9 @@ export const useMultiStepUpload = () => {
       return;
     }
 
-    // Crear trabajo en Supabase
-    const jobId = await createJob(projectName, getTotalFiles());
-    if (!jobId) {
+    // Crear trabajo en Supabase y obtener request_id
+    const requestId = await createJob(projectName, getTotalFiles());
+    if (!requestId) {
       toast({
         title: "Error",
         description: "No se pudo crear el trabajo de procesamiento",
@@ -111,32 +167,31 @@ export const useMultiStepUpload = () => {
       progress: 5,
       timeElapsed: 0,
       message: 'Preparando archivos...',
-      jobId
+      requestId
     });
 
     try {
       const formData = new FormData();
       let fileIndex = 0;
 
-      // Agregar archivos con nombres específicos del área directamente en FormData
+      // Agregar archivos con nombres específicos del área
       Object.entries(areaFiles).forEach(([areaKey, files]) => {
         const areaName = areas.find(a => a.key === areaKey)?.name || areaKey;
         files.forEach((file, index) => {
-          // El nombre del archivo se pone directamente en el FormData, no en el JSON
           const fileName = `${areaName}_${index + 1}.${file.name.split('.').pop()}`;
           formData.append(fileName, file);
           fileIndex++;
         });
       });
 
-      // Agregar metadatos como campos separados
+      // Agregar metadatos incluyendo el request_id
       formData.append('area', 'multi-area');
       formData.append('fileCount', fileIndex.toString());
       formData.append('timestamp', new Date().toISOString());
       formData.append('titulo', projectName.trim());
-      formData.append('jobId', jobId);
+      formData.append('request_id', requestId); // Importante: enviar request_id
 
-      await updateJobProgress(jobId, 15);
+      await updateJobProgress(requestId, 15);
       setProcessingStatus(prev => ({
         ...prev,
         status: 'processing',
@@ -144,77 +199,32 @@ export const useMultiStepUpload = () => {
         message: 'Enviando archivos a la IA...'
       }));
 
-      console.log(`Procesando ${fileIndex} archivos para proyecto: ${projectName}`);
+      console.log(`Procesando ${fileIndex} archivos para proyecto: ${projectName} con request_id: ${requestId}`);
 
-      const uploadPromise = fetch(WEBHOOK_URL, {
+      // Enviar a webhook - ahora solo esperamos confirmación inmediata
+      const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
         body: formData,
       });
 
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout: La operación tardó más de 15 minutos')), TIMEOUT_DURATION);
-      });
-
-      const response = await Promise.race([uploadPromise, timeoutPromise]) as Response;
-
-      await updateJobProgress(jobId, 60);
-      setProcessingStatus(prev => ({
-        ...prev,
-        progress: 60,
-        message: 'IA procesando archivos...'
-      }));
-
       if (response.ok) {
-        const contentType = response.headers.get('content-type');
+        // Webhook confirmó recepción inmediatamente
+        await confirmWebhookReceived(requestId);
         
-        if (contentType && contentType.includes('application/json')) {
-          const jsonResponse = await response.json();
-          console.log('Respuesta JSON recibida:', jsonResponse);
-          
-          let driveUrl = null;
-          if (Array.isArray(jsonResponse) && jsonResponse.length > 0) {
-            if (jsonResponse[0].EXITO) {
-              driveUrl = jsonResponse[0].EXITO;
-            }
-          }
-          
-          if (driveUrl) {
-            await saveProcessedFile(projectName, 'multi-area', driveUrl);
-            await completeJob(jobId, driveUrl);
-            
-            setProcessingStatus({
-              status: 'completed',
-              progress: 100,
-              timeElapsed: 0,
-              message: '¡Informe IA generado exitosamente!',
-              resultUrl: driveUrl,
-              jobId
-            });
+        setProcessingStatus(prev => ({
+          ...prev,
+          progress: 20,
+          message: 'Webhook confirmada, IA procesando archivos...'
+        }));
 
-            toast({
-              title: "¡Informe IA Completado!",
-              description: "Tu informe ha sido procesado y está listo para descargar.",
-            });
-          } else {
-            await updateJobProgress(jobId, 90);
-            setProcessingStatus(prev => ({
-              ...prev,
-              progress: 90,
-              message: 'Finalizando procesamiento...'
-            }));
-            
-            setTimeout(async () => {
-              await completeJob(jobId);
-              setProcessingStatus({
-                status: 'completed',
-                progress: 100,
-                timeElapsed: 0,
-                message: '¡Procesamiento completado! Revisa "Archivos Guardados".',
-                jobId
-              });
-            }, 3000);
-          }
-        }
+        // Iniciar polling inteligente
+        startPolling();
+        
+        toast({
+          title: "Procesamiento Iniciado",
+          description: "La IA está procesando tus archivos. Puedes cerrar la app y regresar más tarde.",
+        });
+
       } else {
         throw new Error(`Error del servidor: ${response.status}`);
       }
@@ -223,14 +233,14 @@ export const useMultiStepUpload = () => {
       console.error('Error al procesar archivos:', error);
       
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      await completeJob(jobId, undefined, errorMessage);
+      await completeJob(requestId, undefined, errorMessage);
       
       setProcessingStatus({
         status: 'error',
         progress: 0,
         timeElapsed: 0,
         message: errorMessage,
-        jobId
+        requestId
       });
 
       toast({
@@ -242,6 +252,7 @@ export const useMultiStepUpload = () => {
   };
 
   const resetFlow = () => {
+    stopPolling();
     setCurrentStep(0);
     setProjectName('');
     setAreaFiles({

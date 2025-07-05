@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Sparkles, Clock, Brain, Zap, Cpu, Activity, Database, FileText } from 'lucide-react';
+import { Sparkles, Clock, Brain, Zap, Cpu, Activity, Database, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 import { ProcessingStatus } from '@/hooks/useMultiStepUpload';
 import { ProcessingJob } from '@/hooks/useProcessingPersistence';
 
@@ -16,14 +16,16 @@ const FuturisticAIProcessingScreen = ({
   activeJob 
 }: FuturisticAIProcessingScreenProps) => {
   const [timeElapsed, setTimeElapsed] = useState(0);
-  const [fakeProgress, setFakeProgress] = useState(processingStatus.progress || 0);
+  const [smartProgress, setSmartProgress] = useState(processingStatus.progress || 0);
   const [aiThoughts, setAiThoughts] = useState('Inicializando sistema de IA...');
+  const [currentPhase, setCurrentPhase] = useState<'webhook' | 'processing' | 'polling' | 'generating' | 'completed'>('webhook');
   const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([]);
 
   const MAX_TIME = 15 * 60; // 15 minutos en segundos
   
   // Calcular tiempo basado en el trabajo activo si existe
   const startTime = activeJob ? new Date(activeJob.started_at).getTime() : Date.now();
+  const webhookConfirmedTime = activeJob?.webhook_confirmed_at ? new Date(activeJob.webhook_confirmed_at).getTime() : null;
 
   useEffect(() => {
     // Timer real basado en el tiempo de inicio del trabajo
@@ -36,22 +38,37 @@ const FuturisticAIProcessingScreen = ({
   }, [startTime]);
 
   useEffect(() => {
-    // Progreso ficticio que avanza gradualmente hasta 90%
-    if (fakeProgress < 90) {
-      const progressTimer = setInterval(() => {
-        setFakeProgress(prev => {
-          const newProgress = Math.min(prev + 0.5, 90);
-          return newProgress;
-        });
-      }, 2000); // Incrementa cada 2 segundos
+    // Lógica de progreso inteligente basada en fases
+    const updatePhaseAndProgress = () => {
+      const elapsedMinutes = timeElapsed / 60;
+      
+      if (!webhookConfirmedTime) {
+        // Fase 1: Esperando confirmación de webhook (0-30s)
+        setCurrentPhase('webhook');
+        setSmartProgress(Math.min(10, (timeElapsed / 30) * 10));
+      } else {
+        const webhookElapsed = (Date.now() - webhookConfirmedTime) / 1000;
+        const webhookMinutes = webhookElapsed / 60;
+        
+        if (webhookMinutes < 5) {
+          // Fase 2: Procesamiento inicial (primeros 5 minutos)
+          setCurrentPhase('processing');
+          setSmartProgress(10 + (webhookMinutes / 5) * 40); // 10% a 50%
+        } else {
+          // Fase 3: Polling y generación (después de 5 minutos)
+          setCurrentPhase('polling');
+          const remainingProgress = Math.min(40, ((webhookMinutes - 5) / 10) * 40);
+          setSmartProgress(50 + remainingProgress); // 50% a 90%
+        }
+      }
+    };
 
-      return () => clearInterval(progressTimer);
-    }
-  }, [fakeProgress]);
+    updatePhaseAndProgress();
+  }, [timeElapsed, webhookConfirmedTime]);
 
   useEffect(() => {
     // Generar partículas flotantes
-    const newParticles = Array.from({ length: 20 }, (_, i) => ({
+    const newParticles = Array.from({ length: 25 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
@@ -61,29 +78,46 @@ const FuturisticAIProcessingScreen = ({
   }, []);
 
   useEffect(() => {
-    // Pensamientos de IA que cambian dinámicamente
-    const thoughts = [
-      'Analizando estructura de documentos...',
-      'Extrayendo información clave...',
-      'Procesando datos con algoritmos avanzados...',
-      'Identificando patrones y tendencias...',
-      'Generando insights inteligentes...',
-      'Optimizando resultados finales...',
-      'Aplicando modelos de machine learning...',
-      'Sintetizando información compleja...',
-      'Creando reporte ejecutivo...',
-      'Validando coherencia de datos...',
-      'Refinando análisis predictivo...',
-      'Integrando múltiples fuentes de datos...'
-    ];
+    // Pensamientos de IA dinámicos según la fase
+    const thoughts = {
+      webhook: [
+        'Estableciendo conexión con sistemas de IA...',
+        'Verificando integridad de archivos...',
+        'Inicializando motores de procesamiento...',
+      ],
+      processing: [
+        'Analizando estructura de documentos...',
+        'Extrayendo información clave...',
+        'Aplicando algoritmos de comprensión...',
+        'Identificando patrones empresariales...',
+      ],
+      polling: [
+        'Generando insights inteligentes...',
+        'Sintetizando información compleja...',
+        'Creando análisis predictivo...',
+        'Optimizando resultados finales...',
+      ],
+      generating: [
+        'Compilando informe ejecutivo...',
+        'Aplicando formato profesional...',
+        'Validando coherencia de datos...',
+        'Preparando entrega final...',
+      ],
+      completed: [
+        '¡Análisis completado exitosamente!',
+        'Informe listo para descarga',
+      ]
+    };
 
+    const currentThoughts = thoughts[currentPhase] || thoughts.processing;
+    
     const thoughtTimer = setInterval(() => {
-      const randomThought = thoughts[Math.floor(Math.random() * thoughts.length)];
+      const randomThought = currentThoughts[Math.floor(Math.random() * currentThoughts.length)];
       setAiThoughts(randomThought);
     }, 3000);
 
     return () => clearInterval(thoughtTimer);
-  }, []);
+  }, [currentPhase]);
 
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -93,6 +127,28 @@ const FuturisticAIProcessingScreen = ({
 
   const timeRemaining = Math.max(0, MAX_TIME - timeElapsed);
   const timeProgress = (timeElapsed / MAX_TIME) * 100;
+
+  const getPhaseColor = () => {
+    switch (currentPhase) {
+      case 'webhook': return 'from-blue-400 to-cyan-400';
+      case 'processing': return 'from-sierra-teal to-cyan-400';
+      case 'polling': return 'from-emerald-400 to-sierra-teal';
+      case 'generating': return 'from-amber-400 to-emerald-400';
+      case 'completed': return 'from-green-400 to-emerald-400';
+      default: return 'from-sierra-teal to-cyan-400';
+    }
+  };
+
+  const getPhaseMessage = () => {
+    switch (currentPhase) {
+      case 'webhook': return 'Conectando con sistemas de IA...';
+      case 'processing': return 'IA analizando documentos...';
+      case 'polling': return 'Generando insights avanzados...';
+      case 'generating': return 'Compilando informe final...';
+      case 'completed': return '¡Procesamiento completado!';
+      default: return 'Procesando con IA...';
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-sierra-teal/10 to-slate-900 relative overflow-hidden">
@@ -118,7 +174,7 @@ const FuturisticAIProcessingScreen = ({
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-8">
         {/* Cerebro IA Central */}
         <div className="relative mb-12">
-          <div className="w-40 h-40 mx-auto rounded-full bg-gradient-to-r from-sierra-teal/30 to-cyan-400/30 flex items-center justify-center relative overflow-hidden border border-sierra-teal/50">
+          <div className={`w-40 h-40 mx-auto rounded-full bg-gradient-to-r ${getPhaseColor()} flex items-center justify-center relative overflow-hidden border-2 border-sierra-teal/50 opacity-90`}>
             {/* Ondas de energía */}
             <div className="absolute inset-0 rounded-full border-2 border-sierra-teal/20 animate-ping"></div>
             <div className="absolute inset-4 rounded-full border-2 border-sierra-teal/30 animate-ping" style={{ animationDelay: '0.5s' }}></div>
@@ -126,7 +182,7 @@ const FuturisticAIProcessingScreen = ({
             
             {/* Icono central rotando */}
             <div className="relative z-10 animate-spin" style={{ animationDuration: '8s' }}>
-              <Brain className="h-16 w-16 text-sierra-teal" />
+              <Brain className="h-16 w-16 text-white" />
             </div>
           </div>
           
@@ -152,18 +208,24 @@ const FuturisticAIProcessingScreen = ({
           </h1>
           <div className="inline-flex items-center gap-2 bg-sierra-teal/20 px-6 py-3 rounded-full border border-sierra-teal/30 backdrop-blur-sm">
             <Sparkles className="h-5 w-5 text-sierra-teal animate-pulse" />
-            <span className="text-sierra-teal font-mono text-lg">{projectName}</span>
+            <span className="text-sierra-teal font-mono text-lg">
+              {projectName || activeJob?.project_title || 'Procesando...'}
+            </span>
           </div>
         </div>
 
-        {/* Pensamientos de IA */}
+        {/* Estado actual y pensamientos de IA */}
         <div className="mb-8 text-center">
           <div className="bg-slate-900/50 backdrop-blur-sm border border-sierra-teal/30 rounded-xl p-6 max-w-lg">
             <div className="flex items-center gap-3 mb-3">
               <Brain className="h-5 w-5 text-sierra-teal animate-pulse" />
               <span className="text-sierra-teal font-mono text-sm">AI THOUGHTS</span>
+              {webhookConfirmedTime && (
+                <CheckCircle2 className="h-4 w-4 text-green-400" />
+              )}
             </div>
-            <p className="text-cyan-300 font-mono text-lg">{aiThoughts}</p>
+            <p className="text-cyan-300 font-mono text-lg mb-2">{aiThoughts}</p>
+            <p className="text-sierra-teal text-sm font-medium">{getPhaseMessage()}</p>
           </div>
         </div>
 
@@ -172,13 +234,13 @@ const FuturisticAIProcessingScreen = ({
           <div className="bg-slate-900/50 backdrop-blur-sm border border-sierra-teal/30 rounded-2xl p-6">
             <div className="flex justify-between items-center mb-4">
               <span className="text-sierra-teal font-mono text-lg">PROGRESO</span>
-              <span className="text-white font-mono text-2xl">{Math.round(fakeProgress)}%</span>
+              <span className="text-white font-mono text-2xl">{Math.round(smartProgress)}%</span>
             </div>
             
             <div className="relative h-4 bg-slate-800 rounded-full overflow-hidden border border-sierra-teal/30">
               <div 
-                className="h-full bg-gradient-to-r from-sierra-teal via-cyan-400 to-emerald-400 transition-all duration-1000 relative"
-                style={{ width: `${fakeProgress}%` }}
+                className={`h-full bg-gradient-to-r ${getPhaseColor()} transition-all duration-1000 relative`}
+                style={{ width: `${smartProgress}%` }}
               >
                 {/* Efecto de brillo */}
                 <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
@@ -186,6 +248,13 @@ const FuturisticAIProcessingScreen = ({
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse" 
                      style={{ animationDuration: '2s' }}></div>
               </div>
+            </div>
+            
+            {/* Indicador de fase */}
+            <div className="mt-3 flex justify-center">
+              <span className="text-xs text-sierra-teal/70 font-mono uppercase tracking-wider">
+                Fase: {currentPhase}
+              </span>
             </div>
           </div>
         </div>
@@ -210,7 +279,7 @@ const FuturisticAIProcessingScreen = ({
         </div>
 
         {/* Barra de tiempo límite */}
-        <div className="w-full max-w-xl">
+        <div className="w-full max-w-xl mb-8">
           <div className="bg-slate-900/50 backdrop-blur-sm border border-amber-400/30 rounded-xl p-4">
             <div className="flex justify-between items-center mb-2">
               <span className="text-amber-400 font-mono text-sm">TIEMPO LÍMITE: 15:00</span>
@@ -226,11 +295,17 @@ const FuturisticAIProcessingScreen = ({
         </div>
 
         {/* Mensaje de persistencia */}
-        <div className="mt-8 text-center">
-          <p className="text-cyan-300/70 font-mono text-sm max-w-md">
-            Este proceso continuará ejecutándose incluso si cierras esta ventana. 
-            Puedes regresar en cualquier momento para ver el progreso.
-          </p>
+        <div className="text-center">
+          <div className="bg-slate-900/30 backdrop-blur-sm border border-sierra-teal/20 rounded-xl p-4 max-w-md">
+            <div className="flex items-center justify-center gap-2 mb-2">
+              <CheckCircle2 className="h-5 w-5 text-green-400" />
+              <span className="text-green-400 font-mono text-sm">PROCESO PERSISTENTE</span>
+            </div>
+            <p className="text-cyan-300/70 font-mono text-sm">
+              Este proceso continuará ejecutándose incluso si cierras esta ventana. 
+              Puedes regresar en cualquier momento para ver el progreso.
+            </p>
+          </div>
         </div>
       </div>
     </div>
