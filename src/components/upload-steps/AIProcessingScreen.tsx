@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Sparkles, Clock, Brain, Zap } from 'lucide-react';
 import { ProcessingStatus } from '@/hooks/useMultiStepUpload';
@@ -27,8 +28,6 @@ const AIProcessingScreen = ({ processingStatus, projectName }: AIProcessingScree
     switch (processingStatus.status) {
       case 'sending':
         return 'Subiendo archivos al servidor';
-      case 'tracking':
-        return 'Esperando que N8N inicie el procesamiento';
       case 'processing':
         return 'IA analizando y procesando datos';
       default:
@@ -40,8 +39,6 @@ const AIProcessingScreen = ({ processingStatus, projectName }: AIProcessingScree
     switch (processingStatus.status) {
       case 'sending':
         return <Zap className="h-8 w-8 text-sierra-teal animate-bounce" />;
-      case 'tracking':
-        return <Clock className="h-8 w-8 text-sierra-teal animate-pulse" />;
       case 'processing':
         return <Brain className="h-8 w-8 text-sierra-teal animate-pulse" />;
       default:

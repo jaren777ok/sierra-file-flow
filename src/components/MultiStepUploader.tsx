@@ -205,7 +205,6 @@ const MultiStepUploader = () => {
       {currentStep === 6 && (
         processingStatus.status === 'processing' || 
         processingStatus.status === 'sending' || 
-        processingStatus.status === 'tracking' ||
         processingStatus.status === 'timeout' ||
         processingStatus.status === 'completed' ||
         activeJob?.status === 'processing'
