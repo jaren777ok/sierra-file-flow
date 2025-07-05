@@ -49,10 +49,12 @@ export const useProcessingPersistence = () => {
       }
 
       if (data && data.length > 0) {
-        setActiveJob(data[0]);
+        // Cast the data to ProcessingJob type
+        const jobData = data[0] as ProcessingJob;
+        setActiveJob(jobData);
         toast({
           title: "Trabajo en progreso recuperado",
-          description: `Continuando procesamiento de "${data[0].project_title}"`,
+          description: `Continuando procesamiento de "${jobData.project_title}"`,
         });
       }
     } catch (error) {
@@ -84,8 +86,10 @@ export const useProcessingPersistence = () => {
         return null;
       }
 
-      setActiveJob(data);
-      return data.id;
+      // Cast the data to ProcessingJob type
+      const jobData = data as ProcessingJob;
+      setActiveJob(jobData);
+      return jobData.id;
     } catch (error) {
       console.error('Error in createJob:', error);
       return null;
@@ -132,7 +136,7 @@ export const useProcessingPersistence = () => {
 
       setActiveJob(prev => prev ? {
         ...prev,
-        status,
+        status: status as 'completed' | 'error',
         progress: errorMessage ? prev.progress : 100,
         completed_at: new Date().toISOString(),
         result_url: resultUrl,
