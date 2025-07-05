@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, RotateCcw, ExternalLink, Sparkles } from 'lucide-react';
+import { CheckCircle, Download, RotateCcw, ExternalLink, Sparkles, FileText } from 'lucide-react';
 import { ProcessingStatus } from '@/hooks/useMultiStepUpload';
 import { useToast } from '@/hooks/use-toast';
 
@@ -16,30 +15,36 @@ const ResultScreen = ({ processingStatus, onStartNew }: ResultScreenProps) => {
   const handleDownload = () => {
     if (processingStatus.resultUrl) {
       if (processingStatus.resultUrl.includes('drive.google.com')) {
-        // Open Google Drive link in new tab
+        // Para enlaces de Google Drive, abrir en nueva pestaña
         window.open(processingStatus.resultUrl, '_blank');
         toast({
-          title: "Enlace Abierto",
-          description: "Se ha abierto el enlace a Google Drive en una nueva pestaña.",
+          title: "📁 Archivo Abierto",
+          description: "Se ha abierto tu informe IA en Google Drive.",
         });
       } else if (processingStatus.resultUrl.startsWith('blob:')) {
-        // Direct download for blob URLs
+        // Para URLs blob, descarga directa
         const link = document.createElement('a');
         link.href = processingStatus.resultUrl;
-        link.download = 'informe-ia-procesado.zip';
+        link.download = `informe-ia-${Date.now()}.zip`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         toast({
-          title: "Descarga Iniciada",
+          title: "📥 Descarga Iniciada",
           description: "Tu informe IA se está descargando.",
         });
       } else {
-        // Try to open as link
-        window.open(processingStatus.resultUrl, '_blank');
+        // Para otras URLs, intentar descarga directa creando un enlace temporal
+        const link = document.createElement('a');
+        link.href = processingStatus.resultUrl;
+        link.download = `informe-ia-${Date.now()}.zip`;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
         toast({
-          title: "Enlace Abierto",
-          description: "Se ha abierto el enlace del archivo procesado.",
+          title: "📥 Descarga Iniciada",
+          description: "Tu informe IA se está descargando.",
         });
       }
     }
@@ -86,6 +91,31 @@ const ResultScreen = ({ processingStatus, onStartNew }: ResultScreenProps) => {
         </p>
       </div>
 
+      {/* File Download Card */}
+      {processingStatus.resultUrl && (
+        <div className="bg-gradient-to-r from-sierra-teal/10 to-sierra-teal/5 rounded-2xl p-6 mb-8 border border-sierra-teal/20">
+          <div className="flex items-center justify-center gap-4 mb-4">
+            <div className="w-16 h-16 rounded-xl bg-sierra-teal/20 flex items-center justify-center">
+              <FileText className="h-8 w-8 text-sierra-teal" />
+            </div>
+            <div className="text-left">
+              <h3 className="text-xl font-bold text-sierra-teal">Informe IA Generado</h3>
+              <p className="text-sierra-gray">Archivo procesado listo para descargar</p>
+            </div>
+          </div>
+          
+          <Button
+            onClick={handleDownload}
+            size="lg"
+            className="sierra-gradient hover:opacity-90 transition-all duration-300 px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 w-full md:w-auto"
+          >
+            <Download className="mr-2 h-5 w-5" />
+            Descargar Informe IA
+            <ExternalLink className="ml-2 h-4 w-4" />
+          </Button>
+        </div>
+      )}
+
       {/* Processing Stats */}
       <div className="bg-gradient-to-r from-sierra-teal/10 to-sierra-teal/5 rounded-2xl p-6 mb-8 border border-sierra-teal/20">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
@@ -111,24 +141,6 @@ const ResultScreen = ({ processingStatus, onStartNew }: ResultScreenProps) => {
 
       {/* Action Buttons */}
       <div className="space-y-4">
-        {processingStatus.resultUrl ? (
-          <Button
-            onClick={handleDownload}
-            size="lg"
-            className="sierra-gradient hover:opacity-90 transition-all duration-300 px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 w-full md:w-auto"
-          >
-            <Download className="mr-2 h-5 w-5" />
-            {processingStatus.resultUrl.includes('drive.google.com') ? 'Abrir en Google Drive' : 'Descargar Informe IA'}
-            <ExternalLink className="ml-2 h-4 w-4" />
-          </Button>
-        ) : (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4 mb-6">
-            <p className="text-yellow-800">
-              Tu informe está siendo finalizado. El archivo se ha guardado automáticamente en "Archivos Guardados".
-            </p>
-          </div>
-        )}
-        
         <div>
           <Button
             variant="outline"

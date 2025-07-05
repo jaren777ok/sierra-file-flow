@@ -239,11 +239,20 @@ export const useMultiStepUpload = () => {
           const jsonResponse = await response.json();
           console.log('🎉 Respuesta JSON recibida:', jsonResponse);
           
-          // Si la respuesta JSON contiene una URL de Drive, procesarla
-          if (jsonResponse.driveUrl || jsonResponse.drive_url || jsonResponse.resultUrl || jsonResponse.result_url) {
-            const resultUrl = jsonResponse.driveUrl || jsonResponse.drive_url || jsonResponse.resultUrl || jsonResponse.result_url;
-            
-            console.log('✅ URL del archivo procesado recibida:', resultUrl);
+          // Manejar la nueva estructura de respuesta [{"EXITO": "url"}]
+          let resultUrl = null;
+          
+          if (Array.isArray(jsonResponse) && jsonResponse.length > 0 && jsonResponse[0].EXITO) {
+            resultUrl = jsonResponse[0].EXITO;
+            console.log('✅ URL del archivo procesado extraída de EXITO:', resultUrl);
+          } else if (jsonResponse.driveUrl || jsonResponse.drive_url || jsonResponse.resultUrl || jsonResponse.result_url) {
+            // Mantener compatibilidad con estructuras anteriores
+            resultUrl = jsonResponse.driveUrl || jsonResponse.drive_url || jsonResponse.resultUrl || jsonResponse.result_url;
+            console.log('✅ URL del archivo procesado extraída (formato anterior):', resultUrl);
+          }
+          
+          if (resultUrl) {
+            console.log('✅ URL del archivo procesado confirmada:', resultUrl);
             
             // Guardar archivo en la base de datos
             try {
