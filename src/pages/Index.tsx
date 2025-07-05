@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Navigate } from 'react-router-dom';
 import Header from '@/components/Header';
 import MultiStepUploader from '@/components/MultiStepUploader';
-import Stats from '@/components/Stats';
 import { 
   Sparkles, 
   Zap, 
@@ -144,11 +143,6 @@ const Index = () => {
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* Stats */}
-          <div className="mb-8">
-            <Stats />
           </div>
           
           {/* Main Processing Section */}
