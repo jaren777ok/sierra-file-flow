@@ -5,15 +5,17 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useSavedFiles } from '@/hooks/useSavedFiles';
-import { Download, Search, FileText, Calendar, RefreshCw, Edit2, Save, X } from 'lucide-react';
+import { Download, Search, FileText, Calendar, RefreshCw, Edit2, Save, X, ArrowLeft } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { useNavigate } from 'react-router-dom';
 
 const SavedFiles = () => {
   const { files, loading, fetchSavedFiles, downloadFile, updateFileNotes } = useSavedFiles();
   const [searchTerm, setSearchTerm] = useState('');
   const [editingNotes, setEditingNotes] = useState<string | null>(null);
   const [noteText, setNoteText] = useState('');
+  const navigate = useNavigate();
 
   const filteredFiles = files.filter(file => 
     file.project_title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -54,8 +56,19 @@ const SavedFiles = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-stone-50 to-stone-100 p-4">
       <div className="container mx-auto max-w-6xl">
-        {/* Header */}
+        {/* Header with Back Button */}
         <div className="mb-8">
+          <div className="flex items-center gap-4 mb-4">
+            <Button
+              onClick={() => navigate('/')}
+              variant="outline"
+              size="sm"
+              className="border-sierra-teal text-sierra-teal hover:bg-sierra-teal hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Regresar al Dashboard
+            </Button>
+          </div>
           <div className="flex items-center gap-3 mb-4">
             <FileText className="h-8 w-8 text-sierra-teal" />
             <h1 className="text-3xl font-bold text-sierra-teal">Archivos Guardados</h1>
