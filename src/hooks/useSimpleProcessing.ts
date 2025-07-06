@@ -100,6 +100,8 @@ const useSimpleProcessing = () => {
     const areas = ['comercial', 'operaciones', 'pricing', 'administracion'];
     const activeAreas: string[] = [];
     
+    console.log('📊 Creando FormData organizado por áreas:', areaFiles);
+    
     areas.forEach(area => {
       const files = areaFiles[area] || [];
       if (files.length > 0) {
@@ -116,6 +118,7 @@ const useSimpleProcessing = () => {
     
     formData.append('areas', JSON.stringify(activeAreas));
     console.log('🗂️ Áreas activas:', activeAreas);
+    console.log('📤 FormData preparado con archivos organizados por área');
     
     return formData;
   };
@@ -320,6 +323,4 @@ const useSimpleProcessing = () => {
   };
 };
 
-export default useSimpleProcessi
-
-ng;
+export default useSimpleProcessing;
