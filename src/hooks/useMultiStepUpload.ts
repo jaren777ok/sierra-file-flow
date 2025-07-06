@@ -1,7 +1,6 @@
-
 import { useState, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { useSimpleProcessing } from '@/hooks/useSimpleProcessing';
+import useSimpleProcessing from '@/hooks/useSimpleProcessing';
 
 export interface AreaFiles {
   comercial: File[];
