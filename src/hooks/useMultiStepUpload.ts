@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import useSimpleProcessing from '@/hooks/useSimpleProcessing';
@@ -83,8 +82,15 @@ export const useMultiStepUpload = () => {
     return Object.values(areaFiles).reduce((total, files) => total + files.length, 0);
   }, [areaFiles]);
 
+  const getAreaSummary = useCallback(() => {
+    const summary = Object.entries(areaFiles)
+      .filter(([, files]) => files.length > 0)
+      .map(([area, files]) => `${area}: ${files.length} archivo${files.length > 1 ? 's' : ''}`);
+    
+    return summary.length > 0 ? summary.join(', ') : 'Sin archivos';
+  }, [areaFiles]);
+
   const processAllFiles = useCallback(async () => {
-    // Convert area files to a flat array of files
     const allFiles = Object.values(areaFiles).flat();
     
     if (allFiles.length === 0) {
@@ -96,8 +102,17 @@ export const useMultiStepUpload = () => {
       return false;
     }
 
+    console.log('📊 Procesando archivos por área:', {
+      comercial: areaFiles.comercial.length,
+      operaciones: areaFiles.operaciones.length,
+      pricing: areaFiles.pricing.length,
+      administracion: areaFiles.administracion.length,
+      total: allFiles.length
+    });
+
     try {
-      await startProcessing(projectName, allFiles);
+      // Pasar tanto los archivos como la información de áreas
+      await startProcessing(projectName, allFiles, areaFiles);
       setCurrentStep(6);
       return true;
     } catch (error) {
@@ -127,7 +142,6 @@ export const useMultiStepUpload = () => {
     });
   }, [resetFlow, toast]);
 
-  // Simple implementations for compatibility
   const hasActiveJob = useCallback(() => {
     return processingStatus.status === 'processing' || processingStatus.status === 'sending';
   }, [processingStatus.status]);
@@ -149,7 +163,6 @@ export const useMultiStepUpload = () => {
     });
   }, [resetFlow, toast]);
 
-  // Función para saltar al procesamiento (para recuperación)
   const jumpToProcessing = useCallback(() => {
     console.log('Jumping directly to processing step');
     setCurrentStep(6);
@@ -169,13 +182,14 @@ export const useMultiStepUpload = () => {
     resetFlow,
     startNewJob,
     getTotalFiles,
+    getAreaSummary,
     hasActiveJob,
     getActiveJobInfo,
     forceCleanup,
     setCurrentStep,
     jumpToProcessing,
     hideConfetti,
-    isRecovering: false, // Ya no necesitamos estado de recuperación
-    activeJob: null // Ya no usamos activeJob complejo
+    isRecovering: false,
+    activeJob: null
   };
 };

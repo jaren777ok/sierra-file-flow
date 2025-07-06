@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useSavedFiles } from '@/hooks/useSavedFiles';
@@ -49,12 +50,10 @@ const useSimpleProcessing = () => {
       const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
         body: formData,
-        // Agregar headers para mejor compatibilidad
         headers: {
           'Accept': '*/*',
         },
-        // Configurar timeout explícito si es necesario
-        signal: AbortSignal.timeout(30000) // 30 segundos para el envío inicial
+        signal: AbortSignal.timeout(30000)
       });
       
       console.log('📡 Status de respuesta:', response.status, response.statusText);
@@ -71,9 +70,8 @@ const useSimpleProcessing = () => {
     } catch (error) {
       console.error(`❌ Error en intento ${retryCount + 1}:`, error);
       
-      // Determinar si es un error que vale la pena reintentar
       const isRetryableError = 
-        error instanceof TypeError && error.message.includes('fetch') || // Network errors
+        error instanceof TypeError && error.message.includes('fetch') || 
         error instanceof Error && error.message.includes('CORS') ||
         error instanceof Error && error.message.includes('timeout') ||
         (error instanceof Error && error.message.includes('HTTP') && 
@@ -85,7 +83,6 @@ const useSimpleProcessing = () => {
         return sendToWebhook(formData, retryCount + 1);
       }
       
-      // Si no es reintentar o se agotaron los intentos, lanzar error
       if (error instanceof TypeError && error.message.includes('fetch')) {
         throw new Error('Error de conexión: No se puede conectar al servidor. Verifica tu conexión a internet y que el webhook esté funcionando.');
       } else if (error instanceof Error && error.message.includes('CORS')) {
@@ -96,10 +93,36 @@ const useSimpleProcessing = () => {
     }
   };
 
-  const startProcessing = useCallback(async (projectTitle: string, files: File[]) => {
+  const createFormDataWithAreas = (projectTitle: string, areaFiles: any) => {
+    const formData = new FormData();
+    formData.append('projectTitle', projectTitle);
+    
+    const areas = ['comercial', 'operaciones', 'pricing', 'administracion'];
+    const activeAreas: string[] = [];
+    
+    areas.forEach(area => {
+      const files = areaFiles[area] || [];
+      if (files.length > 0) {
+        activeAreas.push(area);
+        formData.append(`${area}_count`, files.length.toString());
+        
+        files.forEach((file: File, index: number) => {
+          formData.append(`${area}_${index}`, file);
+          formData.append(`${area}_${index}_name`, file.name);
+          console.log(`📎 ${area} [${index}]: ${file.name} (${file.size} bytes)`);
+        });
+      }
+    });
+    
+    formData.append('areas', JSON.stringify(activeAreas));
+    console.log('🗂️ Áreas activas:', activeAreas);
+    
+    return formData;
+  };
+
+  const startProcessing = useCallback(async (projectTitle: string, files: File[], areaFiles?: any) => {
     console.log('🚀 Iniciando procesamiento con:', { projectTitle, fileCount: files.length, webhookUrl: WEBHOOK_URL });
     
-    // Reset state
     setProcessingStatus({
       status: 'sending',
       progress: 0,
@@ -109,21 +132,31 @@ const useSimpleProcessing = () => {
     });
     setResultUrl(null);
     
-    // Start timer
     startTimeRef.current = Date.now();
     timerRef.current = setInterval(updateElapsedTime, 1000);
     
     try {
-      // Create FormData
-      const formData = new FormData();
-      formData.append('projectTitle', projectTitle);
+      let formData: FormData;
       
-      files.forEach((file, index) => {
-        formData.append(`file${index}`, file);
-        console.log(`📎 Archivo ${index}: ${file.name} (${file.size} bytes)`);
-      });
+      // Si tenemos areaFiles, usamos el nuevo formato organizado
+      if (areaFiles) {
+        formData = createFormDataWithAreas(projectTitle, areaFiles);
+        
+        setProcessingStatus(prev => ({
+          ...prev,
+          message: `Enviando archivos organizados por área al webhook...`
+        }));
+      } else {
+        // Formato legacy para compatibilidad
+        formData = new FormData();
+        formData.append('projectTitle', projectTitle);
+        
+        files.forEach((file, index) => {
+          formData.append(`file${index}`, file);
+          console.log(`📎 Archivo ${index}: ${file.name} (${file.size} bytes)`);
+        });
+      }
       
-      // Update status to sending
       setProcessingStatus(prev => ({
         ...prev,
         status: 'sending',
@@ -131,10 +164,8 @@ const useSimpleProcessing = () => {
         message: 'Enviando archivos al webhook de Railway...'
       }));
       
-      // Send to webhook with retry logic
       const result = await sendToWebhook(formData);
       
-      // Update to processing
       setProcessingStatus(prev => ({
         ...prev,
         status: 'processing',
@@ -142,18 +173,13 @@ const useSimpleProcessing = () => {
         message: 'Archivos enviados correctamente. Procesando con IA... Esto puede tomar hasta 15 minutos.'
       }));
       
-      // Check if response contains a Google Drive URL or process result appropriately
       const trimmedResult = result.trim();
-      
-      // Verificar diferentes formatos de respuesta posibles
       let driveUrl = '';
       
       if (trimmedResult.includes('drive.google.com')) {
-        // Si contiene directamente la URL de Google Drive
         driveUrl = trimmedResult;
       } else {
         try {
-          // Intentar parsear como JSON si no es una URL directa
           const jsonResult = JSON.parse(trimmedResult);
           if (jsonResult.url && jsonResult.url.includes('drive.google.com')) {
             driveUrl = jsonResult.url;
@@ -163,7 +189,6 @@ const useSimpleProcessing = () => {
             throw new Error('El webhook no retornó una URL de Google Drive válida en el formato esperado');
           }
         } catch (parseError) {
-          // Si no es JSON válido, tratar como URL directa
           if (trimmedResult.startsWith('http')) {
             driveUrl = trimmedResult;
           } else {
@@ -175,13 +200,11 @@ const useSimpleProcessing = () => {
       if (driveUrl) {
         console.log('🎉 ¡Procesamiento completado exitosamente!');
         
-        // Clear timer
         if (timerRef.current) {
           clearInterval(timerRef.current);
           timerRef.current = null;
         }
         
-        // Update status to completed with confetti
         setProcessingStatus(prev => ({
           ...prev,
           status: 'completed',
@@ -192,7 +215,6 @@ const useSimpleProcessing = () => {
         
         setResultUrl(driveUrl);
         
-        // Save to processed files
         await saveProcessedFile(projectTitle, 'Multi-área', driveUrl);
         
         toast({
@@ -208,7 +230,6 @@ const useSimpleProcessing = () => {
     } catch (error) {
       console.error('❌ Error durante el procesamiento:', error);
       
-      // Clear timer
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
@@ -258,7 +279,6 @@ const useSimpleProcessing = () => {
     }));
   }, []);
 
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (timerRef.current) {
@@ -267,7 +287,6 @@ const useSimpleProcessing = () => {
     };
   }, []);
 
-  // Check for timeout (15 minutes)
   useEffect(() => {
     if (processingStatus.timeElapsed >= 900 && processingStatus.status === 'processing') {
       console.log('⏰ Tiempo límite de procesamiento alcanzado (15 minutos)');
@@ -301,4 +320,6 @@ const useSimpleProcessing = () => {
   };
 };
 
-export default useSimpleProcessing;
+export default useSimpleProcessi
+
+ng;

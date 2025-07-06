@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Sparkles, Clock, Brain, Zap, Cpu, Activity, Database, FileText, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 import { ProcessingStatus } from '@/hooks/useMultiStepUpload';
@@ -26,6 +25,7 @@ const FuturisticAIProcessingScreen = ({
   const [currentPhase, setCurrentPhase] = useState<'sending' | 'processing' | 'completed' | 'timeout' | 'error'>('sending');
   const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([]);
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
+  const [confettiActive, setConfettiActive] = useState(false);
 
   const MAX_TIME = 15 * 60; // 15 minutos en segundos
 
@@ -39,18 +39,23 @@ const FuturisticAIProcessingScreen = ({
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  // Auto-ocultar confeti después de 4 segundos
+  // Manejar el confeti mejorado
   useEffect(() => {
-    if (processingStatus.showConfetti) {
+    if (processingStatus.showConfetti && processingStatus.status === 'completed') {
+      console.log('🎊 Activando confeti mejorado');
+      setConfettiActive(true);
+      
+      // Auto-ocultar confeti después de 8 segundos (más tiempo para mejor visibilidad)
       const timer = setTimeout(() => {
+        setConfettiActive(false);
         if (onHideConfetti) {
           onHideConfetti();
         }
-      }, 4000);
+      }, 8000);
       
       return () => clearTimeout(timer);
     }
-  }, [processingStatus.showConfetti, onHideConfetti]);
+  }, [processingStatus.showConfetti, processingStatus.status, onHideConfetti]);
 
   // Actualizar fase y progreso basado en el status
   useEffect(() => {
@@ -95,10 +100,11 @@ const FuturisticAIProcessingScreen = ({
         'Preparando archivos para procesamiento...',
         'Estableciendo conexión con sistemas de IA...',
         'Verificando integridad de archivos...',
+        'Organizando archivos por área de negocio...',
       ],
       processing: [
         'Analizando estructura de documentos...',
-        'Extrayendo información clave...',
+        'Extrayendo información clave por área...',
         'Aplicando algoritmos de comprensión...',
         'Generando insights inteligentes...',
         'Sintetizando información compleja...',
@@ -108,6 +114,7 @@ const FuturisticAIProcessingScreen = ({
       completed: [
         '¡Análisis completado exitosamente!',
         'Informe listo para descarga',
+        '¡Procesamiento perfecto!',
       ],
       timeout: [
         'Tiempo límite alcanzado',
@@ -151,26 +158,28 @@ const FuturisticAIProcessingScreen = ({
 
   const getPhaseMessage = () => {
     switch (currentPhase) {
-      case 'sending': return 'Enviando archivos al sistema...';
-      case 'processing': return 'IA procesando documentos...';
-      case 'completed': return '¡Procesamiento completado!';
+      case 'sending': return 'Enviando archivos organizados por área...';
+      case 'processing': return 'IA procesando documentos por área de negocio...';
+      case 'completed': return '¡Procesamiento completado exitosamente!';
       case 'timeout': return 'Tiempo límite alcanzado - Puedes iniciar nuevo trabajo';
       case 'error': return 'Error en el procesamiento';
       default: return 'Procesando con IA...';
     }
   };
 
-  // Renderizar confeti si está activado
+  // Renderizar confeti mejorado
   const renderConfetti = () => {
-    if (processingStatus.showConfetti) {
+    if (confettiActive || processingStatus.showConfetti) {
       return (
         <Confetti
           width={windowSize.width}
           height={windowSize.height}
           recycle={false}
-          numberOfPieces={200}
-          gravity={0.3}
-          colors={['#14b8a6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444']}
+          numberOfPieces={500} // Más partículas para mejor efecto
+          gravity={0.2} // Gravedad más suave
+          colors={['#14b8a6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#f97316']} // Más colores
+          initialVelocityY={20} // Velocidad inicial más alta
+          wind={0.01} // Efecto de viento sutil
         />
       );
     }
@@ -234,7 +243,7 @@ const FuturisticAIProcessingScreen = ({
     );
   }
 
-  // Vista de éxito completado
+  // Vista de éxito completado con confeti mejorado
   if (currentPhase === 'completed') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-green-900/10 to-slate-900 relative overflow-hidden">
@@ -244,41 +253,45 @@ const FuturisticAIProcessingScreen = ({
         <div className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.1)_1px,transparent_1px)] bg-[size:50px_50px]" />
 
         <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-8">
-          {/* Icono de éxito */}
+          {/* Icono de éxito con animación mejorada */}
           <div className="relative mb-12">
-            <div className="w-40 h-40 mx-auto rounded-full bg-gradient-to-r from-green-400 to-emerald-400 flex items-center justify-center relative overflow-hidden border-2 border-green-500/50">
+            <div className="w-40 h-40 mx-auto rounded-full bg-gradient-to-r from-green-400 to-emerald-400 flex items-center justify-center relative overflow-hidden border-2 border-green-500/50 animate-pulse">
               <div className="absolute inset-0 rounded-full border-2 border-green-500/20 animate-ping"></div>
-              <div className="relative z-10">
+              <div className="absolute inset-4 rounded-full border-2 border-green-500/30 animate-ping" style={{ animationDelay: '0.5s' }}></div>
+              <div className="relative z-10 animate-bounce">
                 <CheckCircle2 className="h-16 w-16 text-white" />
               </div>
             </div>
           </div>
 
-          {/* Mensaje de éxito */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl font-bold text-white mb-2 font-mono">
-              ¡PROCESAMIENTO <span className="text-green-400">COMPLETADO!</span>
+          {/* Mensaje de éxito con animación */}
+          <div className="text-center mb-8 animate-fade-in">
+            <h1 className="text-5xl font-bold text-white mb-4 font-mono animate-scale-in">
+              ¡PROCESAMIENTO <span className="text-green-400 animate-pulse">COMPLETADO!</span>
             </h1>
-            <div className="inline-flex items-center gap-2 bg-green-500/20 px-6 py-3 rounded-full border border-green-500/30 backdrop-blur-sm">
-              <CheckCircle2 className="h-5 w-5 text-green-400 animate-pulse" />
-              <span className="text-green-400 font-mono text-lg">
+            <div className="inline-flex items-center gap-2 bg-green-500/20 px-8 py-4 rounded-full border border-green-500/30 backdrop-blur-sm animate-bounce">
+              <CheckCircle2 className="h-6 w-6 text-green-400 animate-pulse" />
+              <span className="text-green-400 font-mono text-xl">
                 INFORME IA GENERADO EXITOSAMENTE
               </span>
             </div>
           </div>
 
           {/* Información del proyecto y tiempo */}
-          <div className="text-center mb-8">
-            <div className="bg-slate-900/50 backdrop-blur-sm border border-green-500/30 rounded-xl p-6 max-w-lg">
-              <p className="text-green-300 font-mono text-lg mb-4">
+          <div className="text-center mb-8 animate-fade-in">
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-green-500/30 rounded-xl p-8 max-w-2xl">
+              <p className="text-green-300 font-mono text-xl mb-4 animate-pulse">
                 Proyecto: "{projectName}"
               </p>
-              <p className="text-cyan-300 text-sm mb-4">
+              <p className="text-cyan-300 text-lg mb-4">
                 Tiempo de procesamiento: {formatTime(processingStatus.timeElapsed)}
               </p>
-              <p className="text-cyan-300 text-sm">
+              <p className="text-cyan-300 text-lg">
                 Tu archivo ha sido guardado automáticamente en "Archivos Guardados".
               </p>
+              <div className="mt-6 text-green-400 font-mono text-lg animate-pulse">
+                🎉 ¡Celebremos este éxito! 🎉
+              </div>
             </div>
           </div>
         </div>
@@ -434,10 +447,10 @@ const FuturisticAIProcessingScreen = ({
           <div className="bg-slate-900/30 backdrop-blur-sm border border-sierra-teal/20 rounded-xl p-4 max-w-md">
             <div className="flex items-center justify-center gap-2 mb-2">
               <CheckCircle2 className="h-5 w-5 text-green-400" />
-              <span className="text-green-400 font-mono text-sm">ESPERA DIRECTA</span>
+              <span className="text-green-400 font-mono text-sm">ARCHIVOS ORGANIZADOS POR ÁREA</span>
             </div>
             <p className="text-cyan-300/70 font-mono text-sm">
-              La app está esperando la respuesta directa de la webhook con tu archivo procesado. 
+              Los archivos se han enviado organizados por área de negocio al webhook. 
               ¡No cierres esta ventana para mantener la conexión!
             </p>
           </div>
