@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import useSimpleProcessing from '@/hooks/useSimpleProcessing';
@@ -33,11 +34,8 @@ export const useMultiStepUpload = () => {
   const { toast } = useToast();
   const {
     processingStatus,
-    processFiles,
-    hasActiveJob,
-    getActiveJobInfo,
-    forceCleanup,
-    resetAll,
+    startProcessing,
+    resetProcessing,
     hideConfetti
   } = useSimpleProcessing();
 
@@ -86,11 +84,27 @@ export const useMultiStepUpload = () => {
   }, [areaFiles]);
 
   const processAllFiles = useCallback(async () => {
-    const success = await processFiles(projectName, areaFiles, areas);
-    if (success) {
-      setCurrentStep(6);
+    // Convert area files to a flat array of files
+    const allFiles = Object.values(areaFiles).flat();
+    
+    if (allFiles.length === 0) {
+      toast({
+        title: "Sin archivos",
+        description: "No hay archivos para procesar",
+        variant: "destructive",
+      });
+      return false;
     }
-  }, [processFiles, projectName, areaFiles, areas]);
+
+    try {
+      await startProcessing(projectName, allFiles);
+      setCurrentStep(6);
+      return true;
+    } catch (error) {
+      console.error('Error processing files:', error);
+      return false;
+    }
+  }, [startProcessing, projectName, areaFiles, toast]);
 
   const resetFlow = useCallback(() => {
     setCurrentStep(0);
@@ -101,23 +115,39 @@ export const useMultiStepUpload = () => {
       pricing: [],
       administracion: []
     });
-    resetAll();
-  }, [resetAll]);
+    resetProcessing();
+  }, [resetProcessing]);
 
   const startNewJob = useCallback(() => {
-    const savedProjectName = projectName || getActiveJobInfo()?.projectName || '';
-    
     resetFlow();
-    
-    if (savedProjectName) {
-      setProjectName(savedProjectName);
-    }
     
     toast({
       title: "🚀 Nuevo trabajo iniciado",
       description: "Puedes subir nuevos archivos y comenzar el procesamiento.",
     });
-  }, [resetFlow, projectName, getActiveJobInfo, toast]);
+  }, [resetFlow, toast]);
+
+  // Simple implementations for compatibility
+  const hasActiveJob = useCallback(() => {
+    return processingStatus.status === 'processing' || processingStatus.status === 'sending';
+  }, [processingStatus.status]);
+
+  const getActiveJobInfo = useCallback(() => {
+    if (!hasActiveJob()) return null;
+    
+    return {
+      projectName: projectName,
+      sendTimestamp: Date.now() - (processingStatus.timeElapsed * 1000)
+    };
+  }, [hasActiveJob, projectName, processingStatus.timeElapsed]);
+
+  const forceCleanup = useCallback(() => {
+    resetFlow();
+    toast({
+      title: "Limpieza forzada",
+      description: "Se ha limpiado el trabajo actual",
+    });
+  }, [resetFlow, toast]);
 
   // Función para saltar al procesamiento (para recuperación)
   const jumpToProcessing = useCallback(() => {
