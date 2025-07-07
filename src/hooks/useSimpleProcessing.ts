@@ -1,7 +1,9 @@
+
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useSavedFiles } from '@/hooks/useSavedFiles';
-import { generateRequestId } from '@/utils/requestId';
+import { useProcessingPersistence } from '@/hooks/useProcessingPersistence';
+import { supabase } from '@/integrations/supabase/client';
 
 export interface ProcessingStatus {
   status: 'idle' | 'sending' | 'processing' | 'completed' | 'timeout' | 'error';
@@ -26,6 +28,7 @@ const useSimpleProcessing = () => {
   const startTimeRef = useRef<number>(0);
   const { toast } = useToast();
   const { saveProcessedFile } = useSavedFiles();
+  const { createProcessingJob, updateJobProgress, completeJob, markJobAsTimeout } = useProcessingPersistence();
 
   // Nueva URL del webhook de Railway
   const WEBHOOK_URL = 'https://primary-production-f0d1.up.railway.app/webhook-test/sierra';
@@ -134,30 +137,41 @@ const useSimpleProcessing = () => {
   };
 
   const startProcessing = useCallback(async (projectTitle: string, files: File[], areaFiles?: any) => {
-    // Generar Request ID simple
-    const requestId = generateRequestId();
-    
-    console.log(`🚀 [${requestId}] Iniciando procesamiento con:`, { 
-      projectTitle, 
-      fileCount: files.length, 
-      webhookUrl: WEBHOOK_URL,
-      requestId 
-    });
-    
-    setProcessingStatus({
-      status: 'sending',
-      progress: 0,
-      message: 'Preparando archivos para envío...',
-      timeElapsed: 0,
-      showConfetti: false,
-      requestId
-    });
-    setResultUrl(null);
-    
-    startTimeRef.current = Date.now();
-    timerRef.current = setInterval(updateElapsedTime, 1000);
-    
     try {
+      // Obtener usuario autenticado
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error('Usuario no autenticado');
+      }
+
+      // Crear trabajo en processing_jobs y generar Request ID único
+      const requestId = await createProcessingJob(
+        projectTitle, 
+        files.length, 
+        user.id
+      );
+
+      console.log(`🚀 [${requestId}] Iniciando procesamiento con:`, { 
+        projectTitle, 
+        fileCount: files.length, 
+        webhookUrl: WEBHOOK_URL,
+        requestId,
+        userId: user.id
+      });
+      
+      setProcessingStatus({
+        status: 'sending',
+        progress: 0,
+        message: 'Preparando archivos para envío...',
+        timeElapsed: 0,
+        showConfetti: false,
+        requestId
+      });
+      setResultUrl(null);
+      
+      startTimeRef.current = Date.now();
+      timerRef.current = setInterval(updateElapsedTime, 1000);
+      
       let formData: FormData;
       
       // Si tenemos areaFiles, usamos el nuevo formato organizado
@@ -183,6 +197,9 @@ const useSimpleProcessing = () => {
         });
       }
       
+      // Actualizar estado a 'processing' en la BD
+      await updateJobProgress(requestId, 10);
+      
       setProcessingStatus(prev => ({
         ...prev,
         status: 'sending',
@@ -192,6 +209,9 @@ const useSimpleProcessing = () => {
       }));
       
       const result = await sendToWebhook(formData, requestId);
+      
+      // Actualizar progreso en BD
+      await updateJobProgress(requestId, 25);
       
       setProcessingStatus(prev => ({
         ...prev,
@@ -233,6 +253,9 @@ const useSimpleProcessing = () => {
           timerRef.current = null;
         }
         
+        // Completar trabajo en BD
+        await completeJob(requestId, driveUrl);
+        
         setProcessingStatus(prev => ({
           ...prev,
           status: 'completed',
@@ -257,7 +280,7 @@ const useSimpleProcessing = () => {
       }
       
     } catch (error) {
-      console.error(`❌ [${requestId}] Error durante el procesamiento:`, error);
+      console.error(`❌ Error durante el procesamiento:`, error);
       
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -265,6 +288,12 @@ const useSimpleProcessing = () => {
       }
       
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido durante el procesamiento';
+      const requestId = processingStatus.requestId || 'unknown';
+      
+      // Marcar trabajo como error en BD
+      if (requestId !== 'unknown') {
+        await completeJob(requestId, undefined, errorMessage);
+      }
       
       setProcessingStatus(prev => ({
         ...prev,
@@ -283,7 +312,7 @@ const useSimpleProcessing = () => {
       
       throw error;
     }
-  }, [updateElapsedTime, toast, saveProcessedFile]);
+  }, [updateElapsedTime, toast, saveProcessedFile, createProcessingJob, updateJobProgress, completeJob]);
 
   const resetProcessing = useCallback(() => {
     if (timerRef.current) {
@@ -327,6 +356,11 @@ const useSimpleProcessing = () => {
         timerRef.current = null;
       }
       
+      // Marcar como timeout en BD
+      if (requestId !== 'unknown') {
+        markJobAsTimeout(requestId);
+      }
+      
       setProcessingStatus(prev => ({
         ...prev,
         status: 'timeout',
@@ -340,7 +374,7 @@ const useSimpleProcessing = () => {
         variant: "destructive",
       });
     }
-  }, [processingStatus.timeElapsed, processingStatus.status, processingStatus.requestId, toast]);
+  }, [processingStatus.timeElapsed, processingStatus.status, processingStatus.requestId, toast, markJobAsTimeout]);
 
   return {
     processingStatus,

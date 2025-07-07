@@ -2,12 +2,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { generateRequestId } from '@/utils/requestId';
 
 export interface ProcessingJob {
   id: string;
   project_title: string;
   total_files: number;
-  status: 'processing' | 'completed' | 'error' | 'timeout';
+  status: 'pending' | 'processing' | 'completed' | 'error' | 'timeout';
   progress: number;
   started_at: string;
   completed_at?: string;
@@ -17,13 +18,6 @@ export interface ProcessingJob {
   request_id: string;
   webhook_confirmed_at?: string;
   user_id: string;
-}
-
-interface JobTrackingData {
-  requestId: string;
-  sendTimestamp: number;
-  projectName: string;
-  userId: string;
 }
 
 export const useProcessingPersistence = () => {
@@ -38,34 +32,6 @@ export const useProcessingPersistence = () => {
   }>({ lastCheck: 0, cachedJob: null });
   
   const CACHE_DURATION = 30000; // 30 segundos de cache
-
-  // Función para obtener datos de tracking del localStorage
-  const getTrackingData = (): JobTrackingData | null => {
-    try {
-      const data = localStorage.getItem('current_job_tracking');
-      return data ? JSON.parse(data) : null;
-    } catch {
-      return null;
-    }
-  };
-
-  // Función para guardar datos de tracking
-  const saveTrackingData = (data: JobTrackingData) => {
-    localStorage.setItem('current_job_tracking', JSON.stringify(data));
-  };
-
-  // Función para limpiar datos de tracking
-  const clearTrackingData = () => {
-    localStorage.removeItem('current_job_tracking');
-  };
-
-  // Función para verificar si un job está dentro del límite de tiempo (15 minutos)
-  const isJobWithinTimeLimit = (sendTimestamp: number): boolean => {
-    const now = Date.now();
-    const elapsed = now - sendTimestamp;
-    const fifteenMinutes = 15 * 60 * 1000;
-    return elapsed < fifteenMinutes;
-  };
 
   // Función para auto-corregir trabajos con result_url pero status incorrecto
   const autoCorrectJobStatus = async (job: ProcessingJob): Promise<ProcessingJob> => {
@@ -107,6 +73,55 @@ export const useProcessingPersistence = () => {
     }
     
     return job;
+  };
+
+  // Función mejorada para crear trabajo en processing_jobs y generar Request_ID
+  const createProcessingJob = async (
+    projectTitle: string, 
+    totalFiles: number, 
+    userId: string
+  ): Promise<string> => {
+    try {
+      console.log('🚀 Creando nuevo trabajo de procesamiento...');
+      
+      // Generar Request_ID único desde Supabase
+      const requestId = await generateRequestId();
+      
+      // Crear registro en processing_jobs con estado 'pending'
+      const { data, error } = await supabase
+        .from('processing_jobs')
+        .insert({
+          request_id: requestId,
+          project_title: projectTitle,
+          total_files: totalFiles,
+          user_id: userId,
+          status: 'pending',
+          progress: 0,
+          started_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+
+      if (error) {
+        console.error('❌ Error creando processing_job:', error);
+        throw new Error(`Error creando trabajo: ${error.message}`);
+      }
+
+      console.log('✅ Trabajo creado exitosamente:', {
+        jobId: data.id,
+        requestId: data.request_id,
+        projectTitle: data.project_title
+      });
+
+      // Actualizar activeJob con el nuevo trabajo
+      setActiveJob(data as ProcessingJob);
+      
+      return requestId;
+      
+    } catch (error) {
+      console.error('❌ Error en createProcessingJob:', error);
+      throw error;
+    }
   };
 
   // Función para buscar trabajo por request_id (creado por N8N) - MEJORADA
@@ -156,7 +171,7 @@ export const useProcessingPersistence = () => {
         .from('processing_jobs')
         .select('*')
         .eq('user_id', userId)
-        .or('status.eq.processing,and(result_url.not.is.null,status.eq.processing)')
+        .or('status.eq.processing,status.eq.pending,and(result_url.not.is.null,status.eq.processing)')
         .order('created_at', { ascending: false })
         .limit(1);
 
@@ -204,85 +219,36 @@ export const useProcessingPersistence = () => {
 
         console.log('Checking active job for user:', user.id);
 
-        // Primero verificar si hay datos de tracking locales
-        const trackingData = getTrackingData();
+        // Buscar el último trabajo del usuario (incluyendo completados)
+        const latestJob = await findLatestUserJob(user.id);
         
-        if (trackingData && trackingData.userId === user.id) {
-          console.log('Found local tracking data:', {
-            requestId: trackingData.requestId,
-            sendTimestamp: trackingData.sendTimestamp,
-            withinTimeLimit: isJobWithinTimeLimit(trackingData.sendTimestamp)
+        if (latestJob) {
+          console.log('✅ Found latest user job:', {
+            jobId: latestJob.id,
+            status: latestJob.status,
+            hasResultUrl: !!latestJob.result_url
           });
           
-          // Verificar si el trabajo local aún está dentro del límite de tiempo
-          if (isJobWithinTimeLimit(trackingData.sendTimestamp)) {
-            console.log('Checking for N8N job with request_id:', trackingData.requestId);
-            
-            // Buscar el trabajo que N8N debería haber creado
-            const trackedJob = await trackJobByRequestId(trackingData.requestId);
-            
-            if (trackedJob) {
-              console.log('✅ Found and recovered N8N job:', {
-                jobId: trackedJob.id,
-                status: trackedJob.status,
-                hasResultUrl: !!trackedJob.result_url,
-                wasCorrected: trackedJob.result_url && trackedJob.status === 'completed'
-              });
-              
-              setActiveJob(trackedJob);
-              
-              // Si el trabajo ya está completado, limpiar tracking local
-              if (trackedJob.status === 'completed') {
-                console.log('Job is completed, clearing local tracking');
-                clearTrackingData();
-              }
-              
-              toast({
-                title: "Trabajo recuperado",
-                description: trackedJob.status === 'completed' 
-                  ? `Trabajo "${trackedJob.project_title}" completado exitosamente`
-                  : `Continuando procesamiento de "${trackedJob.project_title}"`,
-              });
-            } else {
-              console.log('N8N job not found yet, keeping local tracking active');
-            }
-          } else {
-            console.log('Local tracking data expired, cleaning up');
-            clearTrackingData();
-          }
-        } else {
-          // No hay datos locales, buscar el último trabajo del usuario (incluyendo completados)
-          console.log('No valid local tracking data, checking for latest user job...');
-          const latestJob = await findLatestUserJob(user.id);
+          setActiveJob(latestJob);
           
-          if (latestJob) {
-            console.log('✅ Found latest user job:', {
-              jobId: latestJob.id,
-              status: latestJob.status,
-              hasResultUrl: !!latestJob.result_url
-            });
-            
-            setActiveJob(latestJob);
-            
-            const startTime = new Date(latestJob.started_at).getTime();
-            const currentTime = Date.now();
-            const elapsedMinutes = Math.floor((currentTime - startTime) / 60000);
-            
-            toast({
-              title: "Trabajo recuperado",
-              description: latestJob.status === 'completed'
-                ? `Trabajo "${latestJob.project_title}" completado exitosamente`
-                : `Continuando procesamiento de "${latestJob.project_title}" (${elapsedMinutes} min transcurridos)`,
-            });
-          } else {
-            console.log('No active or recent jobs found');
-          }
+          const startTime = new Date(latestJob.started_at).getTime();
+          const currentTime = Date.now();
+          const elapsedMinutes = Math.floor((currentTime - startTime) / 60000);
+          
+          toast({
+            title: "Trabajo recuperado",
+            description: latestJob.status === 'completed'
+              ? `Trabajo "${latestJob.project_title}" completado exitosamente`
+              : `Continuando procesamiento de "${latestJob.project_title}" (${elapsedMinutes} min transcurridos)`,
+          });
+        } else {
+          console.log('No active or recent jobs found');
         }
 
         // Actualizar cache
         cacheRef.current = {
           lastCheck: Date.now(),
-          cachedJob: activeJob
+          cachedJob: latestJob
         };
 
         console.log('=== Active job check completed ===');
@@ -299,23 +265,6 @@ export const useProcessingPersistence = () => {
       isMounted = false;
     };
   }, []);
-
-  // Función para iniciar el tracking de un trabajo (NO crear en BD)
-  const startJobTracking = (projectTitle: string, requestId: string, userId: string): string => {
-    const sendTimestamp = Date.now();
-    
-    const trackingData: JobTrackingData = {
-      requestId,
-      sendTimestamp,
-      projectName: projectTitle,
-      userId
-    };
-    
-    saveTrackingData(trackingData);
-    console.log('Started job tracking:', trackingData);
-    
-    return requestId;
-  };
 
   const updateJobProgress = async (requestId: string, progress: number) => {
     try {
@@ -379,9 +328,6 @@ export const useProcessingPersistence = () => {
         error_message: 'El procesamiento excedió el tiempo límite de 15 minutos'
       } : null);
       
-      // Limpiar datos de tracking
-      clearTrackingData();
-      
       // Limpiar cache
       cacheRef.current = { lastCheck: 0, cachedJob: null };
     } catch (error) {
@@ -418,9 +364,6 @@ export const useProcessingPersistence = () => {
         error_message: errorMessage
       } : null);
       
-      // Limpiar datos de tracking al completar
-      clearTrackingData();
-      
       // Limpiar cache
       cacheRef.current = { lastCheck: 0, cachedJob: null };
     } catch (error) {
@@ -430,7 +373,6 @@ export const useProcessingPersistence = () => {
 
   const clearActiveJob = useCallback(() => {
     setActiveJob(null);
-    clearTrackingData();
     // Limpiar cache
     cacheRef.current = { lastCheck: 0, cachedJob: null };
   }, []);
@@ -438,15 +380,13 @@ export const useProcessingPersistence = () => {
   return {
     activeJob,
     isLoading,
-    startJobTracking,
+    createProcessingJob,
     trackJobByRequestId,
     findLatestUserJob,
     updateJobProgress,
     checkJobCompletion,
     completeJob,
     markJobAsTimeout,
-    clearActiveJob,
-    getTrackingData,
-    isJobWithinTimeLimit
+    clearActiveJob
   };
 };

@@ -447,6 +447,10 @@ export type Database = {
         Args: { "": string } | { "": unknown }
         Returns: unknown
       }
+      generate_next_request_id: {
+        Args: Record<PropertyKey, never>
+        Returns: string
+      }
       halfvec_avg: {
         Args: { "": number[] }
         Returns: unknown
@@ -507,6 +511,10 @@ export type Database = {
           metadata: Json
           similarity: number
         }[]
+      }
+      request_id_exists: {
+        Args: { request_id_param: string }
+        Returns: boolean
       }
       sparsevec_out: {
         Args: { "": unknown }
