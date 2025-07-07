@@ -2,6 +2,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useSavedFiles } from '@/hooks/useSavedFiles';
+import { generateRequestId, createRequestMetadata } from '@/utils/requestId';
 
 export interface ProcessingStatus {
   status: 'idle' | 'sending' | 'processing' | 'completed' | 'timeout' | 'error';
@@ -9,6 +10,7 @@ export interface ProcessingStatus {
   message: string;
   timeElapsed: number;
   showConfetti?: boolean;
+  requestId?: string;
 }
 
 const useSimpleProcessing = () => {
@@ -43,9 +45,9 @@ const useSimpleProcessing = () => {
 
   const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-  const sendToWebhook = async (formData: FormData, retryCount = 0): Promise<string> => {
+  const sendToWebhook = async (formData: FormData, requestId: string, retryCount = 0): Promise<string> => {
     try {
-      console.log(`🚀 Enviando a webhook (intento ${retryCount + 1}/${MAX_RETRIES + 1}):`, WEBHOOK_URL);
+      console.log(`🚀 [${requestId}] Enviando a webhook (intento ${retryCount + 1}/${MAX_RETRIES + 1}):`, WEBHOOK_URL);
       
       const response = await fetch(WEBHOOK_URL, {
         method: 'POST',
@@ -56,19 +58,19 @@ const useSimpleProcessing = () => {
         signal: AbortSignal.timeout(30000)
       });
       
-      console.log('📡 Status de respuesta:', response.status, response.statusText);
+      console.log(`📡 [${requestId}] Status de respuesta:`, response.status, response.statusText);
       
       if (!response.ok) {
         throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
       }
       
       const result = await response.text();
-      console.log('✅ Respuesta del webhook recibida:', result.substring(0, 200) + '...');
+      console.log(`✅ [${requestId}] Respuesta del webhook recibida:`, result.substring(0, 200) + '...');
       
       return result;
       
     } catch (error) {
-      console.error(`❌ Error en intento ${retryCount + 1}:`, error);
+      console.error(`❌ [${requestId}] Error en intento ${retryCount + 1}:`, error);
       
       const isRetryableError = 
         error instanceof TypeError && error.message.includes('fetch') || 
@@ -78,9 +80,9 @@ const useSimpleProcessing = () => {
          (error.message.includes('502') || error.message.includes('503') || error.message.includes('504')));
       
       if (isRetryableError && retryCount < MAX_RETRIES) {
-        console.log(`🔄 Reintentando en ${RETRY_DELAY}ms...`);
+        console.log(`🔄 [${requestId}] Reintentando en ${RETRY_DELAY}ms...`);
         await sleep(RETRY_DELAY);
-        return sendToWebhook(formData, retryCount + 1);
+        return sendToWebhook(formData, requestId, retryCount + 1);
       }
       
       if (error instanceof TypeError && error.message.includes('fetch')) {
@@ -93,45 +95,58 @@ const useSimpleProcessing = () => {
     }
   };
 
-  const createFormDataWithAreas = (projectTitle: string, areaFiles: any) => {
+  const createFormDataWithAreas = (requestId: string, projectTitle: string, areaFiles: any) => {
     const formData = new FormData();
-    formData.append('projectTitle', projectTitle);
     
     const areas = ['comercial', 'operaciones', 'pricing', 'administracion'];
     const activeAreas: string[] = [];
+    let totalFiles = 0;
     
-    console.log('📊 Creando FormData organizado por áreas:', areaFiles);
+    console.log(`📊 [${requestId}] Creando FormData organizado por áreas:`, areaFiles);
     
     areas.forEach(area => {
       const files = areaFiles[area] || [];
       if (files.length > 0) {
         activeAreas.push(area);
+        totalFiles += files.length;
         formData.append(`${area}_count`, files.length.toString());
         
         files.forEach((file: File, index: number) => {
           formData.append(`${area}_${index}`, file);
           formData.append(`${area}_${index}_name`, file.name);
-          console.log(`📎 ${area} [${index}]: ${file.name} (${file.size} bytes)`);
+          console.log(`📎 [${requestId}] ${area} [${index}]: ${file.name} (${file.size} bytes)`);
         });
       }
     });
     
-    formData.append('areas', JSON.stringify(activeAreas));
-    console.log('🗂️ Áreas activas:', activeAreas);
-    console.log('📤 FormData preparado con archivos organizados por área');
+    // Agregar metadata JSON con Request ID
+    const metadata = createRequestMetadata(requestId, projectTitle, activeAreas, totalFiles);
+    formData.append('requestMetadata', metadata);
+    
+    console.log(`🗂️ [${requestId}] Áreas activas:`, activeAreas);
+    console.log(`📤 [${requestId}] FormData preparado con Request ID y metadata`);
     
     return formData;
   };
 
   const startProcessing = useCallback(async (projectTitle: string, files: File[], areaFiles?: any) => {
-    console.log('🚀 Iniciando procesamiento con:', { projectTitle, fileCount: files.length, webhookUrl: WEBHOOK_URL });
+    // Generar Request ID único
+    const requestId = generateRequestId();
+    
+    console.log(`🚀 [${requestId}] Iniciando procesamiento con:`, { 
+      projectTitle, 
+      fileCount: files.length, 
+      webhookUrl: WEBHOOK_URL,
+      requestId 
+    });
     
     setProcessingStatus({
       status: 'sending',
       progress: 0,
       message: 'Preparando archivos para envío...',
       timeElapsed: 0,
-      showConfetti: false
+      showConfetti: false,
+      requestId
     });
     setResultUrl(null);
     
@@ -143,20 +158,23 @@ const useSimpleProcessing = () => {
       
       // Si tenemos areaFiles, usamos el nuevo formato organizado
       if (areaFiles) {
-        formData = createFormDataWithAreas(projectTitle, areaFiles);
+        formData = createFormDataWithAreas(requestId, projectTitle, areaFiles);
         
         setProcessingStatus(prev => ({
           ...prev,
-          message: `Enviando archivos organizados por área al webhook...`
+          message: `Enviando archivos organizados por área al webhook...`,
+          requestId
         }));
       } else {
         // Formato legacy para compatibilidad
         formData = new FormData();
+        const metadata = createRequestMetadata(requestId, projectTitle, [], files.length);
+        formData.append('requestMetadata', metadata);
         formData.append('projectTitle', projectTitle);
         
         files.forEach((file, index) => {
           formData.append(`file${index}`, file);
-          console.log(`📎 Archivo ${index}: ${file.name} (${file.size} bytes)`);
+          console.log(`📎 [${requestId}] Archivo ${index}: ${file.name} (${file.size} bytes)`);
         });
       }
       
@@ -164,16 +182,18 @@ const useSimpleProcessing = () => {
         ...prev,
         status: 'sending',
         progress: 10,
-        message: 'Enviando archivos al webhook de Railway...'
+        message: 'Enviando archivos al webhook de Railway...',
+        requestId
       }));
       
-      const result = await sendToWebhook(formData);
+      const result = await sendToWebhook(formData, requestId);
       
       setProcessingStatus(prev => ({
         ...prev,
         status: 'processing',
         progress: 25,
-        message: 'Archivos enviados correctamente. Procesando con IA... Esto puede tomar hasta 15 minutos.'
+        message: 'Archivos enviados correctamente. Procesando con IA... Esto puede tomar hasta 15 minutos.',
+        requestId
       }));
       
       const trimmedResult = result.trim();
@@ -201,7 +221,7 @@ const useSimpleProcessing = () => {
       }
       
       if (driveUrl) {
-        console.log('🎉 ¡Procesamiento completado exitosamente!');
+        console.log(`🎉 [${requestId}] ¡Procesamiento completado exitosamente!`);
         
         if (timerRef.current) {
           clearInterval(timerRef.current);
@@ -213,7 +233,8 @@ const useSimpleProcessing = () => {
           status: 'completed',
           progress: 100,
           message: '¡Procesamiento completado exitosamente!',
-          showConfetti: true
+          showConfetti: true,
+          requestId
         }));
         
         setResultUrl(driveUrl);
@@ -222,7 +243,7 @@ const useSimpleProcessing = () => {
         
         toast({
           title: "¡Procesamiento Completado!",
-          description: "Tu archivo ha sido procesado y guardado correctamente.",
+          description: `Tu archivo ha sido procesado correctamente. ID: ${requestId}`,
         });
         
         return driveUrl;
@@ -231,7 +252,7 @@ const useSimpleProcessing = () => {
       }
       
     } catch (error) {
-      console.error('❌ Error durante el procesamiento:', error);
+      console.error(`❌ [${requestId}] Error durante el procesamiento:`, error);
       
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -245,12 +266,13 @@ const useSimpleProcessing = () => {
         status: 'error',
         progress: 0,
         message: errorMessage,
-        showConfetti: false
+        showConfetti: false,
+        requestId
       }));
       
       toast({
         title: "Error en el Procesamiento",
-        description: errorMessage,
+        description: `${errorMessage} (ID: ${requestId})`,
         variant: "destructive",
       });
       
@@ -292,7 +314,8 @@ const useSimpleProcessing = () => {
 
   useEffect(() => {
     if (processingStatus.timeElapsed >= 900 && processingStatus.status === 'processing') {
-      console.log('⏰ Tiempo límite de procesamiento alcanzado (15 minutos)');
+      const requestId = processingStatus.requestId || 'unknown';
+      console.log(`⏰ [${requestId}] Tiempo límite de procesamiento alcanzado (15 minutos)`);
       
       if (timerRef.current) {
         clearInterval(timerRef.current);
@@ -308,11 +331,11 @@ const useSimpleProcessing = () => {
       
       toast({
         title: "Tiempo Límite Alcanzado",
-        description: "El procesamiento ha excedido los 15 minutos. El trabajo puede continuar procesándose en segundo plano.",
+        description: `El procesamiento ha excedido los 15 minutos. (ID: ${requestId})`,
         variant: "destructive",
       });
     }
-  }, [processingStatus.timeElapsed, processingStatus.status, toast]);
+  }, [processingStatus.timeElapsed, processingStatus.status, processingStatus.requestId, toast]);
 
   return {
     processingStatus,

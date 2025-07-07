@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Sparkles, Clock, Brain, Zap } from 'lucide-react';
+import { Sparkles, Clock, Brain, Zap, Hash } from 'lucide-react';
 import { ProcessingStatus } from '@/hooks/useMultiStepUpload';
 
 interface AIProcessingScreenProps {
@@ -76,6 +76,16 @@ const AIProcessingScreen = ({ processingStatus, projectName }: AIProcessingScree
         <p className="text-xl text-sierra-gray mb-4">
           Proyecto: <span className="font-semibold text-sierra-teal">{projectName}</span>
         </p>
+        
+        {/* Request ID Display */}
+        {processingStatus.requestId && (
+          <div className="bg-sierra-teal/10 rounded-lg p-3 mb-4 border border-sierra-teal/20">
+            <div className="flex items-center justify-center gap-2 text-sm text-sierra-teal">
+              <Hash className="h-4 w-4" />
+              <span className="font-mono">ID: {processingStatus.requestId}</span>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Status */}
