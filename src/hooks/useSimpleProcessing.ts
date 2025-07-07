@@ -1,8 +1,7 @@
-
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useSavedFiles } from '@/hooks/useSavedFiles';
-import { generateRequestId, createRequestMetadata } from '@/utils/requestId';
+import { generateRequestId } from '@/utils/requestId';
 
 export interface ProcessingStatus {
   status: 'idle' | 'sending' | 'processing' | 'completed' | 'timeout' | 'error';
@@ -104,6 +103,10 @@ const useSimpleProcessing = () => {
     
     console.log(`📊 [${requestId}] Creando FormData organizado por áreas:`, areaFiles);
     
+    // Agregar Request ID como campo directo y simple
+    formData.append('request_id', requestId);
+    formData.append('project_title', projectTitle);
+    
     areas.forEach(area => {
       const files = areaFiles[area] || [];
       if (files.length > 0) {
@@ -119,18 +122,19 @@ const useSimpleProcessing = () => {
       }
     });
     
-    // Agregar metadata JSON con Request ID
-    const metadata = createRequestMetadata(requestId, projectTitle, activeAreas, totalFiles);
-    formData.append('requestMetadata', metadata);
+    // Agregar información adicional como campos simples
+    formData.append('total_files', totalFiles.toString());
+    formData.append('active_areas', activeAreas.join(','));
+    formData.append('timestamp', Date.now().toString());
     
     console.log(`🗂️ [${requestId}] Áreas activas:`, activeAreas);
-    console.log(`📤 [${requestId}] FormData preparado con Request ID y metadata`);
+    console.log(`📤 [${requestId}] FormData preparado con Request ID simple: ${requestId}`);
     
     return formData;
   };
 
   const startProcessing = useCallback(async (projectTitle: string, files: File[], areaFiles?: any) => {
-    // Generar Request ID único
+    // Generar Request ID simple
     const requestId = generateRequestId();
     
     console.log(`🚀 [${requestId}] Iniciando procesamiento con:`, { 
@@ -168,9 +172,10 @@ const useSimpleProcessing = () => {
       } else {
         // Formato legacy para compatibilidad
         formData = new FormData();
-        const metadata = createRequestMetadata(requestId, projectTitle, [], files.length);
-        formData.append('requestMetadata', metadata);
-        formData.append('projectTitle', projectTitle);
+        formData.append('request_id', requestId);
+        formData.append('project_title', projectTitle);
+        formData.append('total_files', files.length.toString());
+        formData.append('timestamp', Date.now().toString());
         
         files.forEach((file, index) => {
           formData.append(`file${index}`, file);

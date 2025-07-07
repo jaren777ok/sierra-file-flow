@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Sparkles, Clock, Brain, Zap, Cpu, Activity, Database, FileText, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Sparkles, Clock, Brain, Zap, Cpu, Activity, Database, FileText, CheckCircle2, AlertCircle, RefreshCw, Hash } from 'lucide-react';
 import { ProcessingStatus } from '@/hooks/useMultiStepUpload';
 import { ProcessingJob } from '@/hooks/useProcessingPersistence';
 import { Button } from '@/components/ui/button';
@@ -277,12 +277,28 @@ const FuturisticAIProcessingScreen = ({
             </div>
           </div>
 
-          {/* Información del proyecto y tiempo */}
+          {/* Información del proyecto y tiempo - ACTUALIZADA PARA MOSTRAR REQUEST ID SIMPLE */}
           <div className="text-center mb-8 animate-fade-in">
             <div className="bg-slate-900/50 backdrop-blur-sm border border-green-500/30 rounded-xl p-8 max-w-2xl">
               <p className="text-green-300 font-mono text-xl mb-4 animate-pulse">
                 Proyecto: "{projectName}"
               </p>
+              
+              {/* Request ID Display - Formato Simple */}
+              {processingStatus.requestId && (
+                <div className="bg-green-500/10 rounded-lg p-4 mb-4 border border-green-500/20">
+                  <div className="flex items-center justify-center gap-3">
+                    <Hash className="h-6 w-6 text-green-400" />
+                    <span className="font-mono font-bold text-green-400 text-2xl">
+                      {processingStatus.requestId}
+                    </span>
+                  </div>
+                  <p className="text-green-300/70 text-sm mt-2">
+                    ID de Solicitud Completada
+                  </p>
+                </div>
+              )}
+              
               <p className="text-cyan-300 text-lg mb-4">
                 Tiempo de procesamiento: {formatTime(processingStatus.timeElapsed)}
               </p>
@@ -351,17 +367,32 @@ const FuturisticAIProcessingScreen = ({
           </div>
         </div>
 
-        {/* Información del proyecto */}
+        {/* Información del proyecto - ACTUALIZADA PARA MOSTRAR REQUEST ID SIMPLE */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-2 font-mono">
             SIERRA IA <span className="text-sierra-teal">PROCESSING</span>
           </h1>
-          <div className="inline-flex items-center gap-2 bg-sierra-teal/20 px-6 py-3 rounded-full border border-sierra-teal/30 backdrop-blur-sm">
+          <div className="inline-flex items-center gap-2 bg-sierra-teal/20 px-6 py-3 rounded-full border border-sierra-teal/30 backdrop-blur-sm mb-4">
             <Sparkles className="h-5 w-5 text-sierra-teal animate-pulse" />
             <span className="text-sierra-teal font-mono text-lg">
               {projectName}
             </span>
           </div>
+          
+          {/* Request ID Display - Formato Simple y Prominente */}
+          {processingStatus.requestId && (
+            <div className="bg-sierra-teal/10 rounded-lg p-4 mb-4 border border-sierra-teal/20 backdrop-blur-sm">
+              <div className="flex items-center justify-center gap-3">
+                <Hash className="h-6 w-6 text-sierra-teal animate-pulse" />
+                <span className="font-mono font-bold text-sierra-teal text-2xl">
+                  {processingStatus.requestId}
+                </span>
+              </div>
+              <p className="text-sierra-teal/70 text-sm mt-1">
+                ID de Solicitud Activa
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Estado actual y pensamientos de IA */}

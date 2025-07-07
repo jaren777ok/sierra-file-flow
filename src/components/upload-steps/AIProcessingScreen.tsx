@@ -77,13 +77,18 @@ const AIProcessingScreen = ({ processingStatus, projectName }: AIProcessingScree
           Proyecto: <span className="font-semibold text-sierra-teal">{projectName}</span>
         </p>
         
-        {/* Request ID Display */}
+        {/* Request ID Display - Formato Simple */}
         {processingStatus.requestId && (
-          <div className="bg-sierra-teal/10 rounded-lg p-3 mb-4 border border-sierra-teal/20">
-            <div className="flex items-center justify-center gap-2 text-sm text-sierra-teal">
-              <Hash className="h-4 w-4" />
-              <span className="font-mono">ID: {processingStatus.requestId}</span>
+          <div className="bg-sierra-teal/10 rounded-lg p-4 mb-4 border border-sierra-teal/20">
+            <div className="flex items-center justify-center gap-3 text-lg">
+              <Hash className="h-5 w-5 text-sierra-teal" />
+              <span className="font-mono font-bold text-sierra-teal text-xl">
+                {processingStatus.requestId}
+              </span>
             </div>
+            <p className="text-sm text-sierra-gray mt-1">
+              ID de Solicitud - Para soporte y seguimiento
+            </p>
           </div>
         )}
       </div>
