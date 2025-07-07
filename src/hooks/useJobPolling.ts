@@ -20,12 +20,13 @@ export const useJobPolling = ({
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
   const isPollingRef = useRef(false);
+  const startTimeRef = useRef<number | null>(null);
   
-  const { checkJobCompletion, markJobAsTimeout, getTrackingData, isJobWithinTimeLimit } = useProcessingPersistence();
+  const { checkJobCompletion, markJobAsTimeout, activeJob } = useProcessingPersistence();
   const { toast } = useToast();
 
   const INITIAL_WAIT_TIME = 2 * 60 * 1000; // 2 minutos inicial
-  const POLLING_INTERVAL = 60 * 1000; // 1 MINUTO (cambiado de 30s)
+  const POLLING_INTERVAL = 60 * 1000; // 1 MINUTO
   const MAX_PROCESSING_TIME = 15 * 60 * 1000; // 15 minutos TOTAL
 
   const stopPolling = useCallback(() => {
@@ -44,21 +45,19 @@ export const useJobPolling = ({
     }
   }, []);
 
-  // Verificar timeout basado en send_timestamp del localStorage
+  // Verificar timeout basado en el tiempo de inicio almacenado
   const checkTimeout = useCallback(() => {
-    const trackingData = getTrackingData();
-    if (trackingData && trackingData.sendTimestamp) {
-      const elapsedTime = Date.now() - trackingData.sendTimestamp;
-      const hasTimedOut = elapsedTime >= MAX_PROCESSING_TIME;
-      
-      if (hasTimedOut) {
-        console.log('⏰ Job timed out - 15 minutes elapsed from send time');
-      }
-      
-      return hasTimedOut;
+    if (!startTimeRef.current) return false;
+    
+    const elapsedTime = Date.now() - startTimeRef.current;
+    const hasTimedOut = elapsedTime >= MAX_PROCESSING_TIME;
+    
+    if (hasTimedOut) {
+      console.log('⏰ Job timed out - 15 minutes elapsed from start time');
     }
-    return false;
-  }, [getTrackingData]);
+    
+    return hasTimedOut;
+  }, []);
 
   const handleTimeout = useCallback(async () => {
     console.log('⏰ Handling job timeout - cleaning up');
@@ -115,6 +114,11 @@ export const useJobPolling = ({
       return;
     }
 
+    // Establecer tiempo de inicio si no existe
+    if (!startTimeRef.current) {
+      startTimeRef.current = Date.now();
+    }
+
     // Verificar timeout ANTES de empezar
     if (checkTimeout()) {
       console.log('⏰ Job already timed out, handling timeout immediately');
@@ -132,14 +136,9 @@ export const useJobPolling = ({
     setIsPolling(true);
     isPollingRef.current = true;
 
-    // Calcular tiempo basado en send_timestamp del localStorage
-    const trackingData = getTrackingData();
-    let elapsedTime = 0;
-    
-    if (trackingData && trackingData.sendTimestamp) {
-      elapsedTime = Date.now() - trackingData.sendTimestamp;
-      console.log(`⏱️ Elapsed time since send: ${Math.floor(elapsedTime / 1000)}s`);
-    }
+    // Calcular tiempo transcurrido
+    const elapsedTime = Date.now() - startTimeRef.current;
+    console.log(`⏱️ Elapsed time since start: ${Math.floor(elapsedTime / 1000)}s`);
     
     // Si ya pasaron más de 2 minutos, empezar polling inmediatamente
     const waitTime = Math.max(0, INITIAL_WAIT_TIME - elapsedTime);
@@ -218,7 +217,7 @@ export const useJobPolling = ({
       intervalRef.current = setInterval(pollFunction, POLLING_INTERVAL);
       
     }, waitTime);
-  }, [requestId, checkJobCompletion, onJobCompleted, onJobError, checkTimeout, handleTimeout, stopPolling, getTrackingData, checkExistingJob]);
+  }, [requestId, checkJobCompletion, onJobCompleted, onJobError, checkTimeout, handleTimeout, stopPolling, checkExistingJob]);
 
   // Cleanup al desmontar
   useEffect(() => {
@@ -226,6 +225,14 @@ export const useJobPolling = ({
       stopPolling();
     };
   }, [stopPolling]);
+
+  // Establecer tiempo de inicio cuando se detecta un trabajo activo
+  useEffect(() => {
+    if (activeJob && activeJob.started_at && !startTimeRef.current) {
+      startTimeRef.current = new Date(activeJob.started_at).getTime();
+      console.log('📅 Set start time from active job:', new Date(activeJob.started_at).toISOString());
+    }
+  }, [activeJob]);
 
   return {
     isPolling,
