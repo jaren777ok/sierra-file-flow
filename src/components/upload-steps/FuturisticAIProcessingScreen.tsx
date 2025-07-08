@@ -123,6 +123,7 @@ const FuturisticAIProcessingScreen = ({
       error: [
         'Error en el procesamiento',
         'Verifica los archivos e intenta nuevamente',
+        'Sistema listo para reintentar',
       ]
     };
 
@@ -162,7 +163,7 @@ const FuturisticAIProcessingScreen = ({
       case 'processing': return 'IA procesando documentos por área de negocio...';
       case 'completed': return '¡Procesamiento completado exitosamente!';
       case 'timeout': return 'Tiempo límite alcanzado - Puedes iniciar nuevo trabajo';
-      case 'error': return 'Error en el procesamiento';
+      case 'error': return 'Error en el procesamiento - Reintentar disponible';
       default: return 'Procesando con IA...';
     }
   };
@@ -175,16 +176,94 @@ const FuturisticAIProcessingScreen = ({
           width={windowSize.width}
           height={windowSize.height}
           recycle={false}
-          numberOfPieces={500} // Más partículas para mejor efecto
-          gravity={0.2} // Gravedad más suave
-          colors={['#14b8a6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#f97316']} // Más colores
-          initialVelocityY={20} // Velocidad inicial más alta
-          wind={0.01} // Efecto de viento sutil
+          numberOfPieces={500}
+          gravity={0.2}
+          colors={['#14b8a6', '#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#f97316']}
+          initialVelocityY={20}
+          wind={0.01}
         />
       );
     }
     return null;
   };
+
+  // Renderizar vista de ERROR con botón reintentar
+  if (currentPhase === 'error') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-red-900/10 to-slate-900 relative overflow-hidden">
+        {/* Grid futurista de fondo */}
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(239,68,68,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(239,68,68,0.1)_1px,transparent_1px)] bg-[size:50px_50px]" />
+
+        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-8">
+          {/* Icono de error animado */}
+          <div className="relative mb-12">
+            <div className="w-40 h-40 mx-auto rounded-full bg-gradient-to-r from-red-500 to-red-400 flex items-center justify-center relative overflow-hidden border-2 border-red-500/50">
+              <div className="absolute inset-0 rounded-full border-2 border-red-500/20 animate-ping"></div>
+              <div className="absolute inset-4 rounded-full border-2 border-red-500/30 animate-ping" style={{ animationDelay: '0.5s' }}></div>
+              <div className="relative z-10 animate-pulse">
+                <AlertCircle className="h-16 w-16 text-white" />
+              </div>
+            </div>
+          </div>
+
+          {/* Mensaje de error */}
+          <div className="text-center mb-8 animate-fade-in">
+            <h1 className="text-4xl font-bold text-white mb-2 font-mono">
+              ERROR EN <span className="text-red-400 animate-pulse">PROCESAMIENTO</span>
+            </h1>
+            <div className="inline-flex items-center gap-2 bg-red-500/20 px-6 py-3 rounded-full border border-red-500/30 backdrop-blur-sm">
+              <AlertCircle className="h-5 w-5 text-red-400 animate-pulse" />
+              <span className="text-red-400 font-mono text-lg">
+                PROCESAMIENTO FALLIDO
+              </span>
+            </div>
+          </div>
+
+          {/* Información del proyecto y Request ID */}
+          <div className="text-center mb-8">
+            <div className="bg-slate-900/50 backdrop-blur-sm border border-red-500/30 rounded-xl p-6 max-w-lg mb-6">
+              <p className="text-red-300 font-mono text-xl mb-4">
+                Proyecto: "{projectName}"
+              </p>
+              
+              {/* Request ID Display */}
+              {processingStatus.requestId && (
+                <div className="bg-red-500/10 rounded-lg p-4 mb-4 border border-red-500/20">
+                  <div className="flex items-center justify-center gap-3">
+                    <Hash className="h-6 w-6 text-red-400" />
+                    <span className="font-mono font-bold text-red-400 text-xl">
+                      {processingStatus.requestId}
+                    </span>
+                  </div>
+                  <p className="text-red-300/70 text-sm mt-2">
+                    ID de Solicitud con Error
+                  </p>
+                </div>
+              )}
+              
+              <p className="text-red-300 text-sm mb-4">
+                {processingStatus.message || 'Ocurrió un error durante el procesamiento de los archivos.'}
+              </p>
+              <p className="text-cyan-300 text-sm">
+                Puedes reintentar el procesamiento cuando gustes.
+              </p>
+            </div>
+
+            {/* Botón Reintentar Prominente */}
+            {onStartNew && (
+              <Button
+                onClick={onStartNew}
+                className="bg-gradient-to-r from-red-500 to-red-400 hover:from-red-600 hover:to-red-500 text-white px-10 py-4 rounded-lg font-bold text-lg transition-all duration-300 flex items-center gap-3 mx-auto shadow-2xl shadow-red-500/30 hover:shadow-red-500/50 hover:scale-105"
+              >
+                <RefreshCw className="h-6 w-6 animate-spin" style={{ animationDuration: '2s' }} />
+                Reintentar Procesamiento
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Renderizar vista de timeout
   if (currentPhase === 'timeout') {
@@ -277,14 +356,14 @@ const FuturisticAIProcessingScreen = ({
             </div>
           </div>
 
-          {/* Información del proyecto y tiempo - ACTUALIZADA PARA MOSTRAR REQUEST ID SIMPLE */}
+          {/* Información del proyecto y tiempo */}
           <div className="text-center mb-8 animate-fade-in">
             <div className="bg-slate-900/50 backdrop-blur-sm border border-green-500/30 rounded-xl p-8 max-w-2xl">
               <p className="text-green-300 font-mono text-xl mb-4 animate-pulse">
                 Proyecto: "{projectName}"
               </p>
               
-              {/* Request ID Display - Formato Simple */}
+              {/* Request ID Display */}
               {processingStatus.requestId && (
                 <div className="bg-green-500/10 rounded-lg p-4 mb-4 border border-green-500/20">
                   <div className="flex items-center justify-center gap-3">
@@ -367,7 +446,7 @@ const FuturisticAIProcessingScreen = ({
           </div>
         </div>
 
-        {/* Información del proyecto - ACTUALIZADA PARA MOSTRAR REQUEST ID SIMPLE */}
+        {/* Información del proyecto */}
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-2 font-mono">
             SIERRA IA <span className="text-sierra-teal">PROCESSING</span>
@@ -379,7 +458,7 @@ const FuturisticAIProcessingScreen = ({
             </span>
           </div>
           
-          {/* Request ID Display - Formato Simple y Prominente */}
+          {/* Request ID Display */}
           {processingStatus.requestId && (
             <div className="bg-sierra-teal/10 rounded-lg p-4 mb-4 border border-sierra-teal/20 backdrop-blur-sm">
               <div className="flex items-center justify-center gap-3">
@@ -438,37 +517,83 @@ const FuturisticAIProcessingScreen = ({
           </div>
         </div>
 
-        {/* Contadores de tiempo */}
+        {/* Contadores de tiempo MEJORADOS */}
         <div className="grid grid-cols-2 gap-6 w-full max-w-lg mb-8">
-          <div className="bg-slate-900/50 backdrop-blur-sm border border-sierra-teal/30 rounded-xl p-4 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Clock className="h-5 w-5 text-sierra-teal" />
-              <span className="text-sierra-teal font-mono text-sm">TRANSCURRIDO</span>
+          <div className="relative">
+            {/* Efecto glow de fondo */}
+            <div className="absolute inset-0 bg-gradient-to-br from-sierra-teal/20 to-cyan-400/20 rounded-xl blur-lg opacity-60"></div>
+            
+            <div className="relative bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/40 backdrop-blur-sm border-2 border-sierra-teal/40 rounded-xl p-4 text-center shadow-2xl shadow-sierra-teal/20 hover:shadow-sierra-teal/40 transition-all duration-300 hover:scale-105">
+              {/* Efecto glow interno */}
+              <div className="absolute inset-0 bg-gradient-to-br from-sierra-teal/5 via-transparent to-cyan-400/5 rounded-xl"></div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Clock className="h-6 w-6 text-sierra-teal animate-pulse" />
+                  <span className="text-sierra-teal font-mono text-sm font-bold tracking-wider">TRANSCURRIDO</span>
+                </div>
+                <div className="text-white font-mono text-3xl font-bold drop-shadow-lg">
+                  {formatTime(processingStatus.timeElapsed)}
+                </div>
+              </div>
+              
+              {/* Borde brillante animado */}
+              <div className="absolute inset-0 rounded-xl border border-sierra-teal/30 animate-pulse"></div>
             </div>
-            <div className="text-white font-mono text-2xl">{formatTime(processingStatus.timeElapsed)}</div>
           </div>
           
-          <div className="bg-slate-900/50 backdrop-blur-sm border border-sierra-teal/30 rounded-xl p-4 text-center">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <Zap className="h-5 w-5 text-amber-400" />
-              <span className="text-amber-400 font-mono text-sm">RESTANTE</span>
+          <div className="relative">
+            {/* Efecto glow de fondo */}
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-400/20 to-orange-400/20 rounded-xl blur-lg opacity-60"></div>
+            
+            <div className="relative bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/40 backdrop-blur-sm border-2 border-amber-400/40 rounded-xl p-4 text-center shadow-2xl shadow-amber-400/20 hover:shadow-amber-400/40 transition-all duration-300 hover:scale-105">
+              {/* Efecto glow interno */}
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-400/5 via-transparent to-orange-400/5 rounded-xl"></div>
+              
+              <div className="relative z-10">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  <Zap className="h-6 w-6 text-amber-400 animate-pulse" />
+                  <span className="text-amber-400 font-mono text-sm font-bold tracking-wider">RESTANTE</span>
+                </div>
+                <div className="text-white font-mono text-3xl font-bold drop-shadow-lg">
+                  {formatTime(timeRemaining)}
+                </div>
+              </div>
+              
+              {/* Borde brillante animado */}
+              <div className="absolute inset-0 rounded-xl border border-amber-400/30 animate-pulse"></div>
             </div>
-            <div className="text-white font-mono text-2xl">{formatTime(timeRemaining)}</div>
           </div>
         </div>
 
-        {/* Barra de tiempo límite */}
+        {/* Barra de tiempo límite MEJORADA */}
         <div className="w-full max-w-xl mb-8">
-          <div className="bg-slate-900/50 backdrop-blur-sm border border-amber-400/30 rounded-xl p-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-amber-400 font-mono text-sm">TIEMPO LÍMITE: 15:00</span>
-              <span className="text-amber-400 font-mono text-sm">{Math.round(timeProgress)}%</span>
-            </div>
-            <div className="h-2 bg-slate-800 rounded-full overflow-hidden border border-amber-400/30">
-              <div 
-                className="h-full bg-gradient-to-r from-emerald-400 via-amber-400 to-red-400 transition-all duration-1000"
-                style={{ width: `${timeProgress}%` }}
-              ></div>
+          <div className="relative">
+            {/* Efecto glow de fondo */}
+            <div className="absolute inset-0 bg-gradient-to-br from-amber-400/10 to-red-400/10 rounded-xl blur-lg opacity-60"></div>
+            
+            <div className="relative bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/40 backdrop-blur-sm border-2 border-amber-400/30 rounded-xl p-4 shadow-2xl shadow-amber-400/20">
+              {/* Efecto glow interno */}
+              <div className="absolute inset-0 bg-gradient-to-br from-amber-400/5 via-transparent to-red-400/5 rounded-xl"></div>
+              
+              <div className="relative z-10">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-amber-400 font-mono text-sm font-bold tracking-wider">TIEMPO LÍMITE: 15:00</span>
+                  <span className="text-amber-400 font-mono text-sm font-bold">{Math.round(timeProgress)}%</span>
+                </div>
+                <div className="relative h-3 bg-slate-800 rounded-full overflow-hidden border border-amber-400/30 shadow-inner">
+                  <div 
+                    className="h-full bg-gradient-to-r from-emerald-400 via-amber-400 to-red-400 transition-all duration-1000 relative"
+                    style={{ width: `${timeProgress}%` }}
+                  >
+                    {/* Efecto de brillo en la barra */}
+                    <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Borde brillante animado */}
+              <div className="absolute inset-0 rounded-xl border border-amber-400/20 animate-pulse"></div>
             </div>
           </div>
         </div>

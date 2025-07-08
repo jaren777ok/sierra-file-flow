@@ -145,6 +145,24 @@ export type Database = {
         }
         Relationships: []
       }
+      n8n_grupo_sierra: {
+        Row: {
+          id: number
+          message: Json
+          session_id: string
+        }
+        Insert: {
+          id?: number
+          message: Json
+          session_id: string
+        }
+        Update: {
+          id?: number
+          message?: Json
+          session_id?: string
+        }
+        Relationships: []
+      }
       n8n_lucidbot_nuevos: {
         Row: {
           id: number
