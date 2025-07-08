@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useSavedFiles } from '@/hooks/useSavedFiles';
@@ -48,6 +47,17 @@ const useSimpleProcessing = () => {
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 1000);
     return `SIERRA-${timestamp}-${random}`;
+  };
+
+  // Helper function to calculate total files with proper typing
+  const calculateTotalFiles = (areaFiles: any, files: File[]): number => {
+    if (areaFiles) {
+      return Object.values(areaFiles).reduce((acc, fileArray) => {
+        const count = Array.isArray(fileArray) ? fileArray.length : 0;
+        return acc + count;
+      }, 0);
+    }
+    return files.length;
   };
 
   // Función principal de procesamiento simplificada
@@ -184,9 +194,7 @@ const useSimpleProcessing = () => {
           await saveProcessedFile(projectTitle, 'Multi-área', downloadUrl);
           
           // Guardar resultado en BD para historial - CORRIGIENDO TIPOS
-          const totalFilesCount: number = areaFiles ? 
-            Object.values(areaFiles).reduce((acc: number, files: any) => acc + (Array.isArray(files) ? files.length : 0), 0) : 
-            files.length;
+          const totalFilesCount = calculateTotalFiles(areaFiles, files);
           
           await supabase.from('processing_jobs').insert({
             request_id: requestId,
@@ -234,9 +242,7 @@ const useSimpleProcessing = () => {
           });
           
           // Guardar timeout en BD
-          const totalFilesCount: number = areaFiles ? 
-            Object.values(areaFiles).reduce((acc: number, files: any) => acc + (Array.isArray(files) ? files.length : 0), 0) : 
-            files.length;
+          const totalFilesCount = calculateTotalFiles(areaFiles, files);
             
           await supabase.from('processing_jobs').insert({
             request_id: requestId,
