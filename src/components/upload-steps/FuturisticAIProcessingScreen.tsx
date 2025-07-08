@@ -1,5 +1,6 @@
+
 import React, { useEffect, useState } from 'react';
-import { Sparkles, Clock, Brain, Zap, Cpu, Activity, Database, FileText, CheckCircle2, AlertCircle, RefreshCw, Hash } from 'lucide-react';
+import { Sparkles, Clock, Brain, Zap, Cpu, Activity, Database, FileText, CheckCircle2, AlertCircle, RefreshCw, Hash, Wifi, WifiOff } from 'lucide-react';
 import { ProcessingStatus } from '@/hooks/useMultiStepUpload';
 import { ProcessingJob } from '@/hooks/useProcessingPersistence';
 import { Button } from '@/components/ui/button';
@@ -23,9 +24,10 @@ const FuturisticAIProcessingScreen = ({
   const [smartProgress, setSmartProgress] = useState(processingStatus.progress || 0);
   const [aiThoughts, setAiThoughts] = useState('Inicializando sistema de IA...');
   const [currentPhase, setCurrentPhase] = useState<'sending' | 'processing' | 'completed' | 'timeout' | 'error'>('sending');
-  const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number }>>([]);
+  const [particles, setParticles] = useState<Array<{ id: number; x: number; y: number; delay: number; size: number; speed: number }>>([]);
   const [windowSize, setWindowSize] = useState({ width: window.innerWidth, height: window.innerHeight });
   const [confettiActive, setConfettiActive] = useState(false);
+  const [scanLines, setScanLines] = useState<Array<{ id: number; delay: number }>>([]);
 
   const MAX_TIME = 15 * 60; // 15 minutos en segundos
 
@@ -45,7 +47,7 @@ const FuturisticAIProcessingScreen = ({
       console.log('🎊 Activando confeti mejorado');
       setConfettiActive(true);
       
-      // Auto-ocultar confeti después de 8 segundos (más tiempo para mejor visibilidad)
+      // Auto-ocultar confeti después de 8 segundos
       const timer = setTimeout(() => {
         setConfettiActive(false);
         if (onHideConfetti) {
@@ -68,13 +70,10 @@ const FuturisticAIProcessingScreen = ({
       let calculatedProgress = 25; // Progreso base después de envío
       
       if (elapsedMinutes < 5) {
-        // Primeros 5 minutos: 25% a 50%
         calculatedProgress = 25 + ((elapsedMinutes / 5) * 25);
       } else if (elapsedMinutes < 10) {
-        // Minutos 5-10: 50% a 75%
         calculatedProgress = 50 + (((elapsedMinutes - 5) / 5) * 25);
       } else {
-        // Minutos 10-15: 75% a 90%
         calculatedProgress = 75 + (((elapsedMinutes - 10) / 5) * 15);
       }
       
@@ -82,48 +81,57 @@ const FuturisticAIProcessingScreen = ({
     }
   }, [processingStatus.status, processingStatus.progress, processingStatus.timeElapsed]);
 
-  // Generar partículas flotantes
+  // Generar partículas flotantes mejoradas
   useEffect(() => {
-    const newParticles = Array.from({ length: 25 }, (_, i) => ({
+    const newParticles = Array.from({ length: 40 }, (_, i) => ({
       id: i,
       x: Math.random() * 100,
       y: Math.random() * 100,
-      delay: Math.random() * 5
+      delay: Math.random() * 5,
+      size: Math.random() * 3 + 1,
+      speed: Math.random() * 3 + 2
     }));
     setParticles(newParticles);
+
+    // Líneas de escaneo
+    const newScanLines = Array.from({ length: 8 }, (_, i) => ({
+      id: i,
+      delay: i * 0.5
+    }));
+    setScanLines(newScanLines);
   }, []);
 
   // Pensamientos de IA dinámicos
   useEffect(() => {
     const thoughts = {
       sending: [
-        'Preparando archivos para procesamiento...',
-        'Estableciendo conexión con sistemas de IA...',
-        'Verificando integridad de archivos...',
-        'Organizando archivos por área de negocio...',
+        'Inicializando protocolos de transferencia...',
+        'Estableciendo conexión cuántica...',
+        'Preparando matriz de datos...',
+        'Activando compresores neurales...',
       ],
       processing: [
-        'Analizando estructura de documentos...',
-        'Extrayendo información clave por área...',
-        'Aplicando algoritmos de comprensión...',
-        'Generando insights inteligentes...',
-        'Sintetizando información compleja...',
-        'Creando análisis predictivo...',
-        'Compilando informe ejecutivo...',
+        'Analizando patrones de datos...',
+        'Ejecutando algoritmos de deep learning...',
+        'Procesando información con redes neuronales...',
+        'Sintetizando conocimiento empresarial...',
+        'Generando insights avanzados...',
+        'Optimizando resultados con IA...',
+        'Compilando informe inteligente...',
+        'Calibrando sistemas de análisis...',
       ],
       completed: [
-        '¡Análisis completado exitosamente!',
-        'Informe listo para descarga',
-        '¡Procesamiento perfecto!',
+        '¡Procesamiento cuántico completado!',
+        'Datos transformados exitosamente',
+        '¡Sistema IA operativo al 100%!',
       ],
       timeout: [
-        'Tiempo límite alcanzado',
-        'Puedes iniciar un nuevo procesamiento',
+        'Límite de procesamiento alcanzado',
+        'Sistema en estado de espera',
       ],
       error: [
-        'Error en el procesamiento',
-        'Verifica los archivos e intenta nuevamente',
-        'Sistema listo para reintentar',
+        'Error en matriz de procesamiento',
+        'Reinicializando sistemas...',
       ]
     };
 
@@ -132,7 +140,7 @@ const FuturisticAIProcessingScreen = ({
     const thoughtTimer = setInterval(() => {
       const randomThought = currentThoughts[Math.floor(Math.random() * currentThoughts.length)];
       setAiThoughts(randomThought);
-    }, 3000);
+    }, 2500);
 
     return () => clearInterval(thoughtTimer);
   }, [currentPhase]);
@@ -142,9 +150,6 @@ const FuturisticAIProcessingScreen = ({
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
-
-  const timeRemaining = Math.max(0, MAX_TIME - processingStatus.timeElapsed);
-  const timeProgress = (processingStatus.timeElapsed / MAX_TIME) * 100;
 
   const getPhaseColor = () => {
     switch (currentPhase) {
@@ -159,12 +164,12 @@ const FuturisticAIProcessingScreen = ({
 
   const getPhaseMessage = () => {
     switch (currentPhase) {
-      case 'sending': return 'Enviando archivos organizados por área...';
-      case 'processing': return 'IA procesando documentos por área de negocio...';
+      case 'sending': return 'Transmitiendo datos al núcleo de procesamiento...';
+      case 'processing': return 'IA procesando información empresarial...';
       case 'completed': return '¡Procesamiento completado exitosamente!';
       case 'timeout': return 'Tiempo límite alcanzado - Puedes iniciar nuevo trabajo';
       case 'error': return 'Error en el procesamiento - Reintentar disponible';
-      default: return 'Procesando con IA...';
+      default: return 'Procesando con IA avanzada...';
     }
   };
 
@@ -191,11 +196,9 @@ const FuturisticAIProcessingScreen = ({
   if (currentPhase === 'error') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-red-900/10 to-slate-900 relative overflow-hidden">
-        {/* Grid futurista de fondo */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(239,68,68,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(239,68,68,0.1)_1px,transparent_1px)] bg-[size:50px_50px]" />
 
         <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-8">
-          {/* Icono de error animado */}
           <div className="relative mb-12">
             <div className="w-40 h-40 mx-auto rounded-full bg-gradient-to-r from-red-500 to-red-400 flex items-center justify-center relative overflow-hidden border-2 border-red-500/50">
               <div className="absolute inset-0 rounded-full border-2 border-red-500/20 animate-ping"></div>
@@ -206,7 +209,6 @@ const FuturisticAIProcessingScreen = ({
             </div>
           </div>
 
-          {/* Mensaje de error */}
           <div className="text-center mb-8 animate-fade-in">
             <h1 className="text-4xl font-bold text-white mb-2 font-mono">
               ERROR EN <span className="text-red-400 animate-pulse">PROCESAMIENTO</span>
@@ -219,27 +221,11 @@ const FuturisticAIProcessingScreen = ({
             </div>
           </div>
 
-          {/* Información del proyecto y Request ID */}
           <div className="text-center mb-8">
             <div className="bg-slate-900/50 backdrop-blur-sm border border-red-500/30 rounded-xl p-6 max-w-lg mb-6">
               <p className="text-red-300 font-mono text-xl mb-4">
                 Proyecto: "{projectName}"
               </p>
-              
-              {/* Request ID Display */}
-              {processingStatus.requestId && (
-                <div className="bg-red-500/10 rounded-lg p-4 mb-4 border border-red-500/20">
-                  <div className="flex items-center justify-center gap-3">
-                    <Hash className="h-6 w-6 text-red-400" />
-                    <span className="font-mono font-bold text-red-400 text-xl">
-                      {processingStatus.requestId}
-                    </span>
-                  </div>
-                  <p className="text-red-300/70 text-sm mt-2">
-                    ID de Solicitud con Error
-                  </p>
-                </div>
-              )}
               
               <p className="text-red-300 text-sm mb-4">
                 {processingStatus.message || 'Ocurrió un error durante el procesamiento de los archivos.'}
@@ -249,7 +235,6 @@ const FuturisticAIProcessingScreen = ({
               </p>
             </div>
 
-            {/* Botón Reintentar Prominente */}
             {onStartNew && (
               <Button
                 onClick={onStartNew}
@@ -269,11 +254,9 @@ const FuturisticAIProcessingScreen = ({
   if (currentPhase === 'timeout') {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-red-900/10 to-slate-900 relative overflow-hidden">
-        {/* Grid futurista de fondo */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.1)_1px,transparent_1px)] bg-[size:50px_50px]" />
 
         <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-8">
-          {/* Icono de timeout */}
           <div className="relative mb-12">
             <div className="w-40 h-40 mx-auto rounded-full bg-gradient-to-r from-red-400 to-orange-400 flex items-center justify-center relative overflow-hidden border-2 border-red-500/50 opacity-90">
               <div className="absolute inset-0 rounded-full border-2 border-red-500/20 animate-ping"></div>
@@ -283,7 +266,6 @@ const FuturisticAIProcessingScreen = ({
             </div>
           </div>
 
-          {/* Información del timeout */}
           <div className="text-center mb-8">
             <h1 className="text-4xl font-bold text-white mb-2 font-mono">
               TIEMPO LÍMITE <span className="text-red-400">ALCANZADO</span>
@@ -296,7 +278,6 @@ const FuturisticAIProcessingScreen = ({
             </div>
           </div>
 
-          {/* Mensaje y botón para nuevo trabajo */}
           <div className="bg-slate-900/50 backdrop-blur-sm border border-red-500/30 rounded-xl p-6 max-w-lg mb-8">
             <div className="text-center">
               <p className="text-red-300 font-mono text-lg mb-4">
@@ -328,22 +309,19 @@ const FuturisticAIProcessingScreen = ({
       <div className="min-h-screen bg-gradient-to-br from-slate-950 via-green-900/10 to-slate-900 relative overflow-hidden">
         {renderConfetti()}
         
-        {/* Grid futurista de fondo */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.1)_1px,transparent_1px)] bg-[size:50px_50px]" />
 
         <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-8">
-          {/* Icono de éxito con animación mejorada */}
           <div className="relative mb-12">
-            <div className="w-40 h-40 mx-auto rounded-full bg-gradient-to-r from-green-400 to-emerald-400 flex items-center justify-center relative overflow-hidden border-2 border-green-500/50 animate-pulse">
+            <div className="w-52 h-52 mx-auto rounded-full bg-gradient-to-r from-green-400 to-emerald-400 flex items-center justify-center relative overflow-hidden border-2 border-green-500/50 animate-pulse">
               <div className="absolute inset-0 rounded-full border-2 border-green-500/20 animate-ping"></div>
               <div className="absolute inset-4 rounded-full border-2 border-green-500/30 animate-ping" style={{ animationDelay: '0.5s' }}></div>
               <div className="relative z-10 animate-bounce">
-                <CheckCircle2 className="h-16 w-16 text-white" />
+                <CheckCircle2 className="h-20 w-20 text-white" />
               </div>
             </div>
           </div>
 
-          {/* Mensaje de éxito con animación */}
           <div className="text-center mb-8 animate-fade-in">
             <h1 className="text-5xl font-bold text-white mb-4 font-mono animate-scale-in">
               ¡PROCESAMIENTO <span className="text-green-400 animate-pulse">COMPLETADO!</span>
@@ -356,32 +334,13 @@ const FuturisticAIProcessingScreen = ({
             </div>
           </div>
 
-          {/* Información del proyecto y tiempo */}
           <div className="text-center mb-8 animate-fade-in">
             <div className="bg-slate-900/50 backdrop-blur-sm border border-green-500/30 rounded-xl p-8 max-w-2xl">
               <p className="text-green-300 font-mono text-xl mb-4 animate-pulse">
                 Proyecto: "{projectName}"
               </p>
               
-              {/* Request ID Display */}
-              {processingStatus.requestId && (
-                <div className="bg-green-500/10 rounded-lg p-4 mb-4 border border-green-500/20">
-                  <div className="flex items-center justify-center gap-3">
-                    <Hash className="h-6 w-6 text-green-400" />
-                    <span className="font-mono font-bold text-green-400 text-2xl">
-                      {processingStatus.requestId}
-                    </span>
-                  </div>
-                  <p className="text-green-300/70 text-sm mt-2">
-                    ID de Solicitud Completada
-                  </p>
-                </div>
-              )}
-              
               <p className="text-cyan-300 text-lg mb-4">
-                Tiempo de procesamiento: {formatTime(processingStatus.timeElapsed)}
-              </p>
-              <p className="text-cyan-300 text-lg">
                 Tu archivo ha sido guardado automáticamente en "Archivos Guardados".
               </p>
               <div className="mt-6 text-green-400 font-mono text-lg animate-pulse">
@@ -394,221 +353,210 @@ const FuturisticAIProcessingScreen = ({
     );
   }
 
-  // Vista de procesamiento normal
+  // Vista de procesamiento normal MEJORADA
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-sierra-teal/10 to-slate-900 relative overflow-hidden">
-      {/* Partículas flotantes de fondo */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 relative overflow-hidden">
+      {/* Matriz de código de fondo */}
+      <div className="absolute inset-0 opacity-10">
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.2)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.2)_1px,transparent_1px)] bg-[size:20px_20px] animate-pulse"></div>
+      </div>
+
+      {/* Líneas de escaneo */}
+      {scanLines.map(line => (
+        <div
+          key={line.id}
+          className="absolute left-0 right-0 h-px bg-gradient-to-r from-transparent via-sierra-teal to-transparent opacity-60 animate-pulse"
+          style={{
+            top: `${10 + (line.id * 10)}%`,
+            animationDelay: `${line.delay}s`,
+            animationDuration: '3s'
+          }}
+        />
+      ))}
+
+      {/* Partículas flotantes mejoradas */}
       <div className="absolute inset-0">
         {particles.map((particle) => (
           <div
             key={particle.id}
-            className="absolute w-1 h-1 bg-sierra-teal/30 rounded-full animate-pulse"
+            className={`absolute bg-sierra-teal/40 rounded-full animate-pulse`}
             style={{
               left: `${particle.x}%`,
               top: `${particle.y}%`,
+              width: `${particle.size}px`,
+              height: `${particle.size}px`,
               animationDelay: `${particle.delay}s`,
-              animationDuration: '3s'
+              animationDuration: `${particle.speed}s`
             }}
           />
         ))}
       </div>
 
-      {/* Grid futurista de fondo */}
-      <div className="absolute inset-0 bg-[linear-gradient(rgba(20,184,166,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(20,184,166,0.1)_1px,transparent_1px)] bg-[size:50px_50px]" />
-
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen p-8">
-        {/* Cerebro IA Central */}
-        <div className="relative mb-12">
-          <div className={`w-40 h-40 mx-auto rounded-full bg-gradient-to-r ${getPhaseColor()} flex items-center justify-center relative overflow-hidden border-2 border-sierra-teal/50 opacity-90`}>
-            {/* Ondas de energía */}
-            <div className="absolute inset-0 rounded-full border-2 border-sierra-teal/20 animate-ping"></div>
-            <div className="absolute inset-4 rounded-full border-2 border-sierra-teal/30 animate-ping" style={{ animationDelay: '0.5s' }}></div>
-            <div className="absolute inset-8 rounded-full border-2 border-sierra-teal/40 animate-ping" style={{ animationDelay: '1s' }}></div>
+        {/* Cerebro IA Central MEGA MEJORADO */}
+        <div className="relative mb-16">
+          {/* Ondas de energía expansivas */}
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="w-80 h-80 rounded-full border-2 border-sierra-teal/20 animate-ping" style={{ animationDuration: '4s' }}></div>
+            <div className="absolute w-64 h-64 rounded-full border-2 border-cyan-400/30 animate-ping" style={{ animationDuration: '3s', animationDelay: '1s' }}></div>
+            <div className="absolute w-48 h-48 rounded-full border-2 border-blue-400/40 animate-ping" style={{ animationDuration: '2s', animationDelay: '2s' }}></div>
+          </div>
+          
+          {/* Cerebro principal más grande */}
+          <div className={`w-56 h-56 mx-auto rounded-full bg-gradient-to-r ${getPhaseColor()} flex items-center justify-center relative overflow-hidden border-4 border-sierra-teal/60 shadow-2xl shadow-sierra-teal/50`}>
+            {/* Efectos holográficos internos */}
+            <div className="absolute inset-0 rounded-full">
+              <div className="absolute inset-4 rounded-full border-2 border-white/20 animate-spin" style={{ animationDuration: '8s' }}></div>
+              <div className="absolute inset-8 rounded-full border-2 border-white/30 animate-spin" style={{ animationDuration: '6s', animationDirection: 'reverse' }}></div>
+              <div className="absolute inset-12 rounded-full border-2 border-white/40 animate-spin" style={{ animationDuration: '4s' }}></div>
+            </div>
+            
+            {/* Resplandor interno */}
+            <div className="absolute inset-0 bg-gradient-to-r from-sierra-teal/30 via-transparent to-cyan-400/30 rounded-full animate-pulse"></div>
             
             {/* Icono central rotando */}
-            <div className="relative z-10 animate-spin" style={{ animationDuration: '8s' }}>
-              <Brain className="h-16 w-16 text-white" />
+            <div className="relative z-10 animate-spin" style={{ animationDuration: '10s' }}>
+              <Brain className="h-24 w-24 text-white drop-shadow-2xl" />
             </div>
           </div>
           
-          {/* Elementos orbitales */}
-          <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-4">
-            <Cpu className="h-6 w-6 text-cyan-400 animate-bounce" />
+          {/* Elementos orbitales mejorados */}
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 -translate-y-4">
+            <div className="animate-bounce" style={{ animationDuration: '3s' }}>
+              <Cpu className="h-8 w-8 text-cyan-400 drop-shadow-lg" />
+            </div>
           </div>
-          <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-4">
-            <Database className="h-6 w-6 text-sierra-teal animate-bounce" style={{ animationDelay: '0.5s' }} />
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 translate-y-4">
+            <div className="animate-bounce" style={{ animationDuration: '3s', animationDelay: '0.5s' }}>
+              <Database className="h-8 w-8 text-sierra-teal drop-shadow-lg" />
+            </div>
           </div>
-          <div className="absolute left-0 top-1/2 transform -translate-y-1/2 -translate-x-8">
-            <Activity className="h-6 w-6 text-emerald-400 animate-bounce" style={{ animationDelay: '1s' }} />
+          <div className="absolute left-4 top-1/2 transform -translate-y-1/2 -translate-x-12">
+            <div className="animate-bounce" style={{ animationDuration: '3s', animationDelay: '1s' }}>
+              <Activity className="h-8 w-8 text-emerald-400 drop-shadow-lg" />
+            </div>
           </div>
-          <div className="absolute right-0 top-1/2 transform -translate-y-1/2 translate-x-8">
-            <FileText className="h-6 w-6 text-blue-400 animate-bounce" style={{ animationDelay: '1.5s' }} />
+          <div className="absolute right-4 top-1/2 transform -translate-y-1/2 translate-x-12">
+            <div className="animate-bounce" style={{ animationDuration: '3s', animationDelay: '1.5s' }}>
+              <FileText className="h-8 w-8 text-blue-400 drop-shadow-lg" />
+            </div>
           </div>
         </div>
 
-        {/* Información del proyecto */}
-        <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold text-white mb-2 font-mono">
-            SIERRA IA <span className="text-sierra-teal">PROCESSING</span>
+        {/* Título mejorado */}
+        <div className="text-center mb-12">
+          <h1 className="text-5xl font-bold text-white mb-4 font-mono bg-gradient-to-r from-sierra-teal via-cyan-400 to-blue-400 bg-clip-text text-transparent animate-pulse">
+            SIERRA IA QUANTUM
           </h1>
-          <div className="inline-flex items-center gap-2 bg-sierra-teal/20 px-6 py-3 rounded-full border border-sierra-teal/30 backdrop-blur-sm mb-4">
-            <Sparkles className="h-5 w-5 text-sierra-teal animate-pulse" />
-            <span className="text-sierra-teal font-mono text-lg">
+          <div className="inline-flex items-center gap-3 bg-gradient-to-r from-sierra-teal/20 to-cyan-400/20 px-8 py-4 rounded-full border border-sierra-teal/40 backdrop-blur-sm shadow-2xl shadow-sierra-teal/30">
+            <Sparkles className="h-6 w-6 text-sierra-teal animate-pulse" />
+            <span className="text-sierra-teal font-mono text-xl font-bold">
               {projectName}
             </span>
+            <Sparkles className="h-6 w-6 text-cyan-400 animate-pulse" />
           </div>
-          
-          {/* Request ID Display */}
-          {processingStatus.requestId && (
-            <div className="bg-sierra-teal/10 rounded-lg p-4 mb-4 border border-sierra-teal/20 backdrop-blur-sm">
-              <div className="flex items-center justify-center gap-3">
-                <Hash className="h-6 w-6 text-sierra-teal animate-pulse" />
-                <span className="font-mono font-bold text-sierra-teal text-2xl">
-                  {processingStatus.requestId}
-                </span>
+        </div>
+
+        {/* Panel de pensamientos IA mejorado */}
+        <div className="mb-12 text-center">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-sierra-teal/10 to-cyan-400/10 rounded-2xl blur-lg"></div>
+            <div className="relative bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 backdrop-blur-sm border-2 border-sierra-teal/40 rounded-2xl p-8 max-w-2xl shadow-2xl shadow-sierra-teal/30">
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <Brain className="h-6 w-6 text-sierra-teal animate-pulse" />
+                <span className="text-sierra-teal font-mono text-lg font-bold tracking-wider">NEURAL NETWORK STATUS</span>
+                <div className="flex gap-1">
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '0.2s' }}></div>
+                  <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" style={{ animationDelay: '0.4s' }}></div>
+                </div>
               </div>
-              <p className="text-sierra-teal/70 text-sm mt-1">
-                ID de Solicitud Activa
+              <p className="text-cyan-300 font-mono text-xl mb-3 min-h-[1.5rem]">{aiThoughts}</p>
+              <p className="text-sierra-teal text-lg font-medium">{getPhaseMessage()}</p>
+              
+              {/* Indicador de transmisión de datos */}
+              <div className="mt-4 flex items-center justify-center gap-2">
+                <Wifi className="h-5 w-5 text-green-400 animate-pulse" />
+                <span className="text-green-400 text-sm font-mono">CONEXIÓN ESTABLE • TRANSMITIENDO DATOS</span>
+                <div className="flex gap-1">
+                  {[...Array(4)].map((_, i) => (
+                    <div 
+                      key={i}
+                      className="w-1 h-4 bg-green-400 rounded-full animate-pulse"
+                      style={{ animationDelay: `${i * 0.2}s` }}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Barra de progreso hexagonal mejorada */}
+        <div className="w-full max-w-3xl mb-12">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-sierra-teal/10 to-cyan-400/10 rounded-2xl blur-lg"></div>
+            <div className="relative bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 backdrop-blur-sm border-2 border-sierra-teal/40 rounded-2xl p-8 shadow-2xl shadow-sierra-teal/30">
+              <div className="flex justify-between items-center mb-6">
+                <span className="text-sierra-teal font-mono text-xl font-bold tracking-wider">QUANTUM PROGRESS</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-mono text-3xl font-bold">{Math.round(smartProgress)}%</span>
+                  <div className="w-3 h-3 bg-sierra-teal rounded-full animate-pulse"></div>
+                </div>
+              </div>
+              
+              {/* Barra de progreso con efectos */}
+              <div className="relative h-6 bg-slate-800 rounded-full overflow-hidden border-2 border-sierra-teal/30 shadow-inner">
+                <div 
+                  className={`h-full bg-gradient-to-r ${getPhaseColor()} transition-all duration-1000 relative overflow-hidden`}
+                  style={{ width: `${smartProgress}%` }}
+                >
+                  {/* Efectos de energía en la barra */}
+                  <div className="absolute inset-0 bg-white/30 animate-pulse"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/50 to-transparent animate-pulse" 
+                       style={{ animationDuration: '2s' }}></div>
+                  <div className="absolute top-0 left-0 w-full h-1 bg-white/60 animate-pulse"></div>
+                  <div className="absolute bottom-0 left-0 w-full h-1 bg-white/60 animate-pulse"></div>
+                </div>
+              </div>
+              
+              {/* Chips de estado de fases */}
+              <div className="mt-6 flex justify-center gap-3">
+                {['ENVIANDO', 'PROCESANDO', 'ANALIZANDO', 'COMPILANDO'].map((phase, index) => {
+                  const isActive = smartProgress >= (index + 1) * 25;
+                  return (
+                    <div 
+                      key={phase}
+                      className={`px-4 py-2 rounded-full border text-xs font-mono font-bold transition-all duration-500 ${
+                        isActive 
+                          ? 'bg-sierra-teal/20 border-sierra-teal text-sierra-teal animate-pulse' 
+                          : 'bg-slate-800/50 border-slate-600 text-slate-400'
+                      }`}
+                    >
+                      {phase}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Mensaje de información final */}
+        <div className="text-center">
+          <div className="relative">
+            <div className="absolute inset-0 bg-gradient-to-r from-blue-400/10 to-purple-400/10 rounded-xl blur-lg"></div>
+            <div className="relative bg-slate-900/40 backdrop-blur-sm border border-sierra-teal/20 rounded-xl p-6 max-w-2xl">
+              <div className="flex items-center justify-center gap-2 mb-3">
+                <CheckCircle2 className="h-5 w-5 text-green-400 animate-pulse" />
+                <span className="text-green-400 font-mono text-sm font-bold">SISTEMA OPERATIVO • PROCESAMIENTO ACTIVO</span>
+              </div>
+              <p className="text-cyan-300/80 font-mono text-sm leading-relaxed">
+                La IA está procesando tus archivos organizados por área empresarial. 
+                <br />
+                <span className="text-sierra-teal font-bold">¡Mantén esta ventana abierta para garantizar la conexión!</span>
               </p>
             </div>
-          )}
-        </div>
-
-        {/* Estado actual y pensamientos de IA */}
-        <div className="mb-8 text-center">
-          <div className="bg-slate-900/50 backdrop-blur-sm border border-sierra-teal/30 rounded-xl p-6 max-w-lg">
-            <div className="flex items-center gap-3 mb-3">
-              <Brain className="h-5 w-5 text-sierra-teal animate-pulse" />
-              <span className="text-sierra-teal font-mono text-sm">AI THOUGHTS</span>
-              <CheckCircle2 className="h-4 w-4 text-green-400" />
-            </div>
-            <p className="text-cyan-300 font-mono text-lg mb-2">{aiThoughts}</p>
-            <p className="text-sierra-teal text-sm font-medium">{getPhaseMessage()}</p>
-          </div>
-        </div>
-
-        {/* Barra de progreso principal */}
-        <div className="w-full max-w-2xl mb-8">
-          <div className="bg-slate-900/50 backdrop-blur-sm border border-sierra-teal/30 rounded-2xl p-6">
-            <div className="flex justify-between items-center mb-4">
-              <span className="text-sierra-teal font-mono text-lg">PROGRESO</span>
-              <span className="text-white font-mono text-2xl">{Math.round(smartProgress)}%</span>
-            </div>
-            
-            <div className="relative h-4 bg-slate-800 rounded-full overflow-hidden border border-sierra-teal/30">
-              <div 
-                className={`h-full bg-gradient-to-r ${getPhaseColor()} transition-all duration-1000 relative`}
-                style={{ width: `${smartProgress}%` }}
-              >
-                {/* Efecto de brillo */}
-                <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
-                {/* Líneas de energía */}
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/40 to-transparent animate-pulse" 
-                     style={{ animationDuration: '2s' }}></div>
-              </div>
-            </div>
-            
-            {/* Mensaje de progreso */}
-            <div className="mt-3 flex justify-center">
-              <span className="text-xs text-sierra-teal/70 font-mono uppercase tracking-wider">
-                {processingStatus.message || 'Esperando respuesta de la webhook...'}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Contadores de tiempo MEJORADOS */}
-        <div className="grid grid-cols-2 gap-6 w-full max-w-lg mb-8">
-          <div className="relative">
-            {/* Efecto glow de fondo */}
-            <div className="absolute inset-0 bg-gradient-to-br from-sierra-teal/20 to-cyan-400/20 rounded-xl blur-lg opacity-60"></div>
-            
-            <div className="relative bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/40 backdrop-blur-sm border-2 border-sierra-teal/40 rounded-xl p-4 text-center shadow-2xl shadow-sierra-teal/20 hover:shadow-sierra-teal/40 transition-all duration-300 hover:scale-105">
-              {/* Efecto glow interno */}
-              <div className="absolute inset-0 bg-gradient-to-br from-sierra-teal/5 via-transparent to-cyan-400/5 rounded-xl"></div>
-              
-              <div className="relative z-10">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Clock className="h-6 w-6 text-sierra-teal animate-pulse" />
-                  <span className="text-sierra-teal font-mono text-sm font-bold tracking-wider">TRANSCURRIDO</span>
-                </div>
-                <div className="text-white font-mono text-3xl font-bold drop-shadow-lg">
-                  {formatTime(processingStatus.timeElapsed)}
-                </div>
-              </div>
-              
-              {/* Borde brillante animado */}
-              <div className="absolute inset-0 rounded-xl border border-sierra-teal/30 animate-pulse"></div>
-            </div>
-          </div>
-          
-          <div className="relative">
-            {/* Efecto glow de fondo */}
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-400/20 to-orange-400/20 rounded-xl blur-lg opacity-60"></div>
-            
-            <div className="relative bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/40 backdrop-blur-sm border-2 border-amber-400/40 rounded-xl p-4 text-center shadow-2xl shadow-amber-400/20 hover:shadow-amber-400/40 transition-all duration-300 hover:scale-105">
-              {/* Efecto glow interno */}
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-400/5 via-transparent to-orange-400/5 rounded-xl"></div>
-              
-              <div className="relative z-10">
-                <div className="flex items-center justify-center gap-2 mb-2">
-                  <Zap className="h-6 w-6 text-amber-400 animate-pulse" />
-                  <span className="text-amber-400 font-mono text-sm font-bold tracking-wider">RESTANTE</span>
-                </div>
-                <div className="text-white font-mono text-3xl font-bold drop-shadow-lg">
-                  {formatTime(timeRemaining)}
-                </div>
-              </div>
-              
-              {/* Borde brillante animado */}
-              <div className="absolute inset-0 rounded-xl border border-amber-400/30 animate-pulse"></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Barra de tiempo límite MEJORADA */}
-        <div className="w-full max-w-xl mb-8">
-          <div className="relative">
-            {/* Efecto glow de fondo */}
-            <div className="absolute inset-0 bg-gradient-to-br from-amber-400/10 to-red-400/10 rounded-xl blur-lg opacity-60"></div>
-            
-            <div className="relative bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/40 backdrop-blur-sm border-2 border-amber-400/30 rounded-xl p-4 shadow-2xl shadow-amber-400/20">
-              {/* Efecto glow interno */}
-              <div className="absolute inset-0 bg-gradient-to-br from-amber-400/5 via-transparent to-red-400/5 rounded-xl"></div>
-              
-              <div className="relative z-10">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-amber-400 font-mono text-sm font-bold tracking-wider">TIEMPO LÍMITE: 15:00</span>
-                  <span className="text-amber-400 font-mono text-sm font-bold">{Math.round(timeProgress)}%</span>
-                </div>
-                <div className="relative h-3 bg-slate-800 rounded-full overflow-hidden border border-amber-400/30 shadow-inner">
-                  <div 
-                    className="h-full bg-gradient-to-r from-emerald-400 via-amber-400 to-red-400 transition-all duration-1000 relative"
-                    style={{ width: `${timeProgress}%` }}
-                  >
-                    {/* Efecto de brillo en la barra */}
-                    <div className="absolute inset-0 bg-white/20 animate-pulse"></div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Borde brillante animado */}
-              <div className="absolute inset-0 rounded-xl border border-amber-400/20 animate-pulse"></div>
-            </div>
-          </div>
-        </div>
-
-        {/* Mensaje de información */}
-        <div className="text-center">
-          <div className="bg-slate-900/30 backdrop-blur-sm border border-sierra-teal/20 rounded-xl p-4 max-w-md">
-            <div className="flex items-center justify-center gap-2 mb-2">
-              <CheckCircle2 className="h-5 w-5 text-green-400" />
-              <span className="text-green-400 font-mono text-sm">ARCHIVOS ORGANIZADOS POR ÁREA</span>
-            </div>
-            <p className="text-cyan-300/70 font-mono text-sm">
-              Los archivos se han enviado organizados por área de negocio al webhook. 
-              ¡No cierres esta ventana para mantener la conexión!
-            </p>
           </div>
         </div>
       </div>
