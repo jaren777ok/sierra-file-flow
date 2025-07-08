@@ -1,4 +1,5 @@
 
+
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useSavedFiles } from '@/hooks/useSavedFiles';
@@ -28,8 +29,8 @@ const useSimpleProcessing = () => {
   const { toast } = useToast();
   const { saveProcessedFile } = useSavedFiles();
 
-  // Nueva URL de webhook de producción
-  const WEBHOOK_URL = 'https://primary-production-f0d1.up.railway.app/webhook/sierra';
+  // Nueva URL de webhook de producción actualizada
+  const WEBHOOK_URL = 'https://primary-production-f0d1.up.railway.app/webhook-test/sierra';
   const MAX_TIMEOUT = 900000; // 15 minutos en milisegundos
 
   const updateElapsedTime = useCallback(() => {
@@ -332,3 +333,4 @@ const useSimpleProcessing = () => {
 };
 
 export default useSimpleProcessing;
+
