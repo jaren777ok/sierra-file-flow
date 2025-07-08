@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useSavedFiles } from '@/hooks/useSavedFiles';
@@ -50,9 +51,9 @@ const useSimpleProcessing = () => {
   };
 
   // Helper function to calculate total files with proper typing
-  const calculateTotalFiles = (areaFiles: any, files: File[]): number => {
+  const calculateTotalFiles = (areaFiles: Record<string, File[]> | undefined, files: File[]): number => {
     if (areaFiles) {
-      return Object.values(areaFiles).reduce((acc, fileArray) => {
+      return Object.values(areaFiles).reduce((acc: number, fileArray: File[]) => {
         const count = Array.isArray(fileArray) ? fileArray.length : 0;
         return acc + count;
       }, 0);
