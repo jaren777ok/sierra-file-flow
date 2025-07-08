@@ -1,18 +1,13 @@
 
-
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useSavedFiles } from '@/hooks/useSavedFiles';
+import { useProcessingTimer } from '@/hooks/useProcessingTimer';
 import { supabase } from '@/integrations/supabase/client';
-
-export interface ProcessingStatus {
-  status: 'idle' | 'sending' | 'processing' | 'completed' | 'timeout' | 'error';
-  progress: number;
-  message: string;
-  timeElapsed: number;
-  showConfetti?: boolean;
-  requestId?: string;
-}
+import { ProcessingService } from '@/services/processingService';
+import { ProcessingStatus } from '@/types/processing';
+import { generateRequestId, calculateTotalFiles } from '@/utils/processingUtils';
+import { PROCESSING_CONSTANTS } from '@/constants/processing';
 
 const useSimpleProcessing = () => {
   const [processingStatus, setProcessingStatus] = useState<ProcessingStatus>({
@@ -24,45 +19,19 @@ const useSimpleProcessing = () => {
   });
   
   const [resultUrl, setResultUrl] = useState<string | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const startTimeRef = useRef<number>(0);
   const { toast } = useToast();
   const { saveProcessedFile } = useSavedFiles();
+  const { timeElapsed, startTimer, stopTimer, resetTimer } = useProcessingTimer();
 
-  // Nueva URL de webhook de producción actualizada
-  const WEBHOOK_URL = 'https://primary-production-f0d1.up.railway.app/webhook-test/sierra';
-  const MAX_TIMEOUT = 900000; // 15 minutos en milisegundos
+  // Update processing status with current time
+  useEffect(() => {
+    setProcessingStatus(prev => ({
+      ...prev,
+      timeElapsed,
+      progress: prev.status === 'processing' ? Math.min(Math.floor((timeElapsed / 900) * 100), 95) : prev.progress
+    }));
+  }, [timeElapsed]);
 
-  const updateElapsedTime = useCallback(() => {
-    if (startTimeRef.current) {
-      const elapsed = Math.floor((Date.now() - startTimeRef.current) / 1000);
-      setProcessingStatus(prev => ({
-        ...prev,
-        timeElapsed: elapsed,
-        progress: Math.min(Math.floor((elapsed / 900) * 100), 95) // Progreso basado en tiempo hasta 95%
-      }));
-    }
-  }, []);
-
-  // Generar Request ID simple
-  const generateRequestId = (): string => {
-    const timestamp = Date.now();
-    const random = Math.floor(Math.random() * 1000);
-    return `SIERRA-${timestamp}-${random}`;
-  };
-
-  // Helper function to calculate total files with proper typing
-  const calculateTotalFiles = (areaFiles: Record<string, File[]> | undefined, files: File[]): number => {
-    if (areaFiles) {
-      return Object.values(areaFiles).reduce((acc: number, fileArray: File[]) => {
-        const count = Array.isArray(fileArray) ? fileArray.length : 0;
-        return acc + count;
-      }, 0);
-    }
-    return files.length;
-  };
-
-  // Función principal de procesamiento simplificada
   const startProcessing = useCallback(async (projectTitle: string, files: File[], areaFiles?: any) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -75,12 +44,12 @@ const useSimpleProcessing = () => {
       console.log(`🚀 [${requestId}] Iniciando procesamiento SIMPLIFICADO:`, { 
         projectTitle, 
         fileCount: files.length, 
-        webhookUrl: WEBHOOK_URL
+        webhookUrl: PROCESSING_CONSTANTS.WEBHOOK_URL
       });
       
       setProcessingStatus({
         status: 'sending',
-        progress: 5,
+        progress: PROCESSING_CONSTANTS.PROGRESS_STEPS.INITIAL,
         message: 'Preparando archivos para envío...',
         timeElapsed: 0,
         showConfetti: false,
@@ -88,147 +57,67 @@ const useSimpleProcessing = () => {
       });
       setResultUrl(null);
       
-      startTimeRef.current = Date.now();
-      timerRef.current = setInterval(updateElapsedTime, 1000);
+      startTimer();
       
-      // Crear FormData
-      const formData = new FormData();
-      formData.append('request_id', requestId);
-      formData.append('project_title', projectTitle);
-      formData.append('user_id', user.id);
-      
-      if (areaFiles) {
-        // Formato organizado por área
-        const areas = ['comercial', 'operaciones', 'pricing', 'administracion'];
-        let totalFiles = 0;
-        const activeAreas: string[] = [];
-        
-        areas.forEach(area => {
-          const files = areaFiles[area] || [];
-          if (files.length > 0) {
-            activeAreas.push(area);
-            totalFiles += files.length;
-            formData.append(`${area}_count`, files.length.toString());
-            
-            files.forEach((file: File, index: number) => {
-              formData.append(`${area}_${index}`, file);
-              formData.append(`${area}_${index}_name`, file.name);
-            });
-          }
-        });
-        
-        formData.append('total_files', totalFiles.toString());
-        formData.append('active_areas', activeAreas.join(','));
-      } else {
-        // Formato legacy
-        formData.append('total_files', files.length.toString());
-        files.forEach((file, index) => {
-          formData.append(`file${index}`, file);
-        });
-      }
-      
-      formData.append('timestamp', Date.now().toString());
-
-      // Actualizar UI
+      // Update to processing status
       setProcessingStatus(prev => ({
         ...prev,
         status: 'processing',
-        progress: 10,
+        progress: PROCESSING_CONSTANTS.PROGRESS_STEPS.SENDING,
         message: 'Enviando archivos y esperando respuesta del servidor (máximo 15 minutos)...',
         requestId
       }));
 
       console.log(`📡 [${requestId}] Enviando a webhook con timeout de 15 minutos...`);
       
-      // Fetch con timeout de 15 minutos - ESTRATEGIA SIMPLIFICADA
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), MAX_TIMEOUT);
-      
       try {
-        const response = await fetch(WEBHOOK_URL, {
-          method: 'POST',
-          body: formData,
-          signal: controller.signal,
-          headers: {
-            'Accept': 'application/json',
-          }
+        const downloadUrl = await ProcessingService.sendProcessingRequest({
+          projectTitle,
+          files,
+          areaFiles,
+          userId: user.id,
+          requestId
         });
         
-        clearTimeout(timeoutId);
+        // Success - Show result immediately
+        stopTimer();
         
-        if (!response.ok) {
-          throw new Error(`Error HTTP ${response.status}: ${response.statusText}`);
-        }
+        setProcessingStatus(prev => ({
+          ...prev,
+          status: 'completed',
+          progress: PROCESSING_CONSTANTS.PROGRESS_STEPS.COMPLETED,
+          message: '¡Procesamiento completado exitosamente!',
+          showConfetti: true,
+          requestId
+        }));
         
-        // Procesar respuesta JSON
-        const result = await response.json();
-        console.log(`✅ [${requestId}] Respuesta del webhook:`, result);
+        setResultUrl(downloadUrl);
         
-        // Extraer URL de resultado
-        let downloadUrl = null;
-        if (Array.isArray(result) && result.length > 0 && result[0].EXITO) {
-          downloadUrl = result[0].EXITO;
-        } else if (result.EXITO) {
-          downloadUrl = result.EXITO;
-        } else if (result.url) {
-          downloadUrl = result.url;
-        }
+        // Save processed file
+        await saveProcessedFile(projectTitle, 'Multi-área', downloadUrl);
         
-        if (downloadUrl) {
-          // ÉXITO - Mostrar resultado inmediatamente
-          if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-          }
-          
-          setProcessingStatus(prev => ({
-            ...prev,
-            status: 'completed',
-            progress: 100,
-            message: '¡Procesamiento completado exitosamente!',
-            showConfetti: true,
-            requestId
-          }));
-          
-          setResultUrl(downloadUrl);
-          
-          // Guardar archivo procesado
-          await saveProcessedFile(projectTitle, 'Multi-área', downloadUrl);
-          
-          // Guardar resultado en BD para historial - CORRIGIENDO TIPOS
-          const totalFilesCount = calculateTotalFiles(areaFiles, files);
-          
-          await supabase.from('processing_jobs').insert({
-            request_id: requestId,
-            project_title: projectTitle,
-            total_files: totalFilesCount,
-            user_id: user.id,
-            status: 'completed',
-            progress: 100,
-            result_url: downloadUrl,
-            completed_at: new Date().toISOString()
-          });
-          
-          toast({
-            title: "¡Procesamiento Completado!",
-            description: `Tu archivo ha sido procesado correctamente. ID: ${requestId}`,
-          });
-          
-        } else {
-          throw new Error('No se encontró URL de descarga en la respuesta del servidor');
-        }
+        // Save result to database
+        const totalFilesCount = calculateTotalFiles(areaFiles, files);
+        await ProcessingService.saveJobToDatabase(
+          requestId,
+          projectTitle,
+          totalFilesCount,
+          user.id,
+          'completed',
+          downloadUrl
+        );
         
-      } catch (fetchError: any) {
-        clearTimeout(timeoutId);
+        toast({
+          title: "¡Procesamiento Completado!",
+          description: `Tu archivo ha sido procesado correctamente. ID: ${requestId}`,
+        });
         
-        if (fetchError.name === 'AbortError') {
-          // Timeout de 15 minutos
+      } catch (processingError: any) {
+        if (processingError.message === 'TIMEOUT') {
+          // Timeout handling
           console.log(`⏰ [${requestId}] Timeout de 15 minutos alcanzado`);
           
-          if (timerRef.current) {
-            clearInterval(timerRef.current);
-            timerRef.current = null;
-          }
+          stopTimer();
           
           setProcessingStatus(prev => ({
             ...prev,
@@ -243,31 +132,26 @@ const useSimpleProcessing = () => {
             variant: "destructive",
           });
           
-          // Guardar timeout en BD
+          // Save timeout to database
           const totalFilesCount = calculateTotalFiles(areaFiles, files);
-            
-          await supabase.from('processing_jobs').insert({
-            request_id: requestId,
-            project_title: projectTitle,
-            total_files: totalFilesCount,
-            user_id: user.id,
-            status: 'timeout',
-            error_message: 'Timeout de 15 minutos alcanzado',
-            completed_at: new Date().toISOString()
-          });
-          
+          await ProcessingService.saveJobToDatabase(
+            requestId,
+            projectTitle,
+            totalFilesCount,
+            user.id,
+            'timeout',
+            undefined,
+            'Timeout de 15 minutos alcanzado'
+          );
         } else {
-          throw fetchError;
+          throw processingError;
         }
       }
       
     } catch (error) {
       console.error(`❌ Error durante el procesamiento:`, error);
       
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
+      stopTimer();
       
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido durante el procesamiento';
       const requestId = processingStatus.requestId || 'unknown';
@@ -289,13 +173,11 @@ const useSimpleProcessing = () => {
       
       throw error;
     }
-  }, [updateElapsedTime, toast, saveProcessedFile, processingStatus.requestId]);
+  }, [startTimer, stopTimer, toast, saveProcessedFile, processingStatus.requestId]);
 
   const resetProcessing = useCallback(() => {
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
+    stopTimer();
+    resetTimer();
     
     setProcessingStatus({
       status: 'idle',
@@ -305,8 +187,7 @@ const useSimpleProcessing = () => {
       showConfetti: false
     });
     setResultUrl(null);
-    startTimeRef.current = 0;
-  }, []);
+  }, [stopTimer, resetTimer]);
 
   const hideConfetti = useCallback(() => {
     setProcessingStatus(prev => ({
@@ -317,11 +198,9 @@ const useSimpleProcessing = () => {
 
   useEffect(() => {
     return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-      }
+      stopTimer();
     };
-  }, []);
+  }, [stopTimer]);
 
   return {
     processingStatus,
@@ -333,4 +212,3 @@ const useSimpleProcessing = () => {
 };
 
 export default useSimpleProcessing;
-
