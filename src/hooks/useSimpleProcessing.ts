@@ -183,13 +183,15 @@ const useSimpleProcessing = () => {
           // Guardar archivo procesado
           await saveProcessedFile(projectTitle, 'Multi-área', downloadUrl);
           
-          // Guardar resultado en BD para historial
+          // Guardar resultado en BD para historial - CORRIGIENDO TIPOS
+          const totalFilesCount = areaFiles ? 
+            Object.values(areaFiles).reduce((acc: number, files: any) => acc + (files?.length || 0), 0) : 
+            files.length;
+          
           await supabase.from('processing_jobs').insert({
             request_id: requestId,
             project_title: projectTitle,
-            total_files: areaFiles ? 
-              Object.values(areaFiles).reduce((acc: number, files: any) => acc + (files?.length || 0), 0) : 
-              files.length,
+            total_files: totalFilesCount,
             user_id: user.id,
             status: 'completed',
             progress: 100,
