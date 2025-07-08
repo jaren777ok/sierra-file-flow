@@ -184,8 +184,8 @@ const useSimpleProcessing = () => {
           await saveProcessedFile(projectTitle, 'Multi-área', downloadUrl);
           
           // Guardar resultado en BD para historial - CORRIGIENDO TIPOS
-          const totalFilesCount = areaFiles ? 
-            Object.values(areaFiles).reduce((acc: number, files: any) => acc + (files?.length || 0), 0) : 
+          const totalFilesCount: number = areaFiles ? 
+            Object.values(areaFiles).reduce((acc: number, files: any) => acc + (Array.isArray(files) ? files.length : 0), 0) : 
             files.length;
           
           await supabase.from('processing_jobs').insert({
@@ -234,10 +234,14 @@ const useSimpleProcessing = () => {
           });
           
           // Guardar timeout en BD
+          const totalFilesCount: number = areaFiles ? 
+            Object.values(areaFiles).reduce((acc: number, files: any) => acc + (Array.isArray(files) ? files.length : 0), 0) : 
+            files.length;
+            
           await supabase.from('processing_jobs').insert({
             request_id: requestId,
             project_title: projectTitle,
-            total_files: files.length,
+            total_files: totalFilesCount,
             user_id: user.id,
             status: 'timeout',
             error_message: 'Timeout de 15 minutos alcanzado',
@@ -277,7 +281,7 @@ const useSimpleProcessing = () => {
       
       throw error;
     }
-  }, [updateElapsedTime, toast, saveProcessedFile]);
+  }, [updateElapsedTime, toast, saveProcessedFile, processingStatus.requestId]);
 
   const resetProcessing = useCallback(() => {
     if (timerRef.current) {
