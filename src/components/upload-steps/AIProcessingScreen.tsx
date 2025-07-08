@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { Sparkles, Clock, Brain, Zap, Hash } from 'lucide-react';
+import { Sparkles, Clock, Brain, Zap, Hash, Wifi, WifiOff } from 'lucide-react';
 import { ProcessingStatus } from '@/hooks/useMultiStepUpload';
 
 interface AIProcessingScreenProps {
@@ -29,7 +29,11 @@ const AIProcessingScreen = ({ processingStatus, projectName }: AIProcessingScree
       case 'sending':
         return 'Subiendo archivos al servidor';
       case 'processing':
-        return 'IA analizando y procesando datos';
+        // Nuevo mensaje mejorado para processing
+        if (processingStatus.progress <= 25) {
+          return 'Archivos enviados exitosamente. IA procesando en segundo plano';
+        }
+        return 'IA analizando y procesando datos por área de negocio';
       default:
         return processingStatus.message || 'Procesando';
     }
@@ -40,10 +44,29 @@ const AIProcessingScreen = ({ processingStatus, projectName }: AIProcessingScree
       case 'sending':
         return <Zap className="h-8 w-8 text-sierra-teal animate-bounce" />;
       case 'processing':
-        return <Brain className="h-8 w-8 text-sierra-teal animate-pulse" />;
+        // Mostrar ícono de conexión estable para processing
+        return processingStatus.progress <= 25 
+          ? <Wifi className="h-8 w-8 text-sierra-teal animate-pulse" />
+          : <Brain className="h-8 w-8 text-sierra-teal animate-pulse" />;
       default:
         return <Sparkles className="h-8 w-8 text-sierra-teal animate-spin" />;
     }
+  };
+
+  const getConnectionStatus = () => {
+    if (processingStatus.status === 'processing' && processingStatus.progress <= 25) {
+      return (
+        <div className="bg-green-500/10 rounded-lg p-3 mb-4 border border-green-500/20">
+          <div className="flex items-center justify-center gap-2 text-green-400">
+            <Wifi className="h-4 w-4 animate-pulse" />
+            <span className="text-sm font-medium">
+              Conexión establecida - Procesamiento en segundo plano
+            </span>
+          </div>
+        </div>
+      );
+    }
+    return null;
   };
 
   return (
@@ -91,6 +114,9 @@ const AIProcessingScreen = ({ processingStatus, projectName }: AIProcessingScree
             </p>
           </div>
         )}
+
+        {/* Connection Status - Nuevo */}
+        {getConnectionStatus()}
       </div>
 
       {/* Status */}
@@ -137,25 +163,25 @@ const AIProcessingScreen = ({ processingStatus, projectName }: AIProcessingScree
           <div className={`w-2 h-2 rounded-full ${
             processingStatus.progress >= 10 ? 'bg-sierra-teal animate-pulse' : 'bg-sierra-teal/30'
           }`}></div>
-          <span className="text-sierra-gray">Archivos recibidos</span>
+          <span className="text-sierra-gray">Archivos recibidos y organizados</span>
         </div>
         
         <div className={`flex items-center gap-3 transition-opacity ${
-          processingStatus.progress >= 30 ? 'opacity-100' : 'opacity-50'
+          processingStatus.progress >= 25 ? 'opacity-100' : 'opacity-50'
         }`}>
           <div className={`w-2 h-2 rounded-full ${
-            processingStatus.progress >= 30 ? 'bg-sierra-teal animate-pulse' : 'bg-sierra-teal/30'
+            processingStatus.progress >= 25 ? 'bg-sierra-teal animate-pulse' : 'bg-sierra-teal/30'
           }`}></div>
-          <span className="text-sierra-gray">Análisis de contenido</span>
+          <span className="text-sierra-gray">Procesamiento IA iniciado</span>
         </div>
         
         <div className={`flex items-center gap-3 transition-opacity ${
-          processingStatus.progress >= 60 ? 'opacity-100' : 'opacity-50'
+          processingStatus.progress >= 50 ? 'opacity-100' : 'opacity-50'
         }`}>
           <div className={`w-2 h-2 rounded-full ${
-            processingStatus.progress >= 60 ? 'bg-sierra-teal animate-pulse' : 'bg-sierra-teal/30'
+            processingStatus.progress >= 50 ? 'bg-sierra-teal animate-pulse' : 'bg-sierra-teal/30'
           }`}></div>
-          <span className="text-sierra-gray">Procesamiento IA</span>
+          <span className="text-sierra-gray">Análisis por área de negocio</span>
         </div>
         
         <div className={`flex items-center gap-3 transition-opacity ${
@@ -164,7 +190,7 @@ const AIProcessingScreen = ({ processingStatus, projectName }: AIProcessingScree
           <div className={`w-2 h-2 rounded-full ${
             processingStatus.progress >= 80 ? 'bg-sierra-teal animate-pulse' : 'bg-sierra-teal/30'
           }`}></div>
-          <span className="text-sierra-gray">Generando informe</span>
+          <span className="text-sierra-gray">Generando informe ejecutivo</span>
         </div>
         
         <div className={`flex items-center gap-3 transition-opacity ${
@@ -173,9 +199,19 @@ const AIProcessingScreen = ({ processingStatus, projectName }: AIProcessingScree
           <div className={`w-2 h-2 rounded-full ${
             processingStatus.progress >= 100 ? 'bg-sierra-teal animate-pulse' : 'bg-sierra-teal/30'
           }`}></div>
-          <span className="text-sierra-gray">Finalizando</span>
+          <span className="text-sierra-gray">Finalizando y guardando</span>
         </div>
       </div>
+
+      {/* Mensaje informativo mejorado */}
+      {processingStatus.status === 'processing' && processingStatus.progress <= 25 && (
+        <div className="mt-8 bg-blue-500/10 rounded-lg p-4 border border-blue-500/20">
+          <p className="text-blue-400 text-sm">
+            <strong>Conexión estable:</strong> Los archivos se enviaron correctamente y el procesamiento continúa en segundo plano.
+            No es necesario mantener esta ventana abierta.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

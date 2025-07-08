@@ -25,10 +25,11 @@ const useSimpleProcessing = () => {
   
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number>(0);
   const { toast } = useToast();
   const { saveProcessedFile } = useSavedFiles();
-  const { createProcessingJob, updateJobProgress, completeJob, markJobAsTimeout } = useProcessingPersistence();
+  const { createProcessingJob, updateJobProgress, completeJob, markJobAsTimeout, checkJobCompletion } = useProcessingPersistence();
 
   // Nueva URL del webhook de Railway
   const WEBHOOK_URL = 'https://primary-production-f0d1.up.railway.app/webhook-test/sierra';
@@ -47,7 +48,8 @@ const useSimpleProcessing = () => {
 
   const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-  const sendToWebhook = async (formData: FormData, requestId: string, retryCount = 0): Promise<string> => {
+  // Nueva función para envío rápido al webhook (sin timeout de 30s)
+  const sendToWebhookFast = async (formData: FormData, requestId: string, retryCount = 0): Promise<string> => {
     try {
       console.log(`🚀 [${requestId}] Enviando a webhook (intento ${retryCount + 1}/${MAX_RETRIES + 1}):`, WEBHOOK_URL);
       
@@ -57,7 +59,7 @@ const useSimpleProcessing = () => {
         headers: {
           'Accept': '*/*',
         },
-        signal: AbortSignal.timeout(30000)
+        // REMOVIDO: signal: AbortSignal.timeout(30000) - Ya no limitamos la conexión
       });
       
       console.log(`📡 [${requestId}] Status de respuesta:`, response.status, response.statusText);
@@ -77,14 +79,13 @@ const useSimpleProcessing = () => {
       const isRetryableError = 
         error instanceof TypeError && error.message.includes('fetch') || 
         error instanceof Error && error.message.includes('CORS') ||
-        error instanceof Error && error.message.includes('timeout') ||
         (error instanceof Error && error.message.includes('HTTP') && 
          (error.message.includes('502') || error.message.includes('503') || error.message.includes('504')));
       
       if (isRetryableError && retryCount < MAX_RETRIES) {
         console.log(`🔄 [${requestId}] Reintentando en ${RETRY_DELAY}ms...`);
         await sleep(RETRY_DELAY);
-        return sendToWebhook(formData, requestId, retryCount + 1);
+        return sendToWebhookFast(formData, requestId, retryCount + 1);
       }
       
       if (error instanceof TypeError && error.message.includes('fetch')) {
@@ -96,6 +97,108 @@ const useSimpleProcessing = () => {
       }
     }
   };
+
+  // Nueva función de Job Polling que inicia inmediatamente
+  const startJobPolling = useCallback(async (requestId: string, projectTitle: string) => {
+    console.log(`🔍 [${requestId}] Iniciando Job Polling inmediatamente`);
+    
+    const pollJob = async () => {
+      try {
+        const job = await checkJobCompletion(requestId);
+        
+        if (job) {
+          console.log(`📊 [${requestId}] Job status:`, job.status, 'Progress:', job.progress);
+          
+          // Actualizar progreso basado en el job de BD
+          if (job.progress && job.progress > processingStatus.progress) {
+            setProcessingStatus(prev => ({
+              ...prev,
+              progress: job.progress,
+              message: `Procesamiento IA en progreso... ${job.progress}%`
+            }));
+          }
+          
+          // Job completado exitosamente
+          if (job.status === 'completed' && job.result_url) {
+            console.log(`🎉 [${requestId}] ¡Job completado exitosamente!`);
+            
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+              timerRef.current = null;
+            }
+            if (pollingRef.current) {
+              clearInterval(pollingRef.current);
+              pollingRef.current = null;
+            }
+            
+            setProcessingStatus(prev => ({
+              ...prev,
+              status: 'completed',
+              progress: 100,
+              message: '¡Procesamiento completado exitosamente!',
+              showConfetti: true,
+              requestId
+            }));
+            
+            setResultUrl(job.result_url);
+            
+            await saveProcessedFile(projectTitle, 'Multi-área', job.result_url);
+            
+            toast({
+              title: "¡Procesamiento Completado!",
+              description: `Tu archivo ha sido procesado correctamente. ID: ${requestId}`,
+            });
+            
+            return;
+          }
+          
+          // Job con error
+          if (job.status === 'error') {
+            console.error(`❌ [${requestId}] Job falló:`, job.error_message);
+            
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+              timerRef.current = null;
+            }
+            if (pollingRef.current) {
+              clearInterval(pollingRef.current);
+              pollingRef.current = null;
+            }
+            
+            setProcessingStatus(prev => ({
+              ...prev,
+              status: 'error',
+              progress: 0,
+              message: job.error_message || 'Error durante el procesamiento',
+              showConfetti: false,
+              requestId
+            }));
+            
+            toast({
+              title: "Error en el Procesamiento",
+              description: `${job.error_message} (ID: ${requestId})`,
+              variant: "destructive",
+            });
+            
+            return;
+          }
+        }
+        
+        // Continuar polling si no está completado
+        console.log(`⏳ [${requestId}] Job aún procesando, continuando polling...`);
+        
+      } catch (error) {
+        console.error(`❌ [${requestId}] Error en Job Polling:`, error);
+        // Continuar polling aunque haya error de conexión temporal
+      }
+    };
+    
+    // Primera verificación inmediata
+    await pollJob();
+    
+    // Continuar polling cada 30 segundos (más frecuente que antes)
+    pollingRef.current = setInterval(pollJob, 30000);
+  }, [checkJobCompletion, processingStatus.progress, saveProcessedFile, toast]);
 
   const createFormDataWithAreas = (requestId: string, projectTitle: string, areaFiles: any) => {
     const formData = new FormData();
@@ -151,7 +254,7 @@ const useSimpleProcessing = () => {
         user.id
       );
 
-      console.log(`🚀 [${requestId}] Iniciando procesamiento con:`, { 
+      console.log(`🚀 [${requestId}] Iniciando procesamiento con NUEVA ESTRATEGIA:`, { 
         projectTitle, 
         fileCount: files.length, 
         webhookUrl: WEBHOOK_URL,
@@ -180,7 +283,7 @@ const useSimpleProcessing = () => {
         
         setProcessingStatus(prev => ({
           ...prev,
-          message: `Enviando archivos organizados por área al webhook...`,
+          message: `Enviando archivos organizados por área...`,
           requestId
         }));
       } else {
@@ -204,79 +307,33 @@ const useSimpleProcessing = () => {
         ...prev,
         status: 'sending',
         progress: 10,
-        message: 'Enviando archivos al webhook de Railway...',
+        message: 'Enviando archivos al webhook...',
         requestId
       }));
       
-      const result = await sendToWebhook(formData, requestId);
-      
-      // Actualizar progreso en BD
-      await updateJobProgress(requestId, 25);
-      
-      setProcessingStatus(prev => ({
-        ...prev,
-        status: 'processing',
-        progress: 25,
-        message: 'Archivos enviados correctamente. Procesando con IA... Esto puede tomar hasta 15 minutos.',
-        requestId
-      }));
-      
-      const trimmedResult = result.trim();
-      let driveUrl = '';
-      
-      if (trimmedResult.includes('drive.google.com')) {
-        driveUrl = trimmedResult;
-      } else {
-        try {
-          const jsonResult = JSON.parse(trimmedResult);
-          if (jsonResult.url && jsonResult.url.includes('drive.google.com')) {
-            driveUrl = jsonResult.url;
-          } else if (jsonResult.drive_url) {
-            driveUrl = jsonResult.drive_url;
-          } else {
-            throw new Error('El webhook no retornó una URL de Google Drive válida en el formato esperado');
-          }
-        } catch (parseError) {
-          if (trimmedResult.startsWith('http')) {
-            driveUrl = trimmedResult;
-          } else {
-            throw new Error(`Respuesta del webhook no reconocida: ${trimmedResult.substring(0, 100)}...`);
-          }
-        }
-      }
-      
-      if (driveUrl) {
-        console.log(`🎉 [${requestId}] ¡Procesamiento completado exitosamente!`);
+      try {
+        // NUEVA ESTRATEGIA: Solo enviar y obtener confirmación, no esperar resultado final
+        const webhookResponse = await sendToWebhookFast(formData, requestId);
         
-        if (timerRef.current) {
-          clearInterval(timerRef.current);
-          timerRef.current = null;
-        }
+        console.log(`✅ [${requestId}] Webhook confirmó recepción, iniciando procesamiento en background`);
         
-        // Completar trabajo en BD
-        await completeJob(requestId, driveUrl);
+        // Actualizar progreso en BD
+        await updateJobProgress(requestId, 25);
         
         setProcessingStatus(prev => ({
           ...prev,
-          status: 'completed',
-          progress: 100,
-          message: '¡Procesamiento completado exitosamente!',
-          showConfetti: true,
+          status: 'processing',
+          progress: 25,
+          message: 'Archivos enviados correctamente. Procesamiento IA iniciado en segundo plano...',
           requestId
         }));
         
-        setResultUrl(driveUrl);
+        // INICIAR JOB POLLING INMEDIATAMENTE
+        await startJobPolling(requestId, projectTitle);
         
-        await saveProcessedFile(projectTitle, 'Multi-área', driveUrl);
-        
-        toast({
-          title: "¡Procesamiento Completado!",
-          description: `Tu archivo ha sido procesado correctamente. ID: ${requestId}`,
-        });
-        
-        return driveUrl;
-      } else {
-        throw new Error('El webhook no retornó una URL válida de Google Drive');
+      } catch (webhookError) {
+        console.error(`❌ [${requestId}] Error enviando al webhook:`, webhookError);
+        throw webhookError;
       }
       
     } catch (error) {
@@ -285,6 +342,10 @@ const useSimpleProcessing = () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
+      }
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
       }
       
       const errorMessage = error instanceof Error ? error.message : 'Error desconocido durante el procesamiento';
@@ -312,12 +373,16 @@ const useSimpleProcessing = () => {
       
       throw error;
     }
-  }, [updateElapsedTime, toast, saveProcessedFile, createProcessingJob, updateJobProgress, completeJob]);
+  }, [updateElapsedTime, toast, saveProcessedFile, createProcessingJob, updateJobProgress, completeJob, startJobPolling]);
 
   const resetProcessing = useCallback(() => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
       timerRef.current = null;
+    }
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current);
+      pollingRef.current = null;
     }
     
     setProcessingStatus({
@@ -343,6 +408,9 @@ const useSimpleProcessing = () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
       }
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+      }
     };
   }, []);
 
@@ -354,6 +422,10 @@ const useSimpleProcessing = () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
+      }
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
       }
       
       // Marcar como timeout en BD
