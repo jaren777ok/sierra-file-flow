@@ -14,278 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
-      chats: {
+      conversations: {
         Row: {
+          client_avatar: string | null
+          client_name: string
+          client_phone: string
           created_at: string
           id: string
-          title: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          client_avatar?: string | null
+          client_name: string
+          client_phone: string
           created_at?: string
           id?: string
-          title: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          client_avatar?: string | null
+          client_name?: string
+          client_phone?: string
           created_at?: string
           id?: string
-          title?: string
           updated_at?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      generated_videos: {
-        Row: {
-          created_at: string
-          id: string
-          request_id: string
-          script: string
-          title: string | null
-          user_id: string
-          video_url: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          request_id: string
-          script: string
-          title?: string | null
-          user_id: string
-          video_url: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          request_id?: string
-          script?: string
-          title?: string | null
-          user_id?: string
-          video_url?: string
-        }
-        Relationships: []
-      }
-      heygen_api_keys: {
-        Row: {
-          api_key_encrypted: string
-          api_key_name: string
-          created_at: string
-          id: string
-          user_id: string
-        }
-        Insert: {
-          api_key_encrypted: string
-          api_key_name: string
-          created_at?: string
-          id?: string
-          user_id: string
-        }
-        Update: {
-          api_key_encrypted?: string
-          api_key_name?: string
-          created_at?: string
-          id?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      messages: {
-        Row: {
-          chat_id: string
-          content: string
-          id: string
-          images: Json | null
-          role: string
-          timestamp: string
-        }
-        Insert: {
-          chat_id: string
-          content: string
-          id?: string
-          images?: Json | null
-          role: string
-          timestamp?: string
-        }
-        Update: {
-          chat_id?: string
-          content?: string
-          id?: string
-          images?: Json | null
-          role?: string
-          timestamp?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "messages_chat_id_fkey"
-            columns: ["chat_id"]
-            isOneToOne: false
-            referencedRelation: "chats"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      n8n_clonegame: {
-        Row: {
-          id: number
-          message: Json
-          session_id: string
-        }
-        Insert: {
-          id?: number
-          message: Json
-          session_id: string
-        }
-        Update: {
-          id?: number
-          message?: Json
-          session_id?: string
-        }
-        Relationships: []
-      }
-      n8n_grupo_sierra: {
-        Row: {
-          id: number
-          message: Json
-          session_id: string
-        }
-        Insert: {
-          id?: number
-          message: Json
-          session_id: string
-        }
-        Update: {
-          id?: number
-          message?: Json
-          session_id?: string
-        }
-        Relationships: []
-      }
-      n8n_lucidbot_nuevos: {
-        Row: {
-          id: number
-          message: Json
-          session_id: string
-        }
-        Insert: {
-          id?: number
-          message: Json
-          session_id: string
-        }
-        Update: {
-          id?: number
-          message?: Json
-          session_id?: string
-        }
-        Relationships: []
-      }
-      n8n_lucidbot_nuevossa: {
-        Row: {
-          id: number
-          message: Json
-          session_id: string
-        }
-        Insert: {
-          id?: number
-          message: Json
-          session_id: string
-        }
-        Update: {
-          id?: number
-          message?: Json
-          session_id?: string
-        }
-        Relationships: []
-      }
-      n8n_lucidbot_nuevossa1: {
-        Row: {
-          id: number
-          message: Json
-          session_id: string
-        }
-        Insert: {
-          id?: number
-          message: Json
-          session_id: string
-        }
-        Update: {
-          id?: number
-          message?: Json
-          session_id?: string
-        }
-        Relationships: []
-      }
-      n8n_lucidbot_nuevossa12w: {
-        Row: {
-          id: number
-          message: Json
-          session_id: string
-        }
-        Insert: {
-          id?: number
-          message: Json
-          session_id: string
-        }
-        Update: {
-          id?: number
-          message?: Json
-          session_id?: string
-        }
-        Relationships: []
-      }
-      n8n_lucidbot_nuevossa12w1: {
-        Row: {
-          id: number
-          message: Json
-          session_id: string
-        }
-        Insert: {
-          id?: number
-          message: Json
-          session_id: string
-        }
-        Update: {
-          id?: number
-          message?: Json
-          session_id?: string
-        }
-        Relationships: []
-      }
-      n8n_lucidbot_nuevossa12w133: {
-        Row: {
-          id: number
-          message: Json
-          session_id: string
-        }
-        Insert: {
-          id?: number
-          message: Json
-          session_id: string
-        }
-        Update: {
-          id?: number
-          message?: Json
-          session_id?: string
-        }
-        Relationships: []
-      }
-      n8n_lucidbot_nuevosvvvb: {
-        Row: {
-          id: number
-          message: Json
-          session_id: string
-        }
-        Insert: {
-          id?: number
-          message: Json
-          session_id: string
-        }
-        Update: {
-          id?: number
-          message?: Json
-          session_id?: string
         }
         Relationships: []
       }
@@ -336,12 +91,10 @@ export type Database = {
           request_id: string
           result_url: string | null
           started_at: string
-          status: string
+          status: Database["public"]["Enums"]["processing_status"]
           total_files: number
           updated_at: string
           user_id: string
-          webhook_confirmed_at: string | null
-          webhook_data: Json | null
         }
         Insert: {
           completed_at?: string | null
@@ -353,12 +106,10 @@ export type Database = {
           request_id: string
           result_url?: string | null
           started_at?: string
-          status?: string
+          status: Database["public"]["Enums"]["processing_status"]
           total_files: number
           updated_at?: string
           user_id: string
-          webhook_confirmed_at?: string | null
-          webhook_data?: Json | null
         }
         Update: {
           completed_at?: string | null
@@ -370,12 +121,10 @@ export type Database = {
           request_id?: string
           result_url?: string | null
           started_at?: string
-          status?: string
+          status?: Database["public"]["Enums"]["processing_status"]
           total_files?: number
           updated_at?: string
           user_id?: string
-          webhook_confirmed_at?: string | null
-          webhook_data?: Json | null
         }
         Relationships: []
       }
@@ -403,55 +152,34 @@ export type Database = {
         }
         Relationships: []
       }
-      user_video_configs: {
+      vendedor_messages: {
         Row: {
-          api_key_id: string | null
-          avatar_data: Json | null
-          card_customization: Json | null
+          conversation_id: string | null
           created_at: string
-          current_step: string
-          generated_script: string | null
           id: string
-          presenter_customization: Json | null
-          style_data: Json | null
-          updated_at: string
+          mensaje: string
           user_id: string
-          voice_data: Json | null
         }
         Insert: {
-          api_key_id?: string | null
-          avatar_data?: Json | null
-          card_customization?: Json | null
+          conversation_id?: string | null
           created_at?: string
-          current_step?: string
-          generated_script?: string | null
           id?: string
-          presenter_customization?: Json | null
-          style_data?: Json | null
-          updated_at?: string
+          mensaje: string
           user_id: string
-          voice_data?: Json | null
         }
         Update: {
-          api_key_id?: string | null
-          avatar_data?: Json | null
-          card_customization?: Json | null
+          conversation_id?: string | null
           created_at?: string
-          current_step?: string
-          generated_script?: string | null
           id?: string
-          presenter_customization?: Json | null
-          style_data?: Json | null
-          updated_at?: string
+          mensaje?: string
           user_id?: string
-          voice_data?: Json | null
         }
         Relationships: [
           {
-            foreignKeyName: "user_video_configs_api_key_id_fkey"
-            columns: ["api_key_id"]
+            foreignKeyName: "vendedor_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
             isOneToOne: false
-            referencedRelation: "heygen_api_keys"
+            referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
         ]
@@ -572,7 +300,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      processing_status: "completed" | "error" | "timeout"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -699,6 +427,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      processing_status: ["completed", "error", "timeout"],
+    },
   },
 } as const
