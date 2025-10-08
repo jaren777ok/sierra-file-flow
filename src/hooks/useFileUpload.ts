@@ -1,11 +1,10 @@
-
-import { useState } from 'react';
-import { useToast } from '@/hooks/use-toast';
-import { useSavedFiles } from '@/hooks/useSavedFiles';
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import { useSavedFiles } from "@/hooks/useSavedFiles";
 
 interface FileUploadStatus {
   file: File;
-  status: 'uploading' | 'processing' | 'completed' | 'ready-for-download' | 'error';
+  status: "uploading" | "processing" | "completed" | "ready-for-download" | "error";
   progress: number;
   message?: string;
   processedFile?: Blob;
@@ -18,7 +17,7 @@ export const useFileUpload = (areaName: string) => {
   const { toast } = useToast();
   const { saveProcessedFile } = useSavedFiles();
 
-  const WEBHOOK_URL = 'https://primary-production-f0d1.up.railway.app/webhook-test/sierra';
+  const WEBHOOK_URL = "https://cris.cloude.es/webhook/sierra";
   const TIMEOUT_DURATION = 15 * 60 * 1000; // 15 minutos
 
   const uploadFiles = async (filesToUpload: File[], projectTitle: string) => {
@@ -44,9 +43,9 @@ export const useFileUpload = (areaName: string) => {
     setFiles([]);
 
     // Crear estados iniciales para ambos archivos
-    const initialStates: FileUploadStatus[] = filesToUpload.map(file => ({
+    const initialStates: FileUploadStatus[] = filesToUpload.map((file) => ({
       file,
-      status: 'uploading',
+      status: "uploading",
       progress: 0,
       originalFileName: file.name,
     }));
@@ -60,44 +59,46 @@ export const useFileUpload = (areaName: string) => {
         formData.append(`file${index + 1}`, file);
         formData.append(`filename${index + 1}`, file.name);
       });
-      
-      formData.append('area', areaName);
-      formData.append('fileCount', '2');
-      formData.append('timestamp', new Date().toISOString());
-      formData.append('Título', projectTitle.trim());
+
+      formData.append("area", areaName);
+      formData.append("fileCount", "2");
+      formData.append("timestamp", new Date().toISOString());
+      formData.append("Título", projectTitle.trim());
 
       // Actualizar progreso a 30%
-      setFiles(prev => prev.map(f => ({ ...f, progress: 30 })));
+      setFiles((prev) => prev.map((f) => ({ ...f, progress: 30 })));
 
       // Actualizar progreso a 50% y cambiar estado
-      setFiles(prev => prev.map(f => ({ 
-        ...f, 
-        progress: 50, 
-        status: 'processing' as const 
-      })));
+      setFiles((prev) =>
+        prev.map((f) => ({
+          ...f,
+          progress: 50,
+          status: "processing" as const,
+        })),
+      );
 
       console.log(`Enviando archivos de ${areaName} a webhook:`, WEBHOOK_URL);
       console.log(`Título del proyecto: ${projectTitle}`);
 
       const uploadPromise = fetch(WEBHOOK_URL, {
-        method: 'POST',
+        method: "POST",
         body: formData,
       });
 
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Timeout: La operación tardó más de 15 minutos')), TIMEOUT_DURATION);
+        setTimeout(() => reject(new Error("Timeout: La operación tardó más de 15 minutos")), TIMEOUT_DURATION);
       });
 
-      const response = await Promise.race([uploadPromise, timeoutPromise]) as Response;
+      const response = (await Promise.race([uploadPromise, timeoutPromise])) as Response;
 
       if (response.ok) {
-        const contentType = response.headers.get('content-type');
-        
-        if (contentType && contentType.includes('application/json')) {
+        const contentType = response.headers.get("content-type");
+
+        if (contentType && contentType.includes("application/json")) {
           // Respuesta JSON - puede ser el enlace de drive o confirmación
           const jsonResponse = await response.json();
-          console.log('Respuesta JSON recibida:', jsonResponse);
-          
+          console.log("Respuesta JSON recibida:", jsonResponse);
+
           // Buscar si hay un enlace de Google Drive en la respuesta
           let driveUrl = null;
           if (Array.isArray(jsonResponse) && jsonResponse.length > 0) {
@@ -105,26 +106,30 @@ export const useFileUpload = (areaName: string) => {
               driveUrl = jsonResponse[0].EXITO;
             }
           }
-          
+
           if (driveUrl) {
             // Guardar en Supabase
             await saveProcessedFile(projectTitle, areaName, driveUrl);
-            
+
             // Actualizar estado con enlace de descarga
-            setFiles(prev => prev.map((f, index) => 
-              index === 0 ? { 
-                ...f, 
-                progress: 100, 
-                status: 'ready-for-download' as const,
-                message: 'Archivos procesados y guardados correctamente',
-                downloadUrl: driveUrl
-              } : {
-                ...f,
-                progress: 100,
-                status: 'completed' as const,
-                message: 'Incluido en archivo procesado'
-              }
-            ));
+            setFiles((prev) =>
+              prev.map((f, index) =>
+                index === 0
+                  ? {
+                      ...f,
+                      progress: 100,
+                      status: "ready-for-download" as const,
+                      message: "Archivos procesados y guardados correctamente",
+                      downloadUrl: driveUrl,
+                    }
+                  : {
+                      ...f,
+                      progress: 100,
+                      status: "completed" as const,
+                      message: "Incluido en archivo procesado",
+                    },
+              ),
+            );
 
             toast({
               title: "¡Archivos Procesados y Guardados!",
@@ -132,54 +137,61 @@ export const useFileUpload = (areaName: string) => {
             });
           } else {
             // Workflow iniciado, esperando resultado
-            setFiles(prev => prev.map(f => ({ 
-              ...f, 
-              progress: 75, 
-              status: 'processing' as const,
-              message: 'Procesando archivos con IA...'
-            })));
-            
+            setFiles((prev) =>
+              prev.map((f) => ({
+                ...f,
+                progress: 75,
+                status: "processing" as const,
+                message: "Procesando archivos con IA...",
+              })),
+            );
+
             setTimeout(() => {
-              setFiles(prev => prev.map(f => ({ 
-                ...f, 
-                progress: 100, 
-                status: 'completed' as const,
-                message: 'Procesamiento completado. Revisa "Archivos Guardados" en unos minutos.'
-              })));
+              setFiles((prev) =>
+                prev.map((f) => ({
+                  ...f,
+                  progress: 100,
+                  status: "completed" as const,
+                  message: 'Procesamiento completado. Revisa "Archivos Guardados" en unos minutos.',
+                })),
+              );
             }, 2000);
           }
-          
         } else {
           // Respuesta binaria - archivo procesado recibido
           const processedBlob = await response.blob();
           const downloadUrl = URL.createObjectURL(processedBlob);
-          
-          const contentDisposition = response.headers.get('content-disposition');
+
+          const contentDisposition = response.headers.get("content-disposition");
           let processedFileName = `${areaName}_procesado.zip`;
-          
+
           if (contentDisposition) {
             const fileNameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
             if (fileNameMatch) {
-              processedFileName = fileNameMatch[1].replace(/['"]/g, '');
+              processedFileName = fileNameMatch[1].replace(/['"]/g, "");
             }
           }
 
           // Actualizar solo el primer archivo con la descarga (representa el resultado combinado)
-          setFiles(prev => prev.map((f, index) => 
-            index === 0 ? { 
-              ...f, 
-              progress: 100, 
-              status: 'ready-for-download' as const,
-              message: 'Archivos procesados y listos para descargar',
-              processedFile: processedBlob,
-              downloadUrl: downloadUrl
-            } : {
-              ...f,
-              progress: 100,
-              status: 'completed' as const,
-              message: 'Incluido en archivo procesado'
-            }
-          ));
+          setFiles((prev) =>
+            prev.map((f, index) =>
+              index === 0
+                ? {
+                    ...f,
+                    progress: 100,
+                    status: "ready-for-download" as const,
+                    message: "Archivos procesados y listos para descargar",
+                    processedFile: processedBlob,
+                    downloadUrl: downloadUrl,
+                  }
+                : {
+                    ...f,
+                    progress: 100,
+                    status: "completed" as const,
+                    message: "Incluido en archivo procesado",
+                  },
+            ),
+          );
 
           toast({
             title: "¡Archivos Procesados!",
@@ -189,17 +201,18 @@ export const useFileUpload = (areaName: string) => {
       } else {
         throw new Error(`Error del servidor: ${response.status}`);
       }
-
     } catch (error) {
-      console.error('Error al subir archivos:', error);
-      
-      const errorMessage = error instanceof Error ? error.message : 'Error desconocido';
-      
-      setFiles(prev => prev.map(f => ({ 
-        ...f, 
-        status: 'error' as const,
-        message: errorMessage
-      })));
+      console.error("Error al subir archivos:", error);
+
+      const errorMessage = error instanceof Error ? error.message : "Error desconocido";
+
+      setFiles((prev) =>
+        prev.map((f) => ({
+          ...f,
+          status: "error" as const,
+          message: errorMessage,
+        })),
+      );
 
       toast({
         title: "Error",
@@ -211,19 +224,19 @@ export const useFileUpload = (areaName: string) => {
 
   const downloadProcessedFile = (fileStatus: FileUploadStatus) => {
     if (fileStatus.downloadUrl) {
-      if (fileStatus.downloadUrl.includes('drive.google.com')) {
+      if (fileStatus.downloadUrl.includes("drive.google.com")) {
         // Enlace de Google Drive - abrir en nueva pestaña
-        window.open(fileStatus.downloadUrl, '_blank');
+        window.open(fileStatus.downloadUrl, "_blank");
       } else {
         // Archivo local - descargar directamente
-        const link = document.createElement('a');
+        const link = document.createElement("a");
         link.href = fileStatus.downloadUrl;
         link.download = `${areaName}_procesado.zip`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
       }
-      
+
       toast({
         title: "Descarga Iniciada",
         description: `Los archivos procesados de ${areaName} se están descargando.`,
@@ -233,12 +246,12 @@ export const useFileUpload = (areaName: string) => {
 
   const removeFiles = () => {
     // Limpiar URLs de objeto para evitar memory leaks
-    files.forEach(fileStatus => {
-      if (fileStatus.downloadUrl && !fileStatus.downloadUrl.includes('drive.google.com')) {
+    files.forEach((fileStatus) => {
+      if (fileStatus.downloadUrl && !fileStatus.downloadUrl.includes("drive.google.com")) {
         URL.revokeObjectURL(fileStatus.downloadUrl);
       }
     });
-    
+
     setFiles([]);
   };
 
@@ -246,6 +259,6 @@ export const useFileUpload = (areaName: string) => {
     files,
     uploadFiles,
     downloadProcessedFile,
-    removeFiles
+    removeFiles,
   };
 };
