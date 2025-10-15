@@ -26,51 +26,51 @@ export const AudioResultScreen = ({
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-green-900/10 to-slate-900 relative overflow-hidden flex items-center justify-center p-8">
-      {/* Grid background */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(34,197,94,0.2)_1px,transparent_1px),linear-gradient(90deg,rgba(34,197,94,0.2)_1px,transparent_1px)] bg-[size:20px_20px]" />
+    <div className="min-h-screen bg-background relative overflow-hidden flex items-center justify-center p-8">
+      {/* Subtle background pattern */}
+      <div className="absolute inset-0 opacity-5">
+        <div className="absolute inset-0 bg-[linear-gradient(hsl(var(--primary))_1px,transparent_1px),linear-gradient(90deg,hsl(var(--primary))_1px,transparent_1px)] bg-[size:40px_40px]" />
       </div>
 
-      <div className="relative z-10 text-center space-y-8 max-w-2xl">
+      <div className="relative z-10 text-center space-y-8 max-w-2xl w-full">
         {/* Success icon */}
         <div className="relative mb-8">
-          <div className="w-40 h-40 mx-auto rounded-full bg-gradient-to-r from-green-400 to-emerald-400 flex items-center justify-center animate-pulse">
-            <div className="absolute inset-0 rounded-full border-2 border-green-500/20 animate-ping" />
-            <CheckCircle2 className="h-20 w-20 text-white relative z-10 animate-bounce" />
+          <div className="w-32 h-32 mx-auto rounded-full bg-green-500 flex items-center justify-center shadow-lg">
+            <CheckCircle2 className="h-16 w-16 text-white relative z-10" />
           </div>
         </div>
 
         {/* Title */}
-        <div className="animate-fade-in">
-          <h1 className="text-5xl font-bold text-white mb-4 font-mono">
-            ¡TRANSCRIPCIÓN <span className="text-green-400 animate-pulse">COMPLETADA!</span>
+        <div className="animate-fade-in space-y-4">
+          <h1 className="text-4xl md:text-5xl font-bold text-foreground">
+            ¡Transcripción <span className="text-green-600">Completada!</span>
           </h1>
-          <div className="inline-flex items-center gap-2 bg-green-500/20 px-6 py-3 rounded-full border border-green-500/30 backdrop-blur-sm">
-            <CheckCircle2 className="h-5 w-5 text-green-400" />
-            <span className="text-green-400 font-mono text-lg">
-              DOCUMENTO WORD GENERADO
+          <div className="inline-flex items-center gap-2 bg-green-50 dark:bg-green-950 px-6 py-3 rounded-full border border-green-200 dark:border-green-800">
+            <CheckCircle2 className="h-5 w-5 text-green-600 dark:text-green-400" />
+            <span className="text-green-700 dark:text-green-300 font-medium">
+              Documento Word generado
             </span>
           </div>
         </div>
 
         {/* File info */}
-        <div className="bg-slate-900/50 backdrop-blur-sm border border-green-500/30 rounded-xl p-8 space-y-6">
-          <div className="flex items-center justify-center gap-3 text-green-300">
-            <FileText className="h-6 w-6" />
-            <p className="font-mono text-lg">
-              Archivo original: <span className="text-white">{originalFileName}</span>
+        <div className="bg-card border border-border rounded-xl p-8 space-y-6 shadow-lg">
+          <div className="flex items-center justify-center gap-3 text-foreground flex-wrap">
+            <FileText className="h-6 w-6 text-primary" />
+            <p className="text-base">
+              Archivo original: <span className="font-semibold">{originalFileName}</span>
             </p>
           </div>
 
-          <div className="text-cyan-300 text-sm">
+          <div className="text-muted-foreground text-sm">
             Tiempo de procesamiento: {formatTime(processingTime)}
           </div>
 
           {/* Download button */}
           <Button
             onClick={handleDownload}
-            className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white py-6 text-lg font-bold shadow-2xl shadow-green-500/30 hover:shadow-green-500/50 hover:scale-105 transition-all duration-300"
+            size="lg"
+            className="w-full py-6 text-lg font-semibold bg-green-600 hover:bg-green-700 text-white shadow-lg hover:shadow-xl transition-all duration-300"
           >
             <Download className="h-6 w-6 mr-2" />
             Descargar Transcripción Word
@@ -80,7 +80,8 @@ export const AudioResultScreen = ({
           <Button
             onClick={onStartNew}
             variant="outline"
-            className="w-full border-green-500/30 text-green-400 hover:bg-green-500/10 py-4"
+            size="lg"
+            className="w-full py-4"
           >
             <RotateCcw className="h-5 w-5 mr-2" />
             Transcribir Otro Audio

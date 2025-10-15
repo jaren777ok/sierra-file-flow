@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
-import { Mic, Upload, File, X } from 'lucide-react';
+import { Mic, Upload, FileAudio, X, Music } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { AudioProcessingService } from '@/services/audioProcessingService';
 import { AUDIO_CONFIG } from '@/constants/audio';
@@ -49,111 +50,104 @@ export const AudioUploader = ({ onUpload, disabled }: AudioUploaderProps) => {
     }
   };
 
-  const handleRemoveFile = () => {
-    setSelectedFile(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
-  const handleUpload = () => {
+  const handleUploadClick = () => {
     if (selectedFile) {
       onUpload(selectedFile);
     }
   };
 
   return (
-    <div className="w-full max-w-2xl mx-auto">
-      {!selectedFile ? (
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onClick={() => fileInputRef.current?.click()}
-          className={`
-            relative border-2 border-dashed rounded-xl p-12 
-            transition-all duration-300 cursor-pointer
-            ${isDragging 
-              ? 'border-primary bg-primary/5 scale-105' 
-              : 'border-border hover:border-primary/50 hover:bg-accent/5'
-            }
-          `}
-        >
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={AUDIO_CONFIG.ACCEPTED_EXTENSIONS.join(',')}
-            onChange={handleFileInputChange}
-            className="hidden"
-            disabled={disabled}
-          />
-
-          <div className="flex flex-col items-center text-center space-y-4">
-            <div className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center animate-pulse">
-              <Mic className="h-10 w-10 text-white" />
-            </div>
-
-            <div>
-              <h3 className="text-xl font-semibold text-foreground mb-2">
-                Arrastra tu archivo de audio aquí
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                o haz clic para seleccionar
-              </p>
-            </div>
-
-            <div className="flex flex-wrap justify-center gap-2 text-xs text-muted-foreground">
-              {AUDIO_CONFIG.ACCEPTED_EXTENSIONS.map(ext => (
-                <span key={ext} className="px-2 py-1 bg-muted rounded">
-                  {ext.toUpperCase()}
-                </span>
-              ))}
-            </div>
-
-            <p className="text-xs text-muted-foreground">
-              Tamaño máximo: 100MB
-            </p>
+    <div className="max-w-2xl mx-auto">
+      <div
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        className={cn(
+          "relative border-2 border-dashed rounded-2xl p-16 text-center transition-all duration-300",
+          isDragging 
+            ? "border-primary bg-primary/5 scale-[1.02]" 
+            : "border-border bg-card hover:border-primary/50",
+          disabled && "opacity-50 cursor-not-allowed"
+        )}
+      >
+        {/* Icon */}
+        <div className="flex justify-center mb-8">
+          <div className={cn(
+            "w-28 h-28 rounded-full flex items-center justify-center transition-all duration-300",
+            isDragging 
+              ? "bg-primary scale-110" 
+              : "bg-primary/10"
+          )}>
+            <Mic className={cn(
+              "h-14 w-14 transition-colors duration-300",
+              isDragging ? "text-primary-foreground" : "text-primary"
+            )} />
           </div>
         </div>
-      ) : (
-        <div className="space-y-4">
-          <div className="border border-border rounded-xl p-6 bg-card">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-4 flex-1">
-                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500 to-blue-500 flex items-center justify-center flex-shrink-0">
-                  <File className="h-6 w-6 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-medium text-foreground truncate">
-                    {selectedFile.name}
-                  </h4>
-                  <p className="text-sm text-muted-foreground mt-1">
-                    {AudioProcessingService.formatFileSize(selectedFile.size)}
-                  </p>
-                </div>
+
+        {/* Text */}
+        <div className="space-y-6">
+          {selectedFile ? (
+            <div className="space-y-6">
+              <div className="flex items-center justify-center gap-3 text-foreground">
+                <Music className="h-6 w-6 text-primary" />
+                <span className="font-semibold text-lg">{selectedFile.name}</span>
               </div>
+              <p className="text-sm text-muted-foreground">
+                {(selectedFile.size / (1024 * 1024)).toFixed(2)} MB
+              </p>
               <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleRemoveFile}
-                className="flex-shrink-0"
+                onClick={handleUploadClick}
                 disabled={disabled}
+                size="lg"
+                className="px-8 py-6 text-lg font-semibold"
               >
-                <X className="h-4 w-4" />
+                <Upload className="h-5 w-5 mr-2" />
+                Transcribir Audio
               </Button>
             </div>
-          </div>
-
-          <Button
-            onClick={handleUpload}
-            className="w-full bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600 text-white py-6 text-lg font-semibold"
-            disabled={disabled}
-          >
-            <Upload className="h-5 w-5 mr-2" />
-            Transcribir Audio
-          </Button>
+          ) : (
+            <>
+              <h3 className="text-xl font-semibold text-foreground">
+                Arrastra tu archivo de audio aquí
+              </h3>
+              <p className="text-muted-foreground">
+                o haz clic para seleccionar
+              </p>
+              <Button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={disabled}
+                variant="outline"
+                size="lg"
+                className="mt-4 px-6"
+              >
+                <Upload className="h-5 w-5 mr-2" />
+                Seleccionar Archivo
+              </Button>
+            </>
+          )}
         </div>
-      )}
+
+        {/* File input */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={AUDIO_CONFIG.ACCEPTED_EXTENSIONS.join(',')}
+          onChange={handleFileInputChange}
+          className="hidden"
+          disabled={disabled}
+        />
+      </div>
+
+      {/* Info */}
+      <div className="mt-6 text-center space-y-2">
+        <p className="text-sm text-muted-foreground">
+          Formatos aceptados: MP3, WAV, M4A, OGG, FLAC
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Tamaño máximo: 100MB
+        </p>
+      </div>
     </div>
   );
 };
