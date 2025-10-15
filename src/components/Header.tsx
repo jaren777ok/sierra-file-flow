@@ -10,7 +10,8 @@ import {
   Upload, 
   Menu, 
   X,
-  BarChart3 
+  BarChart3,
+  Mic
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -38,6 +39,12 @@ const Header = () => {
       href: '/',
       icon: Upload,
       current: location.pathname === '/'
+    },
+    {
+      name: 'Convertir Audio',
+      href: '/convert-audio',
+      icon: Mic,
+      current: location.pathname === '/convert-audio'
     },
     {
       name: 'Archivos Guardados',
