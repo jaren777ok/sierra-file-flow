@@ -1,5 +1,5 @@
 import React from 'react';
-import { Mic, Sparkles } from 'lucide-react';
+import { Mic, Sparkles, Activity, Waves } from 'lucide-react';
 import Header from '@/components/Header';
 import { AudioUploader } from '@/components/AudioUploader';
 import { AudioProcessingScreen } from '@/components/AudioProcessingScreen';
@@ -41,22 +41,37 @@ const ConvertAudio = () => {
     <div className="min-h-screen bg-background">
       <Header />
       
-      <main className="container mx-auto px-4 py-12">
-        {/* Hero section */}
-        <div className="text-center mb-12 space-y-6">
-          <div className="flex items-center justify-center mb-6">
-            <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
-              <Mic className="h-10 w-10 text-primary" />
+      <main className="container mx-auto px-4 py-8 md:py-12">
+        {/* Hero section with gradient */}
+        <div className="relative mb-16 overflow-hidden rounded-3xl">
+          <div className="absolute inset-0 audio-gradient opacity-10" />
+          <div className="relative text-center py-16 md:py-20 space-y-6">
+            <div className="flex items-center justify-center mb-8">
+              <div className="relative">
+                <div className="absolute inset-0 audio-gradient rounded-full blur-xl opacity-50 animate-pulse" />
+                <div className="relative w-24 h-24 md:w-32 md:h-32 rounded-full audio-gradient flex items-center justify-center shadow-2xl animate-float">
+                  <Mic className="h-12 w-12 md:h-16 md:w-16 text-white" />
+                </div>
+              </div>
             </div>
-          </div>
 
-          <h1 className="text-4xl md:text-5xl font-bold text-foreground">
-            Convertir Audio a Texto
-          </h1>
-          
-          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Sube una entrevista en audio y recibe la transcripción completa en formato Word
-          </p>
+            <div className="space-y-4">
+              <h1 className="text-4xl md:text-6xl font-bold text-foreground">
+                Convertir Audio a <span className="audio-gradient bg-clip-text text-transparent">Texto</span>
+              </h1>
+              
+              <div className="flex items-center justify-center gap-2">
+                <Sparkles className="h-5 w-5 text-primary animate-pulse" />
+                <p className="text-lg md:text-xl text-muted-foreground">
+                  Transcripción automática con IA avanzada
+                </p>
+              </div>
+            </div>
+
+            <p className="text-base md:text-lg text-muted-foreground max-w-2xl mx-auto px-4">
+              Sube tu entrevista, reunión o podcast y recibe la transcripción completa en formato Word
+            </p>
+          </div>
         </div>
 
         {/* Uploader */}
@@ -66,40 +81,55 @@ const ConvertAudio = () => {
         />
 
         {/* Info section */}
-        <div className="mt-16 max-w-3xl mx-auto">
+        <div className="mt-16 max-w-4xl mx-auto">
           <div className="grid md:grid-cols-3 gap-6">
-            <div className="text-center">
-              <div className="text-4xl font-bold text-primary mb-2">100MB</div>
-              <p className="text-sm text-muted-foreground">Tamaño máximo</p>
+            <div className="bg-white dark:bg-card border border-border rounded-2xl p-6 text-center shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+              <div className="text-5xl font-bold audio-gradient bg-clip-text text-transparent mb-3">100MB</div>
+              <p className="text-sm font-medium text-muted-foreground">Tamaño máximo de archivo</p>
             </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-primary mb-2">5+</div>
-              <p className="text-sm text-muted-foreground">Formatos aceptados</p>
+            <div className="bg-white dark:bg-card border border-border rounded-2xl p-6 text-center shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+              <div className="text-5xl font-bold audio-gradient bg-clip-text text-transparent mb-3">5+</div>
+              <p className="text-sm font-medium text-muted-foreground">Formatos de audio aceptados</p>
             </div>
-            <div className="text-center">
-              <div className="text-4xl font-bold text-primary mb-2">100%</div>
-              <p className="text-sm text-muted-foreground">Precisión con IA</p>
+            <div className="bg-white dark:bg-card border border-border rounded-2xl p-6 text-center shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02]">
+              <div className="text-5xl font-bold audio-gradient bg-clip-text text-transparent mb-3">100%</div>
+              <p className="text-sm font-medium text-muted-foreground">Precisión con IA avanzada</p>
             </div>
           </div>
         </div>
 
         {/* Use cases */}
-        <div className="mt-16 max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold text-center text-foreground mb-8">
-            Casos de Uso
+        <div className="mt-20 max-w-5xl mx-auto mb-12">
+          <h2 className="text-3xl md:text-4xl font-bold text-center text-foreground mb-12">
+            Casos de <span className="audio-gradient bg-clip-text text-transparent">Uso</span>
           </h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            <div className="bg-card border border-border rounded-lg p-6">
-              <h3 className="font-semibold text-foreground mb-2">Entrevistas</h3>
-              <p className="text-sm text-muted-foreground">Transcribe entrevistas completas automáticamente</p>
+          <div className="grid md:grid-cols-3 gap-8">
+            <div className="group bg-white dark:bg-card border border-border rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 hover:border-primary/50">
+              <div className="w-16 h-16 rounded-xl audio-gradient flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                <Mic className="h-8 w-8 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground mb-3">Entrevistas</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Transcribe entrevistas profesionales completas con precisión y rapidez
+              </p>
             </div>
-            <div className="bg-card border border-border rounded-lg p-6">
-              <h3 className="font-semibold text-foreground mb-2">Reuniones</h3>
-              <p className="text-sm text-muted-foreground">Convierte reuniones de audio en documentos</p>
+            <div className="group bg-white dark:bg-card border border-border rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 hover:border-primary/50">
+              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                <Activity className="h-8 w-8 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground mb-3">Reuniones</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Convierte grabaciones de reuniones en documentos editables y compartibles
+              </p>
             </div>
-            <div className="bg-card border border-border rounded-lg p-6">
-              <h3 className="font-semibold text-foreground mb-2">Podcasts</h3>
-              <p className="text-sm text-muted-foreground">Genera transcripciones de episodios completos</p>
+            <div className="group bg-white dark:bg-card border border-border rounded-2xl p-8 shadow-lg hover:shadow-2xl transition-all duration-300 hover:scale-105 hover:border-accent/50">
+              <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-purple-500 to-pink-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
+                <Waves className="h-8 w-8 text-white" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground mb-3">Podcasts</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Genera transcripciones completas de episodios para mejorar tu SEO
+              </p>
             </div>
           </div>
         </div>
