@@ -41,12 +41,6 @@ const Header = () => {
       current: location.pathname === '/'
     },
     {
-      name: 'Convertir Audio',
-      href: '/convert-audio',
-      icon: Mic,
-      current: location.pathname === '/convert-audio'
-    },
-    {
       name: 'Archivos Guardados',
       href: '/saved-files',
       icon: FileText,
