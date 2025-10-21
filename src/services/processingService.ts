@@ -18,13 +18,10 @@ export class ProcessingService {
     const timeoutId = setTimeout(() => controller.abort(), PROCESSING_CONSTANTS.MAX_TIMEOUT);
     
     try {
-      const response = await fetch(PROCESSING_CONSTANTS.WEBHOOK_URL, {
+      const response = await fetch('https://jbunbmphadxmzjokwgkw.supabase.co/functions/v1/proxy-processing-upload', {
         method: 'POST',
         body: formData,
         signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-        }
       });
       
       clearTimeout(timeoutId);
