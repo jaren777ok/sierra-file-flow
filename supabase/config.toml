@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.proxy-processing-upload]
 verify_jwt = false
+
+[functions.check-processing-status]
+verify_jwt = false

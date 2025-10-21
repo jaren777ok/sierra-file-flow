@@ -41,10 +41,9 @@ const useSimpleProcessing = () => {
 
       const requestId = generateRequestId();
 
-      console.log(`🚀 [${requestId}] Iniciando procesamiento SIMPLIFICADO:`, { 
+      console.log(`🚀 [${requestId}] Iniciando procesamiento con POLLING:`, { 
         projectTitle, 
-        fileCount: files.length, 
-        webhookUrl: PROCESSING_CONSTANTS.WEBHOOK_URL
+        fileCount: files.length,
       });
       
       setProcessingStatus({
@@ -64,14 +63,15 @@ const useSimpleProcessing = () => {
         ...prev,
         status: 'processing',
         progress: PROCESSING_CONSTANTS.PROGRESS_STEPS.SENDING,
-        message: 'Enviando archivos y esperando respuesta del servidor (máximo 15 minutos)...',
+        message: 'Enviando archivos al servidor...',
         requestId
       }));
 
-      console.log(`📡 [${requestId}] Enviando a webhook con timeout de 15 minutos...`);
+      console.log(`📡 [${requestId}] Enviando archivos e iniciando procesamiento...`);
       
       try {
-        const downloadUrl = await ProcessingService.sendProcessingRequest({
+        // Send request and get requestId back immediately
+        const returnedRequestId = await ProcessingService.sendProcessingRequest({
           projectTitle,
           files,
           areaFiles,
@@ -79,73 +79,118 @@ const useSimpleProcessing = () => {
           requestId
         });
         
-        // Success - Show result immediately
-        stopTimer();
+        console.log(`✅ [${requestId}] Procesamiento iniciado, comenzando polling...`);
         
+        // Update status to show we're now polling
         setProcessingStatus(prev => ({
           ...prev,
-          status: 'completed',
-          progress: PROCESSING_CONSTANTS.PROGRESS_STEPS.COMPLETED,
-          message: '¡Procesamiento completado exitosamente!',
-          showConfetti: true,
-          requestId
+          status: 'processing',
+          progress: PROCESSING_CONSTANTS.PROGRESS_STEPS.PROCESSING,
+          message: 'Procesando archivos en el servidor (esto puede tomar varios minutos)...',
+          requestId: returnedRequestId
         }));
-        
-        setResultUrl(downloadUrl);
-        
-        // Save processed file
-        await saveProcessedFile(projectTitle, 'Multi-área', downloadUrl);
-        
-        // Save result to database
-        const totalFilesCount = calculateTotalFiles(areaFiles, files);
-        await ProcessingService.saveJobToDatabase(
-          requestId,
-          projectTitle,
-          totalFilesCount,
-          user.id,
-          'completed',
-          downloadUrl
-        );
-        
-        toast({
-          title: "¡Procesamiento Completado!",
-          description: `Tu archivo ha sido procesado correctamente. ID: ${requestId}`,
-        });
+
+        // Start polling for status
+        const pollInterval = setInterval(async () => {
+          try {
+            const statusResult = await ProcessingService.checkStatus(returnedRequestId);
+            
+            console.log(`🔄 [${returnedRequestId}] Status: ${statusResult.status}, Progress: ${statusResult.progress}%`);
+            
+            if (statusResult.status === 'completed') {
+              clearInterval(pollInterval);
+              stopTimer();
+              
+              setProcessingStatus(prev => ({
+                ...prev,
+                status: 'completed',
+                progress: 100,
+                message: '¡Procesamiento completado exitosamente!',
+                showConfetti: true,
+                requestId: returnedRequestId
+              }));
+              
+              setResultUrl(statusResult.resultUrl!);
+              
+              // Save processed file
+              await saveProcessedFile(projectTitle, 'Multi-área', statusResult.resultUrl!);
+              
+              toast({
+                title: "¡Procesamiento Completado!",
+                description: `Tu archivo ha sido procesado correctamente. ID: ${returnedRequestId}`,
+              });
+              
+            } else if (statusResult.status === 'error') {
+              clearInterval(pollInterval);
+              stopTimer();
+              
+              setProcessingStatus(prev => ({
+                ...prev,
+                status: 'error',
+                progress: 0,
+                message: statusResult.errorMessage || 'Error durante el procesamiento',
+                showConfetti: false
+              }));
+              
+              toast({
+                title: "Error en el Procesamiento",
+                description: `${statusResult.errorMessage} (ID: ${returnedRequestId})`,
+                variant: "destructive",
+              });
+              
+            } else if (statusResult.status === 'timeout') {
+              clearInterval(pollInterval);
+              stopTimer();
+              
+              setProcessingStatus(prev => ({
+                ...prev,
+                status: 'timeout',
+                message: 'El procesamiento excedió el tiempo límite.',
+                showConfetti: false
+              }));
+              
+              toast({
+                title: "Tiempo Límite Alcanzado",
+                description: `El procesamiento excedió el tiempo límite. (ID: ${returnedRequestId})`,
+                variant: "destructive",
+              });
+              
+            } else {
+              // Still processing - update progress
+              setProcessingStatus(prev => ({
+                ...prev,
+                status: 'processing',
+                progress: statusResult.progress || prev.progress,
+                message: getProgressMessage(statusResult.progress),
+              }));
+            }
+          } catch (pollError) {
+            console.error('Error durante polling:', pollError);
+          }
+        }, PROCESSING_CONSTANTS.POLLING_INTERVAL);
+
+        // Safety timeout after 20 minutes
+        setTimeout(() => {
+          clearInterval(pollInterval);
+          if (processingStatus.status === 'processing') {
+            stopTimer();
+            setProcessingStatus(prev => ({
+              ...prev,
+              status: 'timeout',
+              message: 'El procesamiento excedió el tiempo máximo de espera.',
+              showConfetti: false
+            }));
+            
+            toast({
+              title: "Tiempo Máximo Alcanzado",
+              description: "El procesamiento está tomando más tiempo del esperado.",
+              variant: "destructive",
+            });
+          }
+        }, PROCESSING_CONSTANTS.MAX_POLLING_TIME);
         
       } catch (processingError: any) {
-        if (processingError.message === 'TIMEOUT') {
-          // Timeout handling
-          console.log(`⏰ [${requestId}] Timeout de 15 minutos alcanzado`);
-          
-          stopTimer();
-          
-          setProcessingStatus(prev => ({
-            ...prev,
-            status: 'timeout',
-            message: 'El servidor no respondió dentro del tiempo límite de 15 minutos. Puedes intentar nuevamente.',
-            showConfetti: false
-          }));
-          
-          toast({
-            title: "Tiempo Límite Alcanzado",
-            description: `El procesamiento excedió los 15 minutos. (ID: ${requestId})`,
-            variant: "destructive",
-          });
-          
-          // Save timeout to database
-          const totalFilesCount = calculateTotalFiles(areaFiles, files);
-          await ProcessingService.saveJobToDatabase(
-            requestId,
-            projectTitle,
-            totalFilesCount,
-            user.id,
-            'timeout',
-            undefined,
-            'Timeout de 15 minutos alcanzado'
-          );
-        } else {
-          throw processingError;
-        }
+        throw processingError;
       }
       
     } catch (error) {
@@ -174,6 +219,13 @@ const useSimpleProcessing = () => {
       throw error;
     }
   }, [startTimer, stopTimer, toast, saveProcessedFile, processingStatus.requestId]);
+
+  const getProgressMessage = (progress: number): string => {
+    if (progress < 30) return 'Procesando archivos en el servidor...';
+    if (progress < 50) return 'Analizando documentos comerciales...';
+    if (progress < 80) return 'Generando reporte inteligente...';
+    return 'Casi listo, últimos detalles...';
+  };
 
   const resetProcessing = useCallback(() => {
     stopTimer();

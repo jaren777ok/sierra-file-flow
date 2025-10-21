@@ -15,7 +15,7 @@ export class ProcessingService {
     );
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), PROCESSING_CONSTANTS.MAX_TIMEOUT);
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos para respuesta inicial
     
     try {
       const response = await fetch('https://jbunbmphadxmzjokwgkw.supabase.co/functions/v1/proxy-processing-upload', {
@@ -31,22 +31,48 @@ export class ProcessingService {
       }
       
       const result = await response.json();
-      console.log(`✅ [${data.requestId}] Respuesta del webhook:`, result);
+      console.log(`✅ [${data.requestId}] Procesamiento iniciado:`, result);
       
-      const downloadUrl = extractDownloadUrl(result);
-      if (!downloadUrl) {
-        throw new Error('No se encontró URL de descarga en la respuesta del servidor');
+      // Now returns requestId instead of URL
+      if (!result.requestId) {
+        throw new Error('No se recibió ID de procesamiento');
       }
       
-      return downloadUrl;
+      return result.requestId;
     } catch (fetchError: any) {
       clearTimeout(timeoutId);
       
       if (fetchError.name === 'AbortError') {
-        throw new Error('TIMEOUT');
+        throw new Error('Error al iniciar el procesamiento. Por favor, intenta nuevamente.');
       }
       
       throw fetchError;
+    }
+  }
+
+  static async checkStatus(requestId: string): Promise<{
+    status: 'processing' | 'completed' | 'error' | 'timeout' | 'not_found';
+    progress: number;
+    resultUrl?: string;
+    errorMessage?: string;
+  }> {
+    try {
+      const response = await fetch('https://jbunbmphadxmzjokwgkw.supabase.co/functions/v1/check-processing-status', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ requestId }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Error consultando status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.error('Error checking status:', error);
+      throw error;
     }
   }
 
