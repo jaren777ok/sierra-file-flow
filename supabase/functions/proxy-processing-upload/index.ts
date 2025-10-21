@@ -53,15 +53,14 @@ Deno.serve(async (req) => {
 
     console.log('✅ [proxy-processing-upload] Job guardado en DB');
 
-    // Start background task to process webhook response
-    const backgroundTask = async () => {
-      console.log('🔄 [proxy-processing-upload] Iniciando tarea en background...');
-      
+    // Send files to webhook (fire-and-forget, just confirm receipt)
+    // N8n will process in background and update the DB directly when done
+    const sendToWebhook = async () => {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout just to confirm receipt
 
       try {
-        console.log('📤 [proxy-processing-upload] Enviando al webhook externo...');
+        console.log('📤 [proxy-processing-upload] Enviando archivos al webhook...');
         
         const response = await fetch(WEBHOOK_URL, {
           method: 'POST',
@@ -70,94 +69,40 @@ Deno.serve(async (req) => {
         });
 
         clearTimeout(timeoutId);
-
-        console.log(`📥 [proxy-processing-upload] Webhook respondió con status: ${response.status}`);
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`❌ [proxy-processing-upload] Error del webhook: ${response.status}`);
-          
-          // Update DB with error
-          await supabase
-            .from('processing_jobs')
-            .update({
-              status: 'error',
-              error_message: `Error del webhook: ${response.status}`,
-              completed_at: new Date().toISOString(),
-            })
-            .eq('request_id', requestId);
-          
-          return;
-        }
-
-        // Parse webhook response
-        const data = await response.json();
-        console.log('✅ [proxy-processing-upload] Respuesta del webhook:', data);
-
-        // Extract download URL
-        let downloadUrl: string | null = null;
         
-        if (Array.isArray(data) && data.length > 0 && data[0].EXITO) {
-          downloadUrl = data[0].EXITO;
-        } else if (data.EXITO) {
-          downloadUrl = data.EXITO;
-        } else if (data.url) {
-          downloadUrl = data.url;
-        }
-
-        if (!downloadUrl) {
-          console.error('❌ [proxy-processing-upload] Respuesta sin URL válida:', data);
-          
+        console.log(`📥 [proxy-processing-upload] Webhook confirmó recepción: ${response.status}`);
+        
+        if (!response.ok) {
+          console.error(`⚠️ [proxy-processing-upload] Webhook retornó error: ${response.status}`);
           // Update DB with error
           await supabase
             .from('processing_jobs')
             .update({
               status: 'error',
-              error_message: 'Respuesta del webhook sin URL de descarga válida',
+              error_message: `Error al enviar al webhook: ${response.status}`,
               completed_at: new Date().toISOString(),
             })
             .eq('request_id', requestId);
-          
-          return;
         }
-
-        console.log(`🎉 [proxy-processing-upload] Éxito! URL: ${downloadUrl}`);
-
-        // Update DB with success
-        await supabase
-          .from('processing_jobs')
-          .update({
-            status: 'completed',
-            progress: 100,
-            result_url: downloadUrl,
-            completed_at: new Date().toISOString(),
-          })
-          .eq('request_id', requestId);
-
-        console.log('✅ [proxy-processing-upload] Job actualizado como completado');
-
+        
       } catch (error: any) {
         clearTimeout(timeoutId);
-        console.error('❌ [proxy-processing-upload] Error en background task:', error);
-
-        const isTimeout = error.name === 'AbortError';
+        console.error('❌ [proxy-processing-upload] Error enviando al webhook:', error);
         
-        // Update DB with timeout or error
+        // Update DB with error
         await supabase
           .from('processing_jobs')
           .update({
-            status: isTimeout ? 'timeout' : 'error',
-            error_message: isTimeout 
-              ? 'El procesamiento excedió el tiempo límite de 15 minutos'
-              : error.message || 'Error al procesar los archivos',
+            status: 'error',
+            error_message: 'Error al enviar archivos al webhook',
             completed_at: new Date().toISOString(),
           })
           .eq('request_id', requestId);
       }
     };
 
-    // Execute background task without awaiting
-    EdgeRuntime.waitUntil(backgroundTask());
+    // Send to webhook without waiting (N8n will update DB when done)
+    sendToWebhook();
 
     // Return immediately with request ID
     console.log('✅ [proxy-processing-upload] Retornando requestId al frontend');

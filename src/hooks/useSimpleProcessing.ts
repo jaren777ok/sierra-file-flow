@@ -41,9 +41,11 @@ const useSimpleProcessing = () => {
 
       const requestId = generateRequestId();
 
-      console.log(`🚀 [${requestId}] Iniciando procesamiento con POLLING:`, { 
+      console.log(`🚀 [${requestId}] Iniciando procesamiento simplificado:`, { 
         projectTitle, 
         fileCount: files.length,
+        pollingInterval: '1 minuto',
+        maxWaitTime: '15 minutos'
       });
       
       setProcessingStatus({
@@ -79,18 +81,19 @@ const useSimpleProcessing = () => {
           requestId
         });
         
-        console.log(`✅ [${requestId}] Procesamiento iniciado, comenzando polling...`);
+        console.log(`✅ [${requestId}] Archivos enviados, N8n procesará en background`);
+        console.log(`🔄 [${requestId}] Iniciando polling cada 1 minuto (máximo 15 minutos)`);
         
         // Update status to show we're now polling
         setProcessingStatus(prev => ({
           ...prev,
           status: 'processing',
           progress: PROCESSING_CONSTANTS.PROGRESS_STEPS.PROCESSING,
-          message: 'Procesando archivos en el servidor (esto puede tomar varios minutos)...',
+          message: 'Procesando archivos en el servidor (revisando cada minuto)...',
           requestId: returnedRequestId
         }));
 
-        // Start polling for status
+        // Start polling for status (every 1 minute)
         const pollInterval = setInterval(async () => {
           try {
             const statusResult = await ProcessingService.checkStatus(returnedRequestId);
@@ -169,7 +172,7 @@ const useSimpleProcessing = () => {
           }
         }, PROCESSING_CONSTANTS.POLLING_INTERVAL);
 
-        // Safety timeout after 20 minutes
+        // Safety timeout after 15 minutes
         setTimeout(() => {
           clearInterval(pollInterval);
           if (processingStatus.status === 'processing') {
