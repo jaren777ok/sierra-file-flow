@@ -3,7 +3,7 @@ export const AUDIO_CONFIG = {
   MAX_FILE_SIZE: 100 * 1024 * 1024, // 100MB
   ACCEPTED_FORMATS: ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/m4a', 'audio/ogg', 'audio/flac'],
   ACCEPTED_EXTENSIONS: ['.mp3', '.wav', '.m4a', '.ogg', '.flac'],
-  TIMEOUT: 10 * 60 * 1000, // 10 minutos
+  TIMEOUT: 15 * 60 * 1000, // 15 minutos
 };
 
 export const AUDIO_MESSAGES = {

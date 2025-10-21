@@ -1,1 +1,4 @@
 project_id = "jbunbmphadxmzjokwgkw"
+
+[functions.proxy-audio-upload]
+verify_jwt = false

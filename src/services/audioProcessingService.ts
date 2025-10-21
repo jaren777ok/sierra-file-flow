@@ -12,7 +12,7 @@ export class AudioProcessingService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), AUDIO_CONFIG.TIMEOUT);
 
-      const response = await fetch(AUDIO_CONFIG.WEBHOOK_URL, {
+      const response = await fetch('https://jbunbmphadxmzjokwgkw.supabase.co/functions/v1/proxy-audio-upload', {
         method: 'POST',
         body: formData,
         signal: controller.signal,
@@ -36,7 +36,7 @@ export class AudioProcessingService {
       console.error('❌ Error al procesar audio:', error);
 
       if (error.name === 'AbortError') {
-        throw new Error('El procesamiento excedió el tiempo límite de 10 minutos');
+        throw new Error('El procesamiento excedió el tiempo límite de 15 minutos');
       }
 
       throw new Error(error.message || 'Error al procesar el audio');
