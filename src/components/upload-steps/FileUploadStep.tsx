@@ -3,6 +3,7 @@ import React, { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, ArrowRight, Upload, X, File } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { ACCEPTED_FILE_TYPES_STRING, ACCEPTED_FILE_NAMES, isValidFileType } from '@/constants/fileTypes';
 
 interface Area {
   key: string;
@@ -30,6 +31,18 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev, disabled =
     if (disabled) return;
     
     const droppedFiles = Array.from(e.dataTransfer.files);
+    
+    // Validar tipos de archivos
+    const invalidFiles = droppedFiles.filter(file => !isValidFileType(file));
+    if (invalidFiles.length > 0) {
+      toast({
+        title: "Tipo de archivo no permitido",
+        description: `Solo se permiten archivos ${ACCEPTED_FILE_NAMES}`,
+        variant: "destructive",
+      });
+      return;
+    }
+    
     const newFiles = [...files, ...droppedFiles].slice(0, 5);
     
     if (droppedFiles.length + files.length > 5) {
@@ -47,6 +60,19 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev, disabled =
     if (disabled) return;
     
     const selectedFiles = Array.from(e.target.files || []);
+    
+    // Validar tipos de archivos
+    const invalidFiles = selectedFiles.filter(file => !isValidFileType(file));
+    if (invalidFiles.length > 0) {
+      toast({
+        title: "Tipo de archivo no permitido",
+        description: `Solo se permiten archivos ${ACCEPTED_FILE_NAMES}`,
+        variant: "destructive",
+      });
+      e.target.value = '';
+      return;
+    }
+    
     const newFiles = [...files, ...selectedFiles].slice(0, 5);
     
     if (selectedFiles.length + files.length > 5) {
@@ -80,6 +106,9 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev, disabled =
         <div className="text-sm text-sierra-teal/70 mt-2">
           {files.length}/5 archivos subidos
         </div>
+        <div className="text-xs text-sierra-gray/60 mt-1">
+          Formatos aceptados: {ACCEPTED_FILE_NAMES}
+        </div>
       </div>
 
       {/* Drop Zone */}
@@ -107,6 +136,7 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev, disabled =
         <input
           type="file"
           multiple
+          accept={ACCEPTED_FILE_TYPES_STRING}
           onChange={handleFileSelect}
           className="hidden"
           id={`file-upload-${area.key}`}
