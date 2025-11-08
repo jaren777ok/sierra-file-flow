@@ -11,7 +11,8 @@ export class ProcessingService {
       data.files,
       data.userId,
       data.requestId,
-      data.projectFiles
+      data.projectFiles,
+      data.companyAnalysis
     );
 
     const controller = new AbortController();

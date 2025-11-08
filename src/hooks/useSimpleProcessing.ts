@@ -32,7 +32,7 @@ const useSimpleProcessing = () => {
     }));
   }, [timeElapsed]);
 
-  const startProcessing = useCallback(async (projectTitle: string, files: File[], projectFiles?: any) => {
+  const startProcessing = useCallback(async (projectTitle: string, files: File[], projectFiles?: any, companyAnalysis?: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -78,7 +78,8 @@ const useSimpleProcessing = () => {
           files,
           projectFiles,
           userId: user.id,
-          requestId
+          requestId,
+          companyAnalysis
         });
         
         console.log(`✅ [${requestId}] Archivos enviados, N8n procesará en background`);

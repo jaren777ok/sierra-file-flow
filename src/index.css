@@ -3,6 +3,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import './styles/markdown.css';
+
 /* Paleta de colores de Grupo Sierras */
 
 @layer base {

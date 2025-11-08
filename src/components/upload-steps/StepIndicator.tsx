@@ -13,6 +13,7 @@ const StepIndicator = ({ currentStep, totalSteps, customAreasCount }: StepIndica
   const steps = [
     { name: 'Proyecto', icon: '📝' },
     { name: 'Empresa', icon: '🏢' },
+    { name: 'Análisis', icon: '📊' },
     { name: 'Comercial', icon: '💼' },
     { name: 'Operaciones', icon: '⚙️' },
     { name: 'Pricing', icon: '💰' },

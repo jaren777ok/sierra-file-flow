@@ -14,6 +14,7 @@ interface Area {
 interface ReviewStepProps {
   projectName: string;
   companyInfo: File[];
+  companyAnalysis?: string;
   areaFiles: AreaFiles;
   customAreas: CustomArea[];
   areas: Area[];
@@ -28,6 +29,7 @@ interface ReviewStepProps {
 const ReviewStep = ({ 
   projectName, 
   companyInfo,
+  companyAnalysis,
   areaFiles, 
   customAreas,
   areas, 
@@ -64,6 +66,38 @@ const ReviewStep = ({
         </div>
       </div>
 
+      {/* Company Analysis Section */}
+      {companyAnalysis && (
+        <div className="mb-4">
+          <div className="p-6 rounded-xl bg-gradient-to-r from-blue-50 to-teal-50 border border-blue-300 shadow-md">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-3xl">📊</span>
+              <div className="flex-1">
+                <h4 className="font-bold text-blue-700 text-lg">Análisis de la Empresa</h4>
+                <p className="text-sm text-blue-600">
+                  {companyAnalysis.length} caracteres • Generado por IA
+                </p>
+              </div>
+            </div>
+            
+            <details className="group">
+              <summary className="cursor-pointer text-sm text-blue-600 hover:text-blue-800 font-medium flex items-center gap-2">
+                <span>Ver análisis completo</span>
+                <span className="group-open:rotate-180 transition-transform">▼</span>
+              </summary>
+              <div className="mt-4 p-4 bg-white/80 rounded-lg max-h-96 overflow-y-auto prose prose-sm markdown-content">
+                {companyAnalysis.substring(0, 500)}...
+                {companyAnalysis.length > 500 && (
+                  <p className="text-xs text-blue-500 mt-2">
+                    (Mostrando primeros 500 caracteres)
+                  </p>
+                )}
+              </div>
+            </details>
+          </div>
+        </div>
+      )}
+
       {/* Company Info Section */}
       {companyInfo.length > 0 && (
         <div className="mb-4">
@@ -72,7 +106,7 @@ const ReviewStep = ({
               <div className="flex items-center gap-3">
                 <span className="text-2xl">🏢</span>
                 <div>
-                  <h4 className="font-semibold text-blue-700">Información de la Empresa</h4>
+                  <h4 className="font-semibold text-blue-700">Archivos de la Empresa</h4>
                   <p className="text-sm text-blue-600">
                     {companyInfo.length} archivo{companyInfo.length > 1 ? 's' : ''}
                   </p>

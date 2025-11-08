@@ -2,6 +2,8 @@ import { useState, useCallback, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import useSimpleProcessing from '@/hooks/useSimpleProcessing';
 import { PROCESSING_CONSTANTS } from '@/constants/processing';
+import { supabase } from '@/integrations/supabase/client';
+import { CompanyAnalysisService } from '@/services/companyAnalysisService';
 
 export interface AreaFiles {
   comercial: File[];
@@ -45,6 +47,11 @@ export const useMultiStepUpload = () => {
     administracion: []
   });
   const [customAreas, setCustomAreas] = useState<CustomArea[]>([]);
+  
+  // Estados para análisis de empresa
+  const [companyAnalysis, setCompanyAnalysis] = useState<string>('');
+  const [isAnalyzingCompany, setIsAnalyzingCompany] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   const { toast } = useToast();
   const {
@@ -63,9 +70,10 @@ export const useMultiStepUpload = () => {
 
   // Calcular total de pasos dinámicamente
   const totalSteps = useMemo(() => {
-    // 2 (nombre + empresa) + 4 (áreas fijas) + N (custom) + 1 (review) + 1 (processing)
-    return 2 + 4 + customAreas.length + 2;
-  }, [customAreas.length]);
+    // 1 (nombre) + 1 (empresa) + 2 (análisis procesamiento + review) + 4 (áreas fijas) + N (custom) + 1 (review) + 1 (processing)
+    const companySteps = companyInfo.length > 0 ? 3 : 1; // Si hay archivos: subir + procesar + revisar análisis
+    return 1 + companySteps + 4 + customAreas.length + 2;
+  }, [customAreas.length, companyInfo.length]);
 
   const updateAreaFiles = useCallback((area: keyof AreaFiles, files: File[]) => {
     if (files.length > PROCESSING_CONSTANTS.MAX_FILES_PER_AREA) {
@@ -94,6 +102,44 @@ export const useMultiStepUpload = () => {
     }
     setCompanyInfo(files);
   }, [toast]);
+
+  const analyzeCompanyInfo = useCallback(async () => {
+    if (companyInfo.length === 0) {
+      toast({
+        title: "Sin archivos",
+        description: "Debes subir al menos un archivo de la empresa",
+        variant: "destructive",
+      });
+      return false;
+    }
+    
+    setIsAnalyzingCompany(true);
+    setAnalysisError(null);
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuario no autenticado');
+      
+      const analysis = await CompanyAnalysisService.sendCompanyFiles(
+        companyInfo,
+        user.id
+      );
+      
+      setCompanyAnalysis(analysis);
+      setIsAnalyzingCompany(false);
+      return true;
+    } catch (error: any) {
+      console.error('Error analizando empresa:', error);
+      setAnalysisError(error.message);
+      setIsAnalyzingCompany(false);
+      toast({
+        title: "Error al analizar",
+        description: "No se pudo obtener el análisis de la empresa",
+        variant: "destructive",
+      });
+      return false;
+    }
+  }, [companyInfo, toast]);
 
   const addCustomArea = useCallback(() => {
     const name = prompt('¿Cómo quieres llamar a esta área?', 'Área Personalizada');
@@ -213,23 +259,27 @@ export const useMultiStepUpload = () => {
       pricing: areaFiles.pricing.length,
       administracion: areaFiles.administracion.length,
       customAreas: customAreas.map(a => ({ name: a.name, files: a.files.length })),
-      total: allFiles.length
+      total: allFiles.length,
+      hasCompanyAnalysis: !!companyAnalysis
     });
 
     try {
-      await startProcessing(projectName, allFiles, projectFiles);
+      await startProcessing(projectName, allFiles, projectFiles, companyAnalysis);
       setCurrentStep(totalSteps - 1); // Último paso (processing)
       return true;
     } catch (error) {
       console.error('Error processing files:', error);
       return false;
     }
-  }, [startProcessing, projectName, companyInfo, areaFiles, customAreas, toast, totalSteps]);
+  }, [startProcessing, projectName, companyInfo, areaFiles, customAreas, toast, totalSteps, companyAnalysis]);
 
   const resetFlow = useCallback(() => {
     setCurrentStep(0);
     setProjectName('');
     setCompanyInfo([]);
+    setCompanyAnalysis('');
+    setIsAnalyzingCompany(false);
+    setAnalysisError(null);
     setAreaFiles({
       comercial: [],
       operaciones: [],
@@ -281,6 +331,11 @@ export const useMultiStepUpload = () => {
     setProjectName,
     companyInfo,
     updateCompanyInfo,
+    companyAnalysis,
+    isAnalyzingCompany,
+    analysisError,
+    analyzeCompanyInfo,
+    updateCompanyAnalysis: setCompanyAnalysis,
     areaFiles,
     updateAreaFiles,
     customAreas,

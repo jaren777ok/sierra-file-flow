@@ -3,6 +3,8 @@ import React, { useEffect, useCallback, useMemo } from 'react';
 import { useMultiStepUpload } from '@/hooks/useMultiStepUpload';
 import ProjectNameStep from './upload-steps/ProjectNameStep';
 import CompanyInfoStep from './upload-steps/CompanyInfoStep';
+import CompanyAnalysisProcessingScreen from './upload-steps/CompanyAnalysisProcessingScreen';
+import CompanyAnalysisReviewStep from './upload-steps/CompanyAnalysisReviewStep';
 import FileUploadStep from './upload-steps/FileUploadStep';
 import CustomAreaUploadStep from './upload-steps/CustomAreaUploadStep';
 import ReviewStep from './upload-steps/ReviewStep';
@@ -21,6 +23,10 @@ const MultiStepUploader = () => {
     setProjectName,
     companyInfo,
     updateCompanyInfo,
+    companyAnalysis,
+    isAnalyzingCompany,
+    analyzeCompanyInfo,
+    updateCompanyAnalysis,
     areaFiles,
     updateAreaFiles,
     customAreas,
@@ -44,6 +50,27 @@ const MultiStepUploader = () => {
     jumpToProcessing,
     hideConfetti
   } = useMultiStepUpload();
+
+  // Función para manejar el siguiente paso después de empresa
+  const handleCompanyNext = useCallback(async () => {
+    if (companyInfo.length === 0) {
+      // No hay archivos, saltar análisis e ir a áreas fijas
+      nextStep();
+      return;
+    }
+    
+    // Ir a pantalla de procesamiento
+    nextStep();
+    
+    // Iniciar análisis en background
+    const success = await analyzeCompanyInfo();
+    if (success) {
+      nextStep(); // Ir a pantalla de revisión
+    } else {
+      // Volver al paso de empresa si falló
+      setCurrentStep(1);
+    }
+  }, [companyInfo.length, nextStep, analyzeCompanyInfo, setCurrentStep]);
 
   // Verificar trabajo activo al cargar
   useEffect(() => {
@@ -148,16 +175,47 @@ const MultiStepUploader = () => {
         <CompanyInfoStep
           files={companyInfo}
           onFilesChange={updateCompanyInfo}
-          onNext={nextStep}
+          onNext={handleCompanyNext}
           onPrev={prevStep}
           disabled={hasActiveJob()}
         />
       );
     }
 
-    // Pasos 2-5: Áreas fijas
-    if (currentStep >= 2 && currentStep <= 5) {
-      const areaIndex = currentStep - 2;
+    // Paso 2: Procesando análisis de empresa
+    if (currentStep === 2 && isAnalyzingCompany) {
+      return <CompanyAnalysisProcessingScreen projectName={projectName} />;
+    }
+
+    // Paso 3: Revisión y edición del análisis (solo si hay análisis)
+    if (currentStep === 3 && companyAnalysis) {
+      return (
+        <CompanyAnalysisReviewStep
+          analysis={companyAnalysis}
+          onAnalysisChange={updateCompanyAnalysis}
+          onNext={nextStep}
+          onRegenerate={async () => {
+            setCurrentStep(2);
+            const success = await analyzeCompanyInfo();
+            if (success) {
+              setCurrentStep(3);
+            } else {
+              setCurrentStep(1);
+            }
+          }}
+        />
+      );
+    }
+
+    // Calcular offset para pasos siguientes basado en si hay análisis o no
+    const analysisOffset = companyInfo.length > 0 && companyAnalysis ? 3 : 1;
+
+    // Áreas fijas (4 áreas)
+    const fixedAreasStart = 1 + analysisOffset;
+    const fixedAreasEnd = fixedAreasStart + 3;
+    
+    if (currentStep >= fixedAreasStart && currentStep <= fixedAreasEnd) {
+      const areaIndex = currentStep - fixedAreasStart;
       const area = areas[areaIndex];
       return (
         <FileUploadStep
@@ -171,9 +229,12 @@ const MultiStepUploader = () => {
       );
     }
 
-    // Pasos dinámicos: Áreas personalizadas
-    if (currentStep >= 6 && currentStep < 6 + customAreas.length) {
-      const customIndex = currentStep - 6;
+    // Áreas personalizadas
+    const customAreasStart = fixedAreasEnd + 1;
+    const customAreasEnd = customAreasStart + customAreas.length - 1;
+    
+    if (currentStep >= customAreasStart && currentStep <= customAreasEnd) {
+      const customIndex = currentStep - customAreasStart;
       const customArea = customAreas[customIndex];
       return (
         <CustomAreaUploadStep
@@ -191,11 +252,13 @@ const MultiStepUploader = () => {
     }
 
     // Paso de revisión
-    if (currentStep === 6 + customAreas.length) {
+    const reviewStep = customAreasEnd + 1;
+    if (currentStep === reviewStep) {
       return (
         <ReviewStep
           projectName={projectName}
           companyInfo={companyInfo}
+          companyAnalysis={companyAnalysis}
           areaFiles={areaFiles}
           customAreas={customAreas}
           areas={areas}

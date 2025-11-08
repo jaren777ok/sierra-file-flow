@@ -30,12 +30,19 @@ export const createFormData = (
   files: File[],
   userId: string,
   requestId: string,
-  projectFiles?: ProjectFiles
+  projectFiles?: ProjectFiles,
+  companyAnalysis?: string
 ): FormData => {
   const formData = new FormData();
   formData.append('request_id', requestId);
   formData.append('project_title', projectTitle);
   formData.append('user_id', userId);
+  
+  // Agregar análisis de empresa si existe
+  if (companyAnalysis && companyAnalysis.trim()) {
+    formData.append('company_analysis', companyAnalysis);
+    console.log('✅ Agregando análisis de empresa al FormData:', companyAnalysis.length, 'caracteres');
+  }
   
   if (projectFiles) {
     let totalFiles = 0;

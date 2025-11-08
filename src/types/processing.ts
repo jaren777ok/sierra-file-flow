@@ -15,4 +15,5 @@ export interface ProcessingFormData {
   projectFiles?: ProjectFiles;
   userId: string;
   requestId: string;
+  companyAnalysis?: string;
 }
