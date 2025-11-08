@@ -2,7 +2,9 @@
 import React, { useEffect, useCallback, useMemo } from 'react';
 import { useMultiStepUpload } from '@/hooks/useMultiStepUpload';
 import ProjectNameStep from './upload-steps/ProjectNameStep';
+import CompanyInfoStep from './upload-steps/CompanyInfoStep';
 import FileUploadStep from './upload-steps/FileUploadStep';
+import CustomAreaUploadStep from './upload-steps/CustomAreaUploadStep';
 import ReviewStep from './upload-steps/ReviewStep';
 import FuturisticAIProcessingScreen from './upload-steps/FuturisticAIProcessingScreen';
 import ResultScreen from './upload-steps/ResultScreen';
@@ -17,10 +19,18 @@ const MultiStepUploader = () => {
     currentStep,
     projectName,
     setProjectName,
+    companyInfo,
+    updateCompanyInfo,
     areaFiles,
     updateAreaFiles,
+    customAreas,
+    addCustomArea,
+    removeCustomArea,
+    updateCustomAreaName,
+    updateCustomAreaFiles,
     processingStatus,
     areas,
+    totalSteps,
     nextStep,
     prevStep,
     processAllFiles,
@@ -42,20 +52,17 @@ const MultiStepUploader = () => {
       if (activeInfo) {
         console.log('Found active job, jumping to processing:', activeInfo);
         
-        // Configurar nombre del proyecto si no existe
         if (!projectName && activeInfo.projectName) {
           setProjectName(activeInfo.projectName);
         }
         
-        // Saltar directamente al procesamiento
         jumpToProcessing();
       }
     }
   }, [hasActiveJob, getActiveJobInfo, projectName, setProjectName, jumpToProcessing]);
 
-  // Memoizar el mensaje de alerta de trabajo activo
   const activeJobAlert = useMemo(() => {
-    if (!hasActiveJob() || currentStep >= 6) return null;
+    if (!hasActiveJob() || currentStep >= totalSteps - 1) return null;
 
     const activeInfo = getActiveJobInfo();
     if (!activeInfo) return null;
@@ -92,106 +99,158 @@ const MultiStepUploader = () => {
         </AlertDescription>
       </Alert>
     );
-  }, [hasActiveJob, getActiveJobInfo, currentStep, jumpToProcessing, forceCleanup]);
+  }, [hasActiveJob, getActiveJobInfo, currentStep, totalSteps, jumpToProcessing, forceCleanup]);
 
   const renderStep = () => {
-    switch (currentStep) {
-      case 0:
-        return (
-          <div>
-            {/* Alerta si hay trabajo activo */}
-            {hasActiveJob() && (
-              <Alert className="mb-6 border-amber-200 bg-amber-50">
-                <AlertCircle className="h-4 w-4 text-amber-600" />
-                <AlertDescription className="text-amber-800">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Clock className="h-4 w-4" />
-                      <span>
-                        Tienes un trabajo en procesamiento: "<strong>{getActiveJobInfo()?.projectName}</strong>". 
-                        Debes esperar a que termine antes de iniciar uno nuevo.
-                      </span>
-                    </div>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={forceCleanup}
-                      className="text-red-600 border-red-200 hover:bg-red-50"
-                    >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Forzar Limpieza
-                    </Button>
+    // Paso 0: Nombre del proyecto
+    if (currentStep === 0) {
+      return (
+        <div>
+          {hasActiveJob() && (
+            <Alert className="mb-6 border-amber-200 bg-amber-50">
+              <AlertCircle className="h-4 w-4 text-amber-600" />
+              <AlertDescription className="text-amber-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Clock className="h-4 w-4" />
+                    <span>
+                      Tienes un trabajo en procesamiento: "<strong>{getActiveJobInfo()?.projectName}</strong>". 
+                      Debes esperar a que termine antes de iniciar uno nuevo.
+                    </span>
                   </div>
-                </AlertDescription>
-              </Alert>
-            )}
-            
-            <ProjectNameStep
-              projectName={projectName}
-              setProjectName={setProjectName}
-              onNext={nextStep}
-              disabled={hasActiveJob()}
-            />
-          </div>
-        );
-      case 1:
-      case 2:
-      case 3:
-      case 4:
-        const areaIndex = currentStep - 1;
-        const area = areas[areaIndex];
-        return (
-          <FileUploadStep
-            area={area}
-            files={areaFiles[area.key]}
-            onFilesChange={(files) => updateAreaFiles(area.key, files)}
-            onNext={nextStep}
-            onPrev={prevStep}
-            disabled={hasActiveJob()}
-          />
-        );
-      case 5:
-        return (
-          <ReviewStep
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={forceCleanup}
+                    className="text-red-600 border-red-200 hover:bg-red-50"
+                  >
+                    <Trash2 className="h-4 w-4 mr-1" />
+                    Forzar Limpieza
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          <ProjectNameStep
             projectName={projectName}
-            areaFiles={areaFiles}
-            areas={areas}
-            totalFiles={getTotalFiles()}
-            onNext={processAllFiles}
-            onPrev={prevStep}
+            setProjectName={setProjectName}
+            onNext={nextStep}
             disabled={hasActiveJob()}
-            activeJob={null}
           />
-        );
-      case 6:
-        if (processingStatus.status === 'completed') {
-          return (
-            <ResultScreen
-              processingStatus={processingStatus}
-              onStartNew={resetFlow}
-            />
-          );
-        }
-        return (
-          <FuturisticAIProcessingScreen
-            processingStatus={processingStatus}
-            projectName={projectName || getActiveJobInfo()?.projectName || ''}
-            activeJob={null}
-            onStartNew={startNewJob}
-            onHideConfetti={hideConfetti}
-          />
-        );
-      default:
-        return null;
+        </div>
+      );
     }
+
+    // Paso 1: Información de la empresa
+    if (currentStep === 1) {
+      return (
+        <CompanyInfoStep
+          files={companyInfo}
+          onFilesChange={updateCompanyInfo}
+          onNext={nextStep}
+          onPrev={prevStep}
+          disabled={hasActiveJob()}
+        />
+      );
+    }
+
+    // Pasos 2-5: Áreas fijas
+    if (currentStep >= 2 && currentStep <= 5) {
+      const areaIndex = currentStep - 2;
+      const area = areas[areaIndex];
+      return (
+        <FileUploadStep
+          area={area}
+          files={areaFiles[area.key]}
+          onFilesChange={(files) => updateAreaFiles(area.key, files)}
+          onNext={nextStep}
+          onPrev={prevStep}
+          disabled={hasActiveJob()}
+        />
+      );
+    }
+
+    // Pasos dinámicos: Áreas personalizadas
+    if (currentStep >= 6 && currentStep < 6 + customAreas.length) {
+      const customIndex = currentStep - 6;
+      const customArea = customAreas[customIndex];
+      return (
+        <CustomAreaUploadStep
+          area={customArea}
+          onNameChange={updateCustomAreaName}
+          onFilesChange={updateCustomAreaFiles}
+          onRemoveArea={removeCustomArea}
+          onAddAnotherArea={addCustomArea}
+          onNext={nextStep}
+          onPrev={prevStep}
+          disabled={hasActiveJob()}
+          showAddAnother={true}
+        />
+      );
+    }
+
+    // Paso de revisión
+    if (currentStep === 6 + customAreas.length) {
+      return (
+        <ReviewStep
+          projectName={projectName}
+          companyInfo={companyInfo}
+          areaFiles={areaFiles}
+          customAreas={customAreas}
+          areas={areas}
+          totalFiles={getTotalFiles()}
+          onNext={processAllFiles}
+          onPrev={prevStep}
+          onAddCustomArea={addCustomArea}
+          disabled={hasActiveJob()}
+          activeJob={null}
+        />
+      );
+    }
+
+    // Paso final: Procesamiento/Resultado
+    if (currentStep === totalSteps - 1) {
+      if (processingStatus.status === 'completed') {
+        return (
+          <ResultScreen
+            processingStatus={processingStatus}
+            onStartNew={resetFlow}
+          />
+        );
+      }
+      return (
+        <FuturisticAIProcessingScreen
+          processingStatus={processingStatus}
+          projectName={projectName || getActiveJobInfo()?.projectName || ''}
+          activeJob={null}
+          onStartNew={startNewJob}
+          onHideConfetti={hideConfetti}
+        />
+      );
+    }
+
+    return null;
   };
+
+  const isProcessingStep = currentStep === totalSteps - 1 && (
+    processingStatus.status === 'processing' || 
+    processingStatus.status === 'sending' || 
+    processingStatus.status === 'timeout' ||
+    processingStatus.status === 'completed' ||
+    hasActiveJob()
+  );
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Step Indicator - Solo mostrar si no estamos en procesamiento */}
-      {currentStep < 6 && (
+      {/* Step Indicator */}
+      {!isProcessingStep && (
         <div className="mb-8">
-          <StepIndicator currentStep={currentStep} />
+          <StepIndicator 
+            currentStep={currentStep} 
+            totalSteps={totalSteps}
+            customAreasCount={customAreas.length}
+          />
         </div>
       )}
 
@@ -199,17 +258,9 @@ const MultiStepUploader = () => {
       {activeJobAlert}
 
       {/* Main Content */}
-      {currentStep === 6 && (
-        processingStatus.status === 'processing' || 
-        processingStatus.status === 'sending' || 
-        processingStatus.status === 'timeout' ||
-        processingStatus.status === 'completed' ||
-        hasActiveJob()
-      ) ? (
-        // Pantalla de procesamiento a pantalla completa
+      {isProcessingStep ? (
         renderStep()
       ) : (
-        // Resto de pasos en card
         <Card className="mountain-shadow bg-gradient-to-br from-white/90 to-sierra-teal/5 backdrop-blur-sm border-sierra-teal/20">
           <CardContent className="p-8">
             {renderStep()}

@@ -1,3 +1,4 @@
+import { ProjectFiles } from '@/hooks/useMultiStepUpload';
 
 export interface ProcessingStatus {
   status: 'idle' | 'sending' | 'processing' | 'completed' | 'timeout' | 'error';
@@ -11,7 +12,7 @@ export interface ProcessingStatus {
 export interface ProcessingFormData {
   projectTitle: string;
   files: File[];
-  areaFiles?: Record<string, File[]>;
+  projectFiles?: ProjectFiles;
   userId: string;
   requestId: string;
 }

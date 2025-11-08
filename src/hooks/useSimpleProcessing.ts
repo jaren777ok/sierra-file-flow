@@ -32,7 +32,7 @@ const useSimpleProcessing = () => {
     }));
   }, [timeElapsed]);
 
-  const startProcessing = useCallback(async (projectTitle: string, files: File[], areaFiles?: any) => {
+  const startProcessing = useCallback(async (projectTitle: string, files: File[], projectFiles?: any) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
@@ -76,7 +76,7 @@ const useSimpleProcessing = () => {
         const returnedRequestId = await ProcessingService.sendProcessingRequest({
           projectTitle,
           files,
-          areaFiles,
+          projectFiles,
           userId: user.id,
           requestId
         });

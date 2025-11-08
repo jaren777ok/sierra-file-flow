@@ -1,8 +1,8 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Sparkles, FileText } from 'lucide-react';
-import { AreaFiles } from '@/hooks/useMultiStepUpload';
+import { ArrowLeft, Sparkles, FileText, Plus } from 'lucide-react';
+import { AreaFiles, CustomArea } from '@/hooks/useMultiStepUpload';
 import { ProcessingJob } from '@/hooks/useProcessingPersistence';
 
 interface Area {
@@ -13,16 +13,30 @@ interface Area {
 
 interface ReviewStepProps {
   projectName: string;
+  companyInfo: File[];
   areaFiles: AreaFiles;
+  customAreas: CustomArea[];
   areas: Area[];
   totalFiles: number;
   onNext: () => void;
   onPrev: () => void;
+  onAddCustomArea: () => void;
   disabled?: boolean;
   activeJob?: ProcessingJob | null;
 }
 
-const ReviewStep = ({ projectName, areaFiles, areas, totalFiles, onNext, onPrev, disabled = false }: ReviewStepProps) => {
+const ReviewStep = ({ 
+  projectName, 
+  companyInfo,
+  areaFiles, 
+  customAreas,
+  areas, 
+  totalFiles, 
+  onNext, 
+  onPrev, 
+  onAddCustomArea,
+  disabled = false 
+}: ReviewStepProps) => {
   return (
     <div className="max-w-3xl mx-auto">
       <div className="text-center mb-8">
@@ -50,8 +64,40 @@ const ReviewStep = ({ projectName, areaFiles, areas, totalFiles, onNext, onPrev,
         </div>
       </div>
 
-      {/* Areas Summary */}
-      <div className="space-y-4 mb-8">
+      {/* Company Info Section */}
+      {companyInfo.length > 0 && (
+        <div className="mb-4">
+          <div className="p-4 rounded-xl bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">🏢</span>
+                <div>
+                  <h4 className="font-semibold text-blue-700">Información de la Empresa</h4>
+                  <p className="text-sm text-blue-600">
+                    {companyInfo.length} archivo{companyInfo.length > 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <div className="w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center text-sm font-bold">
+                  {companyInfo.length}
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-3 space-y-1">
+              {companyInfo.map((file, index) => (
+                <div key={index} className="text-xs text-blue-700 bg-white/60 px-2 py-1 rounded">
+                  {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Fixed Areas Summary */}
+      <div className="space-y-4 mb-4">
         {areas.map((area) => {
           const files = areaFiles[area.key];
           return (
@@ -96,6 +142,69 @@ const ReviewStep = ({ projectName, areaFiles, areas, totalFiles, onNext, onPrev,
           );
         })}
       </div>
+
+      {/* Custom Areas Summary */}
+      {customAreas.length > 0 && (
+        <div className="space-y-4 mb-4">
+          <h3 className="font-semibold text-purple-600 flex items-center gap-2">
+            <span>Áreas Personalizadas</span>
+          </h3>
+          {customAreas.map((area) => (
+            <div
+              key={area.id}
+              className={`p-4 rounded-xl border transition-all ${
+                area.files.length > 0 
+                  ? 'bg-gradient-to-r from-purple-50 to-purple-100 border-purple-200 shadow-sm' 
+                  : 'bg-gray-50 border-gray-200 opacity-60'
+              }`}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl">{area.icon}</span>
+                  <div>
+                    <h4 className="font-semibold text-purple-700">{area.name}</h4>
+                    <p className="text-sm text-purple-600">
+                      {area.files.length > 0 ? `${area.files.length} archivo${area.files.length > 1 ? 's' : ''}` : 'Sin archivos'}
+                    </p>
+                  </div>
+                </div>
+                
+                {area.files.length > 0 && (
+                  <div className="text-right">
+                    <div className="w-8 h-8 rounded-full bg-purple-600 text-white flex items-center justify-center text-sm font-bold">
+                      {area.files.length}
+                    </div>
+                  </div>
+                )}
+              </div>
+              
+              {area.files.length > 0 && (
+                <div className="mt-3 space-y-1">
+                  {area.files.map((file, index) => (
+                    <div key={index} className="text-xs text-purple-700 bg-white/60 px-2 py-1 rounded">
+                      {file.name} ({(file.size / 1024 / 1024).toFixed(2)} MB)
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Add Custom Area Button */}
+      {!disabled && (
+        <div className="mb-6 text-center">
+          <Button
+            variant="outline"
+            onClick={onAddCustomArea}
+            className="border-purple-500 text-purple-600 hover:bg-purple-50"
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Agregar Área Personalizada
+          </Button>
+        </div>
+      )}
 
       {/* Warning if no files */}
       {totalFiles === 0 && (

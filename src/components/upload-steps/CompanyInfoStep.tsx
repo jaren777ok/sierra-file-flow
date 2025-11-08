@@ -1,18 +1,10 @@
-
-import React, { useCallback, useState } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, ArrowRight, Upload, X, File } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Upload, X, Building2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ACCEPTED_FILE_TYPES_STRING, ACCEPTED_FILE_NAMES, isValidFileType } from '@/constants/fileTypes';
 
-interface Area {
-  key: string;
-  name: string;
-  icon: string;
-}
-
-interface FileUploadStepProps {
-  area: Area;
+interface CompanyInfoStepProps {
   files: File[];
   onFilesChange: (files: File[]) => void;
   onNext: () => void;
@@ -20,14 +12,11 @@ interface FileUploadStepProps {
   disabled?: boolean;
 }
 
-const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev, disabled = false }: FileUploadStepProps) => {
-  const [isDragOver, setIsDragOver] = useState(false);
+const CompanyInfoStep = ({ files, onFilesChange, onNext, onPrev, disabled = false }: CompanyInfoStepProps) => {
   const { toast } = useToast();
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
-    setIsDragOver(false);
-    
     if (disabled) return;
     
     const droppedFiles = Array.from(e.dataTransfer.files);
@@ -48,13 +37,13 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev, disabled =
     if (droppedFiles.length + files.length > 10) {
       toast({
         title: "Límite excedido",
-        description: "Máximo 10 archivos por área. Se agregaron solo los primeros.",
+        description: "Máximo 10 archivos para información de la empresa",
         variant: "destructive",
       });
     }
     
     onFilesChange(newFiles);
-  }, [files, onFilesChange, toast, disabled]);
+  };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (disabled) return;
@@ -78,7 +67,7 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev, disabled =
     if (selectedFiles.length + files.length > 10) {
       toast({
         title: "Límite excedido",
-        description: "Máximo 10 archivos por área. Se agregaron solo los primeros.",
+        description: "Máximo 10 archivos para información de la empresa",
         variant: "destructive",
       });
     }
@@ -96,12 +85,16 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev, disabled =
   return (
     <div className="max-w-3xl mx-auto">
       <div className="text-center mb-8">
-        <div className="text-6xl mb-4">{area.icon}</div>
-        <h2 className="text-3xl font-bold text-sierra-teal mb-2">
-          Área {area.name}
+        <div className="inline-flex items-center gap-2 bg-sierra-teal/10 px-4 py-2 rounded-full mb-6">
+          <Building2 className="h-5 w-5 text-sierra-teal" />
+          <span className="text-sierra-teal font-medium">Información de la Empresa</span>
+        </div>
+        
+        <h2 className="text-3xl font-bold text-sierra-teal mb-4">
+          Documentos de la Empresa
         </h2>
         <p className="text-sierra-gray text-lg">
-          Sube los archivos relacionados con {area.name.toLowerCase()} (máximo 10 archivos)
+          Sube brochures, documentos informativos y preguntas extras (opcional)
         </p>
         <div className="text-sm text-sierra-teal/70 mt-2">
           {files.length}/10 archivos subidos
@@ -113,24 +106,20 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev, disabled =
 
       {/* Drop Zone */}
       <div
-        className={`border-2 border-dashed rounded-2xl p-12 text-center transition-all duration-300 mb-6 ${
-          isDragOver 
-            ? 'border-sierra-teal bg-sierra-teal/10 scale-105' 
-            : 'border-sierra-teal/30 hover:border-sierra-teal hover:bg-sierra-teal/5'
-        } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         onDrop={handleDrop}
-        onDragOver={(e) => {
-          e.preventDefault();
-          if (!disabled) setIsDragOver(true);
-        }}
-        onDragLeave={() => setIsDragOver(false)}
+        onDragOver={(e) => e.preventDefault()}
+        className={`border-2 border-dashed rounded-2xl p-8 text-center transition-all ${
+          disabled
+            ? 'border-gray-300 bg-gray-50 cursor-not-allowed'
+            : 'border-sierra-teal/30 hover:border-sierra-teal bg-sierra-teal/5 hover:bg-sierra-teal/10 cursor-pointer'
+        }`}
       >
-        <Upload className="mx-auto h-16 w-16 text-sierra-teal mb-4" />
-        <h3 className="text-xl font-semibold text-sierra-teal mb-2">
-          Arrastra tus archivos aquí
-        </h3>
-        <p className="text-sierra-gray mb-6">
-          O haz clic para seleccionar desde tu dispositivo
+        <Upload className="h-12 w-12 text-sierra-teal mx-auto mb-4" />
+        <p className="text-sierra-teal font-medium mb-2">
+          Arrastra archivos aquí o haz clic para seleccionar
+        </p>
+        <p className="text-sierra-gray text-sm">
+          Máximo 10 archivos (PDF, Word, Excel)
         </p>
         
         <input
@@ -139,54 +128,53 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev, disabled =
           accept={ACCEPTED_FILE_TYPES_STRING}
           onChange={handleFileSelect}
           className="hidden"
-          id={`file-upload-${area.key}`}
-          disabled={files.length >= 10 || disabled}
+          id="company-info-upload"
+          disabled={disabled}
         />
         
-        <Button
-          asChild
-          className="sierra-gradient hover:opacity-90 transition-opacity"
-          disabled={files.length >= 10 || disabled}
-        >
-          <label htmlFor={`file-upload-${area.key}`} className="cursor-pointer">
-            {files.length >= 10 ? 'Límite alcanzado' : 'Seleccionar Archivos'}
+        {!disabled && (
+          <label
+            htmlFor="company-info-upload"
+            className="mt-4 inline-block px-6 py-2 bg-sierra-teal text-white rounded-lg cursor-pointer hover:bg-sierra-teal/80 transition-colors"
+          >
+            Seleccionar Archivos
           </label>
-        </Button>
+        )}
       </div>
 
       {/* Files List */}
       {files.length > 0 && (
-        <div className="bg-white/50 backdrop-blur-sm rounded-xl p-6 mb-8 border border-sierra-teal/20">
-          <h4 className="font-semibold text-sierra-teal mb-4">Archivos subidos:</h4>
-          <div className="space-y-3">
-            {files.map((file, index) => (
-              <div key={index} className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm">
-                <div className="flex items-center space-x-3">
-                  <File className="h-5 w-5 text-sierra-teal" />
-                  <div>
-                    <p className="font-medium text-sierra-teal">{file.name}</p>
-                    <p className="text-sm text-sierra-gray">
-                      {(file.size / 1024 / 1024).toFixed(2)} MB
-                    </p>
-                  </div>
+        <div className="mt-6 space-y-2">
+          <h3 className="font-semibold text-sierra-teal mb-3">Archivos seleccionados:</h3>
+          {files.map((file, index) => (
+            <div
+              key={index}
+              className="flex items-center justify-between p-3 bg-white rounded-lg border border-sierra-teal/20 shadow-sm"
+            >
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <Building2 className="h-5 w-5 text-sierra-teal flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-sierra-teal truncate">{file.name}</p>
+                  <p className="text-xs text-sierra-gray">
+                    {(file.size / 1024 / 1024).toFixed(2)} MB
+                  </p>
                 </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => removeFile(index)}
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                  disabled={disabled}
-                >
-                  <X className="h-4 w-4" />
-                </Button>
               </div>
-            ))}
-          </div>
+              {!disabled && (
+                <button
+                  onClick={() => removeFile(index)}
+                  className="ml-2 p-1 hover:bg-red-50 rounded-full transition-colors flex-shrink-0"
+                >
+                  <X className="h-4 w-4 text-red-500" />
+                </button>
+              )}
+            </div>
+          ))}
         </div>
       )}
 
       {/* Navigation */}
-      <div className="flex justify-between">
+      <div className="flex justify-between mt-8">
         <Button
           variant="outline"
           onClick={onPrev}
@@ -194,7 +182,7 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev, disabled =
           disabled={disabled}
         >
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Anterior
+          Volver
         </Button>
         
         <Button
@@ -202,7 +190,7 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev, disabled =
           className="sierra-gradient hover:opacity-90 px-6 py-3"
           disabled={disabled}
         >
-          {files.length === 0 ? 'Saltar' : 'Siguiente'}
+          Siguiente
           <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </div>
@@ -210,4 +198,4 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev, disabled =
   );
 };
 
-export default FileUploadStep;
+export default CompanyInfoStep;

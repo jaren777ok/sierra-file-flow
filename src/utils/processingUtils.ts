@@ -1,5 +1,6 @@
 
 import { PROCESSING_CONSTANTS } from '@/constants/processing';
+import { ProjectFiles } from '@/hooks/useMultiStepUpload';
 
 export const generateRequestId = (): string => {
   const timestamp = Date.now();
@@ -8,16 +9,20 @@ export const generateRequestId = (): string => {
 };
 
 export const calculateTotalFiles = (
-  areaFiles: Record<string, File[]> | undefined, 
-  files: File[]
+  projectFiles?: ProjectFiles,
+  files?: File[]
 ): number => {
-  if (areaFiles) {
-    return Object.values(areaFiles).reduce((acc: number, fileArray: File[]) => {
-      const count = Array.isArray(fileArray) ? fileArray.length : 0;
-      return acc + count;
+  if (projectFiles) {
+    const companyInfoCount = projectFiles.companyInfo.length;
+    const areasCount = Object.values(projectFiles.areas).reduce((acc, fileArray) => {
+      return acc + (Array.isArray(fileArray) ? fileArray.length : 0);
     }, 0);
+    const customCount = projectFiles.customAreas.reduce((acc, area) => {
+      return acc + area.files.length;
+    }, 0);
+    return companyInfoCount + areasCount + customCount;
   }
-  return files.length;
+  return files?.length || 0;
 };
 
 export const createFormData = (
@@ -25,20 +30,30 @@ export const createFormData = (
   files: File[],
   userId: string,
   requestId: string,
-  areaFiles?: Record<string, File[]>
+  projectFiles?: ProjectFiles
 ): FormData => {
   const formData = new FormData();
   formData.append('request_id', requestId);
   formData.append('project_title', projectTitle);
   formData.append('user_id', userId);
   
-  if (areaFiles) {
-    // Formato organizado por área
+  if (projectFiles) {
     let totalFiles = 0;
-    const activeAreas: string[] = [];
     
+    // 1. Información de la empresa
+    if (projectFiles.companyInfo.length > 0) {
+      totalFiles += projectFiles.companyInfo.length;
+      formData.append('companyInfo_count', projectFiles.companyInfo.length.toString());
+      projectFiles.companyInfo.forEach((file, index) => {
+        formData.append(`companyInfo_${index}`, file);
+        formData.append(`companyInfo_${index}_name`, file.name);
+      });
+    }
+    
+    // 2. Áreas fijas
+    const activeAreas: string[] = [];
     PROCESSING_CONSTANTS.AREAS.forEach(area => {
-      const areaFilesList = areaFiles[area] || [];
+      const areaFilesList = projectFiles.areas[area] || [];
       if (areaFilesList.length > 0) {
         activeAreas.push(area);
         totalFiles += areaFilesList.length;
@@ -51,8 +66,28 @@ export const createFormData = (
       }
     });
     
+    // 3. Áreas personalizadas
+    if (projectFiles.customAreas.length > 0) {
+      formData.append('custom_areas_count', projectFiles.customAreas.length.toString());
+      
+      projectFiles.customAreas.forEach((customArea) => {
+        const areaKey = `custom_${customArea.id}`;
+        formData.append(`${areaKey}_name`, customArea.name);
+        formData.append(`${areaKey}_count`, customArea.files.length.toString());
+        
+        customArea.files.forEach((file, fileIndex) => {
+          formData.append(`${areaKey}_${fileIndex}`, file);
+          formData.append(`${areaKey}_${fileIndex}_name`, file.name);
+        });
+        
+        totalFiles += customArea.files.length;
+      });
+    }
+    
     formData.append('total_files', totalFiles.toString());
-    formData.append('active_areas', activeAreas.join(','));
+    if (activeAreas.length > 0) {
+      formData.append('active_areas', activeAreas.join(','));
+    }
   } else {
     // Formato legacy
     formData.append('total_files', files.length.toString());
