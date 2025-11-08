@@ -70,14 +70,25 @@ export const createFormData = (
     if (projectFiles.customAreas.length > 0) {
       formData.append('custom_areas_count', projectFiles.customAreas.length.toString());
       
-      projectFiles.customAreas.forEach((customArea) => {
-        const areaKey = `custom_${customArea.id}`;
-        formData.append(`${areaKey}_name`, customArea.name);
-        formData.append(`${areaKey}_count`, customArea.files.length.toString());
+      projectFiles.customAreas.forEach((customArea, areaIndex) => {
+        // Sanitizar el nombre del área (eliminar espacios, caracteres especiales)
+        const sanitizedName = customArea.name
+          .replace(/\s+/g, '_')           // Reemplazar espacios con guión bajo
+          .replace(/[^a-zA-Z0-9_]/g, '')  // Eliminar caracteres especiales
+          .substring(0, 20);               // Limitar a 20 caracteres
         
+        // Índice del área personalizada (empezando en 1)
+        const areaNumber = areaIndex + 1;
+        
+        // Guardar metadata del área
+        formData.append(`custom_area_${areaNumber}_name`, customArea.name);
+        formData.append(`custom_area_${areaNumber}_count`, customArea.files.length.toString());
+        
+        // Agregar archivos con el nuevo formato: Custom_NombreArea0_1
         customArea.files.forEach((file, fileIndex) => {
-          formData.append(`${areaKey}_${fileIndex}`, file);
-          formData.append(`${areaKey}_${fileIndex}_name`, file.name);
+          const fileKey = `Custom_${sanitizedName}${fileIndex}_${areaNumber}`;
+          formData.append(fileKey, file);
+          formData.append(`${fileKey}_name`, file.name);
         });
         
         totalFiles += customArea.files.length;
