@@ -1,92 +1,165 @@
-/* Estilos para renderizado de Markdown */
+/* Estilos mejorados para renderizado de Markdown */
 .markdown-content {
-  @apply text-sierra-gray;
+  @apply text-gray-800 leading-relaxed;
+  line-height: 1.8;
 }
 
+/* Títulos principales */
 .markdown-content h1 {
-  @apply text-3xl font-bold text-blue-700 mb-4 mt-6;
+  @apply text-3xl font-bold mb-6 mt-8 pb-3;
+  color: #1e40af;
+  border-bottom: 3px solid #3b82f6;
 }
 
 .markdown-content h2 {
-  @apply text-2xl font-bold text-blue-600 mb-3 mt-6 border-b border-blue-200 pb-2;
+  @apply text-2xl font-bold mb-4 mt-6 pb-2;
+  color: #1e40af;
+  border-bottom: 2px solid #60a5fa;
 }
 
 .markdown-content h3 {
-  @apply text-xl font-semibold text-teal-600 mb-2 mt-4;
+  @apply text-xl font-semibold mb-3 mt-5;
+  color: #0d9488;
 }
 
 .markdown-content h4 {
-  @apply text-lg font-semibold text-blue-500 mb-2 mt-3;
+  @apply text-lg font-semibold mb-2 mt-4;
+  color: #0891b2;
 }
 
+/* Párrafos y texto */
 .markdown-content p {
-  @apply mb-4 leading-relaxed text-gray-700;
+  @apply mb-4 leading-relaxed;
+  color: #374151;
+  text-align: justify;
 }
 
+/* Negritas - más prominentes */
 .markdown-content strong {
-  @apply font-bold text-blue-700;
+  @apply font-bold;
+  color: #1e3a8a;
 }
 
+/* Cursivas */
 .markdown-content em {
-  @apply italic text-gray-600;
+  @apply italic;
+  color: #4b5563;
 }
 
+/* Listas con viñetas */
 .markdown-content ul {
-  @apply list-disc ml-6 mb-4 space-y-2;
+  @apply mb-4 space-y-2;
+  list-style: none;
+  padding-left: 0;
 }
 
+.markdown-content ul li {
+  @apply mb-2 leading-relaxed pl-6 relative;
+  color: #374151;
+}
+
+.markdown-content ul li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: #0d9488;
+  font-weight: bold;
+  font-size: 1.2em;
+}
+
+/* Listas anidadas */
+.markdown-content ul ul {
+  @apply mt-2 mb-2;
+}
+
+.markdown-content ul ul li::before {
+  content: "◦";
+  color: #14b8a6;
+}
+
+.markdown-content ul ul ul li::before {
+  content: "▪";
+  color: #2dd4bf;
+}
+
+/* Listas numeradas */
 .markdown-content ol {
   @apply list-decimal ml-6 mb-4 space-y-2;
 }
 
-.markdown-content li {
-  @apply mb-2 leading-relaxed text-gray-700;
-}
-
-.markdown-content ul li::marker {
-  @apply text-teal-500;
+.markdown-content ol li {
+  @apply mb-2 leading-relaxed pl-2;
+  color: #374151;
 }
 
 .markdown-content ol li::marker {
-  @apply text-blue-600 font-bold;
+  @apply font-bold;
+  color: #1e40af;
 }
 
+/* Código inline */
 .markdown-content code {
-  @apply bg-blue-50 text-blue-800 px-2 py-1 rounded text-sm font-mono border border-blue-200;
+  @apply px-2 py-1 rounded text-sm font-mono;
+  background-color: #eff6ff;
+  color: #1e40af;
+  border: 1px solid #bfdbfe;
 }
 
+/* Bloques de código */
 .markdown-content pre {
-  @apply bg-gray-900 text-gray-100 p-4 rounded-lg overflow-x-auto mb-4;
+  @apply p-4 rounded-lg overflow-x-auto mb-4;
+  background-color: #1e293b;
 }
 
 .markdown-content pre code {
-  @apply bg-transparent text-gray-100 border-0 p-0;
+  @apply bg-transparent border-0 p-0;
+  color: #e2e8f0;
 }
 
+/* Citas */
 .markdown-content blockquote {
-  @apply border-l-4 border-blue-400 pl-4 italic text-gray-600 my-4 bg-blue-50 py-2 rounded-r;
+  @apply pl-4 my-4 py-2 rounded-r;
+  border-left: 4px solid #3b82f6;
+  background-color: #eff6ff;
+  color: #4b5563;
+  font-style: italic;
 }
 
+/* Enlaces */
 .markdown-content a {
-  @apply text-blue-600 underline hover:text-blue-800 transition-colors;
+  @apply underline transition-colors;
+  color: #2563eb;
 }
 
+.markdown-content a:hover {
+  color: #1e40af;
+}
+
+/* Tablas */
 .markdown-content table {
   @apply w-full border-collapse mb-4;
 }
 
 .markdown-content th {
-  @apply bg-blue-100 border border-blue-200 px-4 py-2 text-left font-semibold text-blue-700;
+  @apply px-4 py-2 text-left font-semibold;
+  background-color: #dbeafe;
+  border: 1px solid #93c5fd;
+  color: #1e40af;
 }
 
 .markdown-content td {
-  @apply border border-blue-200 px-4 py-2 text-gray-700;
+  @apply px-4 py-2;
+  border: 1px solid #bfdbfe;
+  color: #374151;
 }
 
+/* Líneas horizontales */
 .markdown-content hr {
-  @apply my-6 border-t-2 border-blue-200;
+  @apply my-6;
+  border-top: 2px solid #93c5fd;
 }
 
+/* Imágenes */
 .markdown-content img {
   @apply max-w-full h-auto rounded-lg shadow-md my-4;
 }

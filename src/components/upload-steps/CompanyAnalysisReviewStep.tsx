@@ -69,8 +69,17 @@ const CompanyAnalysisReviewStep = ({
             </div>
             
             <TabsContent value="view" className="p-8 m-0">
-              <div className="prose prose-lg max-w-none markdown-content">
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              <div className="markdown-content max-w-none">
+                <ReactMarkdown 
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    // Asegurar que los títulos se rendericen correctamente
+                    h1: ({node, ...props}) => <h1 {...props} />,
+                    h2: ({node, ...props}) => <h2 {...props} />,
+                    h3: ({node, ...props}) => <h3 {...props} />,
+                    // Las listas anidadas funcionarán automáticamente
+                  }}
+                >
                   {editedAnalysis}
                 </ReactMarkdown>
               </div>
