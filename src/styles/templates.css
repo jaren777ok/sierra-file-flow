@@ -1,0 +1,282 @@
+/* Template Styles */
+
+/* A4 Portrait Page */
+.informe-page {
+  width: 210mm;
+  min-height: 297mm;
+  margin: 0 auto 20px;
+  background: white;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+}
+
+/* A4 Landscape Slide */
+.ppt-slide {
+  width: 297mm;
+  height: 210mm;
+  margin: 0 auto 20px;
+  background: white;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  position: relative;
+  overflow: hidden;
+  page-break-after: always;
+}
+
+/* Background Image Container */
+.template-background {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.template-background img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Editable Content Area */
+.template-content {
+  position: relative;
+  z-index: 1;
+  min-height: 100%;
+  outline: none;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.template-content:focus {
+  background: rgba(59, 130, 246, 0.02);
+}
+
+/* Informe specific content area */
+.informe-content {
+  padding: 60mm 25mm 30mm 25mm; /* Top, Right, Bottom, Left */
+  font-family: Arial, sans-serif;
+  font-size: 12pt;
+  line-height: 1.6;
+  color: #000000;
+}
+
+/* PPT specific content area */
+.ppt-content {
+  padding: 40mm 30mm;
+  font-family: Arial, sans-serif;
+  font-size: 14pt;
+  line-height: 1.5;
+  color: #000000;
+}
+
+/* Cover and End Slides (no editable content) */
+.ppt-slide-cover,
+.ppt-slide-end {
+  padding: 0;
+}
+
+/* Editor Toolbar */
+.editor-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  background: white;
+  border-bottom: 1px solid hsl(var(--border));
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.editor-toolbar-group {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding-right: 1rem;
+  border-right: 1px solid hsl(var(--border));
+}
+
+.editor-toolbar-group:last-child {
+  border-right: none;
+}
+
+.editor-button {
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid hsl(var(--border));
+  background: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  height: 36px;
+}
+
+.editor-button:hover {
+  background: hsl(var(--accent));
+  border-color: hsl(var(--primary));
+}
+
+.editor-button:active,
+.editor-button.active {
+  background: hsl(var(--primary));
+  color: white;
+}
+
+/* Font Selector */
+.font-select,
+.size-select {
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  border: 1px solid hsl(var(--border));
+  background: white;
+  min-width: 120px;
+  cursor: pointer;
+}
+
+/* Color Picker */
+.color-picker-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.color-picker {
+  width: 36px;
+  height: 36px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.375rem;
+  cursor: pointer;
+}
+
+/* Container Backgrounds */
+.informe-container {
+  background: #f3f4f6;
+  min-height: 100vh;
+  padding: 2rem 0;
+}
+
+.ppt-container {
+  background: #1f2937;
+  min-height: 100vh;
+  padding: 2rem 0;
+}
+
+/* Typography in Content */
+.template-content h1 {
+  font-size: 24pt;
+  font-weight: bold;
+  margin: 1em 0 0.5em;
+  color: #1a1a1a;
+}
+
+.template-content h2 {
+  font-size: 20pt;
+  font-weight: bold;
+  margin: 0.8em 0 0.4em;
+  color: #1a1a1a;
+}
+
+.template-content h3 {
+  font-size: 16pt;
+  font-weight: bold;
+  margin: 0.6em 0 0.3em;
+  color: #1a1a1a;
+}
+
+.template-content p {
+  margin: 0.5em 0;
+}
+
+.template-content ul,
+.template-content ol {
+  margin: 0.5em 0;
+  padding-left: 2em;
+}
+
+.template-content li {
+  margin: 0.3em 0;
+}
+
+.template-content strong {
+  font-weight: bold;
+}
+
+.template-content em {
+  font-style: italic;
+}
+
+.template-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+}
+
+.template-content table th,
+.template-content table td {
+  border: 1px solid #ddd;
+  padding: 8px;
+  text-align: left;
+}
+
+.template-content table th {
+  background-color: #f2f2f2;
+  font-weight: bold;
+}
+
+/* Print Styles */
+@media print {
+  .editor-toolbar {
+    display: none !important;
+  }
+
+  .informe-page,
+  .ppt-slide {
+    margin: 0;
+    box-shadow: none;
+    page-break-after: always;
+  }
+
+  body {
+    margin: 0;
+    padding: 0;
+  }
+
+  .informe-container,
+  .ppt-container {
+    background: white;
+    padding: 0;
+  }
+}
+
+/* Responsive adjustments for smaller screens */
+@media screen and (max-width: 1200px) {
+  .informe-page {
+    width: 95%;
+    min-height: auto;
+    aspect-ratio: 210 / 297;
+  }
+
+  .ppt-slide {
+    width: 95%;
+    height: auto;
+    aspect-ratio: 297 / 210;
+  }
+
+  .informe-content {
+    padding: 15% 10% 10% 10%;
+  }
+
+  .ppt-content {
+    padding: 10% 8%;
+  }
+}

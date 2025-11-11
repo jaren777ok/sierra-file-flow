@@ -4,6 +4,7 @@
 @tailwind utilities;
 
 @import './styles/markdown.css';
+@import './styles/templates.css';
 
 /* Paleta de colores de Grupo Sierras */
 

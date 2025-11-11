@@ -52,6 +52,11 @@ export const useMultiStepUpload = () => {
   const [companyAnalysis, setCompanyAnalysis] = useState<string>('');
   const [isAnalyzingCompany, setIsAnalyzingCompany] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+  
+  // Template navigation states
+  const [currentTemplate, setCurrentTemplate] = useState<'informe' | 'ppt' | null>(null);
+  const [editedInformeContent, setEditedInformeContent] = useState('');
+  const [editedPptContent, setEditedPptContent] = useState('');
 
   const { toast } = useToast();
   const {
