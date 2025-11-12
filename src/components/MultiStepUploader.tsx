@@ -11,6 +11,8 @@ import ReviewStep from './upload-steps/ReviewStep';
 import FuturisticAIProcessingScreen from './upload-steps/FuturisticAIProcessingScreen';
 import ResultScreen from './upload-steps/ResultScreen';
 import StepIndicator from './upload-steps/StepIndicator';
+import { InformeTemplate } from './document-templates/InformeTemplate';
+import { PptTemplate } from './document-templates/PptTemplate';
 import { Card, CardContent } from '@/components/ui/card';
 import { AlertCircle, Clock, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -48,7 +50,18 @@ const MultiStepUploader = () => {
     forceCleanup,
     setCurrentStep,
     jumpToProcessing,
-    hideConfetti
+    goToInformeTemplate,
+    goToPptTemplate,
+    hideConfetti,
+    resultHtml,
+    currentTemplate,
+    editedInformeContent,
+    editedPptContent,
+    setEditedInformeContent,
+    setEditedPptContent,
+    handleDownloadInformePdf,
+    handleDownloadPptPdf,
+    handleCompleteBothTemplates
   } = useMultiStepUpload();
 
   // Función para manejar el siguiente paso después de empresa
@@ -87,6 +100,16 @@ const MultiStepUploader = () => {
       }
     }
   }, [hasActiveJob, getActiveJobInfo, projectName, setProjectName, jumpToProcessing]);
+
+  // Navegar a plantilla cuando el procesamiento se complete con HTML
+  useEffect(() => {
+    if (processingStatus.status === 'completed' && resultHtml && !currentTemplate) {
+      console.log('Processing completed with HTML, navigating to template');
+      setTimeout(() => {
+        goToInformeTemplate();
+      }, 3000); // Esperar 3 segundos para mostrar confeti
+    }
+  }, [processingStatus.status, resultHtml, currentTemplate, goToInformeTemplate]);
 
   const activeJobAlert = useMemo(() => {
     if (!hasActiveJob() || currentStep >= totalSteps - 1) return null;
@@ -129,6 +152,30 @@ const MultiStepUploader = () => {
   }, [hasActiveJob, getActiveJobInfo, currentStep, totalSteps, jumpToProcessing, forceCleanup]);
 
   const renderStep = () => {
+    // Si estamos en plantilla Informe
+    if (currentTemplate === 'informe' && resultHtml) {
+      return (
+        <InformeTemplate
+          htmlContent={editedInformeContent || resultHtml}
+          onContentChange={setEditedInformeContent}
+          onDownloadPdf={handleDownloadInformePdf}
+          onContinue={goToPptTemplate}
+        />
+      );
+    }
+
+    // Si estamos en plantilla PPT
+    if (currentTemplate === 'ppt' && editedPptContent) {
+      return (
+        <PptTemplate
+          htmlContent={editedPptContent}
+          onContentChange={setEditedPptContent}
+          onDownloadPdf={handleDownloadPptPdf}
+          onComplete={handleCompleteBothTemplates}
+        />
+      );
+    }
+
     // Paso 0: Nombre del proyecto
     if (currentStep === 0) {
       return (
@@ -304,10 +351,12 @@ const MultiStepUploader = () => {
     hasActiveJob()
   );
 
+  const isTemplateView = currentTemplate !== null;
+
   return (
     <div className="max-w-4xl mx-auto">
       {/* Step Indicator */}
-      {!isProcessingStep && (
+      {!isProcessingStep && !isTemplateView && (
         <div className="mb-8">
           <StepIndicator 
             currentStep={currentStep} 
@@ -318,10 +367,10 @@ const MultiStepUploader = () => {
       )}
 
       {/* Alert de trabajo activo */}
-      {activeJobAlert}
+      {!isTemplateView && activeJobAlert}
 
       {/* Main Content */}
-      {isProcessingStep ? (
+      {isProcessingStep || isTemplateView ? (
         renderStep()
       ) : (
         <Card className="mountain-shadow bg-gradient-to-br from-white/90 to-sierra-teal/5 backdrop-blur-sm border-sierra-teal/20">

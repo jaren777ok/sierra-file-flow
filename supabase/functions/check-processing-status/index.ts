@@ -54,6 +54,7 @@ Deno.serve(async (req) => {
         status: data.status,
         progress: data.progress,
         resultUrl: data.result_url,
+        resultHtml: data.result_html,
         errorMessage: data.error_message,
         startedAt: data.started_at,
         completedAt: data.completed_at,

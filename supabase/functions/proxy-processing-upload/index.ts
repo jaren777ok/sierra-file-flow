@@ -53,71 +53,150 @@ Deno.serve(async (req) => {
 
     console.log('✅ [proxy-processing-upload] Job guardado en DB');
 
-    // Send files to webhook (fire-and-forget, just confirm receipt)
-    // N8n will process in background and update the DB directly when done
-    const sendToWebhook = async () => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout just to confirm receipt
+    // Send files to webhook and WAIT for HTML response
+    console.log('📤 [proxy-processing-upload] Enviando archivos al webhook y esperando respuesta...');
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT); // 15 minutes
 
-      try {
-        console.log('📤 [proxy-processing-upload] Enviando archivos al webhook...');
-        
-        const response = await fetch(WEBHOOK_URL, {
-          method: 'POST',
-          body: formData,
-          signal: controller.signal,
-        });
+    try {
+      const response = await fetch(WEBHOOK_URL, {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+      });
 
-        clearTimeout(timeoutId);
-        
-        console.log(`📥 [proxy-processing-upload] Webhook confirmó recepción: ${response.status}`);
-        
-        if (!response.ok) {
-          console.error(`⚠️ [proxy-processing-upload] Webhook retornó error: ${response.status}`);
-          // Update DB with error
-          await supabase
-            .from('processing_jobs')
-            .update({
-              status: 'error',
-              error_message: `Error al enviar al webhook: ${response.status}`,
-              completed_at: new Date().toISOString(),
-            })
-            .eq('request_id', requestId);
-        }
-        
-      } catch (error: any) {
-        clearTimeout(timeoutId);
-        console.error('❌ [proxy-processing-upload] Error enviando al webhook:', error);
+      clearTimeout(timeoutId);
+      
+      console.log(`📥 [proxy-processing-upload] Webhook respondió: ${response.status}`);
+      
+      if (!response.ok) {
+        console.error(`⚠️ [proxy-processing-upload] Webhook retornó error: ${response.status}`);
         
         // Update DB with error
         await supabase
           .from('processing_jobs')
           .update({
             status: 'error',
-            error_message: 'Error al enviar archivos al webhook',
+            error_message: `Error del webhook: ${response.status}`,
+            progress: 0,
             completed_at: new Date().toISOString(),
           })
           .eq('request_id', requestId);
+          
+        return new Response(
+          JSON.stringify({ 
+            error: `Error del webhook: ${response.status}`,
+            requestId
+          }),
+          { 
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
       }
-    };
-
-    // Send to webhook without waiting (N8n will update DB when done)
-    sendToWebhook();
-
-    // Return immediately with request ID
-    console.log('✅ [proxy-processing-upload] Retornando requestId al frontend');
-    
-    return new Response(
-      JSON.stringify({ 
-        requestId,
-        status: 'processing',
-        message: 'Procesamiento iniciado'
-      }),
-      { 
-        status: 202,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      
+      // Parse HTML response from webhook
+      const webhookResult = await response.json();
+      console.log('🎉 [proxy-processing-upload] Webhook completó procesamiento');
+      
+      // Extract HTML from format: [{"EXITO": "<!DOCTYPE HTML>..."}]
+      let resultHtml = '';
+      if (Array.isArray(webhookResult) && webhookResult.length > 0 && webhookResult[0]?.EXITO) {
+        resultHtml = webhookResult[0].EXITO;
+        console.log(`✅ [proxy-processing-upload] HTML extraído: ${resultHtml.length} caracteres`);
+      } else if (typeof webhookResult === 'string') {
+        resultHtml = webhookResult;
       }
-    );
+      
+      if (!resultHtml) {
+        console.error('⚠️ [proxy-processing-upload] No se pudo extraer HTML de la respuesta');
+        
+        await supabase
+          .from('processing_jobs')
+          .update({
+            status: 'error',
+            error_message: 'Respuesta del webhook sin HTML',
+            progress: 0,
+            completed_at: new Date().toISOString(),
+          })
+          .eq('request_id', requestId);
+          
+        return new Response(
+          JSON.stringify({ 
+            error: 'Respuesta del webhook sin HTML',
+            requestId
+          }),
+          { 
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      // Save completed job with HTML to database
+      const { error: updateError } = await supabase
+        .from('processing_jobs')
+        .update({
+          status: 'completed',
+          progress: 100,
+          result_html: resultHtml,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('request_id', requestId);
+        
+      if (updateError) {
+        console.error('❌ [proxy-processing-upload] Error actualizando job:', updateError);
+        throw new Error('Error guardando resultado en base de datos');
+      }
+      
+      console.log('✅ [proxy-processing-upload] Job completado y HTML guardado en BD');
+      
+      // Return success with HTML
+      return new Response(
+        JSON.stringify({ 
+          requestId,
+          status: 'completed',
+          message: 'Procesamiento completado',
+          resultHtml: resultHtml.substring(0, 500) + '...' // Preview only
+        }),
+        { 
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+      
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      console.error('❌ [proxy-processing-upload] Error procesando:', error);
+      
+      const isTimeout = error.name === 'AbortError';
+      const errorMessage = isTimeout 
+        ? 'Procesamiento excedió el tiempo límite (15 minutos)' 
+        : `Error al procesar: ${error.message}`;
+      
+      // Update DB with error or timeout
+      await supabase
+        .from('processing_jobs')
+        .update({
+          status: isTimeout ? 'timeout' : 'error',
+          error_message: errorMessage,
+          progress: 0,
+          completed_at: new Date().toISOString(),
+        })
+        .eq('request_id', requestId);
+        
+      return new Response(
+        JSON.stringify({ 
+          error: errorMessage,
+          requestId
+        }),
+        { 
+          status: isTimeout ? 408 : 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
 
   } catch (error: any) {
     console.error('❌ [proxy-processing-upload] Error:', error);

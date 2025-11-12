@@ -19,6 +19,7 @@ const useSimpleProcessing = () => {
   });
   
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [resultHtml, setResultHtml] = useState<string | null>(null);
   const { toast } = useToast();
   const { saveProcessedFile } = useSavedFiles();
   const { timeElapsed, startTimer, stopTimer, resetTimer } = useProcessingTimer();
@@ -57,6 +58,7 @@ const useSimpleProcessing = () => {
         requestId
       });
       setResultUrl(null);
+      setResultHtml(null);
       
       startTimer();
       
@@ -114,14 +116,21 @@ const useSimpleProcessing = () => {
                 requestId: returnedRequestId
               }));
               
-              setResultUrl(statusResult.resultUrl!);
+              // Save HTML result if present
+              if (statusResult.resultHtml) {
+                console.log('✅ HTML recibido del procesamiento:', statusResult.resultHtml.length, 'caracteres');
+                setResultHtml(statusResult.resultHtml);
+              }
               
-              // Save processed file
-              await saveProcessedFile(projectTitle, 'Multi-área', statusResult.resultUrl!);
+              // Save URL if present
+              if (statusResult.resultUrl) {
+                setResultUrl(statusResult.resultUrl);
+                await saveProcessedFile(projectTitle, 'Multi-área', statusResult.resultUrl);
+              }
               
               toast({
                 title: "¡Procesamiento Completado!",
-                description: `Tu archivo ha sido procesado correctamente. ID: ${returnedRequestId}`,
+                description: `Tu documento ha sido procesado correctamente. ID: ${returnedRequestId}`,
               });
               
             } else if (statusResult.status === 'error') {
@@ -243,6 +252,7 @@ const useSimpleProcessing = () => {
       showConfetti: false
     });
     setResultUrl(null);
+    setResultHtml(null);
   }, [stopTimer, resetTimer]);
 
   const hideConfetti = useCallback(() => {
@@ -261,6 +271,7 @@ const useSimpleProcessing = () => {
   return {
     processingStatus,
     resultUrl,
+    resultHtml,
     startProcessing,
     resetProcessing,
     hideConfetti

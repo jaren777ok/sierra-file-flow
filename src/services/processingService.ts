@@ -55,6 +55,7 @@ export class ProcessingService {
     status: 'processing' | 'completed' | 'error' | 'timeout' | 'not_found';
     progress: number;
     resultUrl?: string;
+    resultHtml?: string;
     errorMessage?: string;
   }> {
     try {

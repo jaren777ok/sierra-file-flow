@@ -31,6 +31,7 @@ export const useMultiStepUpload = () => {
   const { toast } = useToast();
   const {
     processingStatus,
+    resultHtml,
     startProcessing,
     resetProcessing,
     hideConfetti
@@ -300,6 +301,40 @@ export const useMultiStepUpload = () => {
     setCurrentStep(totalSteps - 1);
   }, [totalSteps]);
 
+  const goToInformeTemplate = useCallback(() => {
+    if (resultHtml) {
+      setCurrentTemplate('informe');
+      setEditedInformeContent(resultHtml);
+    }
+  }, [resultHtml]);
+
+  const goToPptTemplate = useCallback(() => {
+    setCurrentTemplate('ppt');
+    setEditedPptContent(editedInformeContent);
+  }, [editedInformeContent]);
+
+  const handleDownloadInformePdf = useCallback(async () => {
+    // This will be implemented by the InformeTemplate component itself
+    console.log('Download Informe PDF');
+  }, []);
+
+  const handleDownloadPptPdf = useCallback(async () => {
+    // This will be implemented by the PptTemplate component itself
+    console.log('Download PPT PDF');
+  }, []);
+
+  const handleCompleteBothTemplates = useCallback(() => {
+    toast({
+      title: "✅ Documentos Completados",
+      description: "Ambas plantillas han sido editadas y descargadas correctamente.",
+    });
+    
+    // Reset flow after completion
+    setTimeout(() => {
+      resetFlow();
+    }, 2000);
+  }, [resetFlow, toast]);
+
   return {
     currentStep,
     projectName,
@@ -319,6 +354,15 @@ export const useMultiStepUpload = () => {
     updateCustomAreaName,
     updateCustomAreaFiles,
     processingStatus,
+    resultHtml,
+    currentTemplate,
+    editedInformeContent,
+    editedPptContent,
+    setEditedInformeContent,
+    setEditedPptContent,
+    handleDownloadInformePdf,
+    handleDownloadPptPdf,
+    handleCompleteBothTemplates,
     areas,
     totalSteps,
     nextStep,
@@ -333,6 +377,8 @@ export const useMultiStepUpload = () => {
     forceCleanup,
     setCurrentStep,
     jumpToProcessing,
+    goToInformeTemplate,
+    goToPptTemplate,
     hideConfetti,
     isRecovering: false,
     activeJob: null
