@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Sparkles, Clock, Brain, Zap, Cpu, Activity, Database, FileText, CheckCircle2, AlertCircle, RefreshCw, Hash, Wifi, WifiOff } from 'lucide-react';
-import { ProcessingStatus } from '@/hooks/useMultiStepUpload';
+import { ProcessingStatus } from '@/types/processing';
 import { ProcessingJob } from '@/hooks/useProcessingPersistence';
 import { Button } from '@/components/ui/button';
 import Confetti from 'react-confetti';

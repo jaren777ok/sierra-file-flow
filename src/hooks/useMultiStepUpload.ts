@@ -4,37 +4,7 @@ import useSimpleProcessing from '@/hooks/useSimpleProcessing';
 import { PROCESSING_CONSTANTS } from '@/constants/processing';
 import { supabase } from '@/integrations/supabase/client';
 import { CompanyAnalysisService } from '@/services/companyAnalysisService';
-
-export interface AreaFiles {
-  comercial: File[];
-  operaciones: File[];
-  pricing: File[];
-  administracion: File[];
-}
-
-export interface CustomArea {
-  id: string;
-  name: string;
-  icon: string;
-  files: File[];
-}
-
-export interface ProjectFiles {
-  companyInfo: File[];
-  areas: AreaFiles;
-  customAreas: CustomArea[];
-}
-
-export interface ProcessingStatus {
-  status: 'idle' | 'sending' | 'processing' | 'completed' | 'error' | 'timeout';
-  progress: number;
-  timeElapsed: number;
-  message?: string;
-  resultUrl?: string;
-  requestId?: string;
-  sendTimestamp?: number;
-  showConfetti?: boolean;
-}
+import type { AreaFiles, CustomArea, ProjectFiles } from '@/types/processing';
 
 export const useMultiStepUpload = () => {
   const [currentStep, setCurrentStep] = useState(0);

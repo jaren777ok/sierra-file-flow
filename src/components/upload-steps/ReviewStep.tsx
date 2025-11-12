@@ -2,7 +2,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Sparkles, FileText, Plus } from 'lucide-react';
-import { AreaFiles, CustomArea } from '@/hooks/useMultiStepUpload';
+import { AreaFiles, CustomArea } from '@/types/processing';
 import { ProcessingJob } from '@/hooks/useProcessingPersistence';
 
 interface Area {

@@ -1,6 +1,6 @@
 
 import { PROCESSING_CONSTANTS } from '@/constants/processing';
-import { ProjectFiles } from '@/hooks/useMultiStepUpload';
+import { ProjectFiles } from '@/types/processing';
 
 export const generateRequestId = (): string => {
   const timestamp = Date.now();

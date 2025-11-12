@@ -1,4 +1,22 @@
-import { ProjectFiles } from '@/hooks/useMultiStepUpload';
+export interface AreaFiles {
+  comercial: File[];
+  operaciones: File[];
+  pricing: File[];
+  administracion: File[];
+}
+
+export interface CustomArea {
+  id: string;
+  name: string;
+  icon: string;
+  files: File[];
+}
+
+export interface ProjectFiles {
+  companyInfo: File[];
+  areas: AreaFiles;
+  customAreas: CustomArea[];
+}
 
 export interface ProcessingStatus {
   status: 'idle' | 'sending' | 'processing' | 'completed' | 'timeout' | 'error';
@@ -7,6 +25,8 @@ export interface ProcessingStatus {
   timeElapsed: number;
   showConfetti?: boolean;
   requestId?: string;
+  resultUrl?: string;
+  sendTimestamp?: number;
 }
 
 export interface ProcessingFormData {
@@ -16,4 +36,5 @@ export interface ProcessingFormData {
   userId: string;
   requestId: string;
   companyAnalysis?: string;
+  resultHtml?: string;
 }

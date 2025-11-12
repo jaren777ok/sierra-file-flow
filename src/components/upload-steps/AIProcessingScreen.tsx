@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Sparkles, Clock, Brain, Zap, Hash, Wifi, WifiOff, RefreshCw } from 'lucide-react';
-import { ProcessingStatus } from '@/hooks/useMultiStepUpload';
+import { ProcessingStatus } from '@/types/processing';
 import { Button } from '@/components/ui/button';
 
 interface AIProcessingScreenProps {

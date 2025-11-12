@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { CheckCircle, Download, RotateCcw, ExternalLink, Sparkles, FileText } from 'lucide-react';
-import { ProcessingStatus } from '@/hooks/useMultiStepUpload';
+import { ProcessingStatus } from '@/types/processing';
 import { useToast } from '@/hooks/use-toast';
 
 interface ResultScreenProps {
