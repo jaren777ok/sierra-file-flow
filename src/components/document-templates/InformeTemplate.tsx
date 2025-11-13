@@ -91,12 +91,11 @@ export const InformeTemplate: React.FC<InformeTemplateProps> = ({
       {/* Professional Multi-Page Document */}
       <div id="informe-container" className="pages-container">
         {pages.map((pageContent, index) => (
-          <div key={index} className="informe-page">
-            <img 
-              src={plantillaImage} 
-              alt="Template background" 
-              className="template-background"
-            />
+          <div 
+            key={index} 
+            className="informe-page"
+            style={{ backgroundImage: `url(${plantillaImage})` }}
+          >
             <div
               className="template-content informe-content"
               dangerouslySetInnerHTML={{ __html: pageContent }}

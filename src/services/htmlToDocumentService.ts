@@ -66,55 +66,84 @@ export class HtmlToDocumentService {
   }
 
   /**
-   * Split content into pages based on logical sections and approximate height
-   * Each A4 page is ~297mm tall, with ~200mm usable content area
+   * Split HTML content into pages for A4 portrait format
+   * Improved algorithm with accurate height estimation
    */
   static splitIntoPages(content: string): string[] {
-    if (!content) return [''];
-
+    if (!content) return ['<p>No hay contenido para mostrar.</p>'];
+    
     const div = document.createElement('div');
     div.innerHTML = content;
     
     const pages: string[] = [];
     let currentPage = '';
     let currentHeight = 0;
-    const MAX_HEIGHT = 900; // Approximate px for A4 page content area
-
+    
+    // A4 portrait: 297mm height
+    // With padding: 80px top + 60px bottom = 140px
+    // Content area: ~700px usable height (conservative estimate)
+    const MAX_HEIGHT = 700;
+    
     const children = Array.from(div.children);
     
     for (const child of children) {
       const elementHTML = child.outerHTML;
       
-      // Estimate height based on element type
-      let estimatedHeight = 50;
-      if (child.tagName === 'H1') estimatedHeight = 80;
-      else if (child.tagName === 'H2') estimatedHeight = 70;
-      else if (child.tagName === 'H3') estimatedHeight = 60;
-      else if (child.tagName === 'TABLE') estimatedHeight = 200;
-      else if (child.tagName === 'UL' || child.tagName === 'OL') {
-        const items = child.querySelectorAll('li').length;
-        estimatedHeight = items * 40;
-      }
-      else if (child.tagName === 'P') {
+      // More accurate height estimation
+      let estimatedHeight = 40; // Default
+      
+      if (child.tagName === 'H1') {
+        estimatedHeight = 70;
+      } else if (child.tagName === 'H2') {
+        estimatedHeight = 60;
+      } else if (child.tagName === 'H3') {
+        estimatedHeight = 50;
+      } else if (child.tagName === 'HR') {
+        estimatedHeight = 25;
+      } else if (child.tagName === 'P') {
         const textLength = (child.textContent || '').length;
-        estimatedHeight = Math.ceil(textLength / 100) * 30;
+        // 11pt font, ~120 chars per line, ~22px per line
+        const lines = Math.ceil(textLength / 120);
+        estimatedHeight = lines * 22 + 16; // +16 for margins
+      } else if (child.tagName === 'UL' || child.tagName === 'OL') {
+        const items = child.querySelectorAll('li').length;
+        estimatedHeight = items * 25 + 30; // ~25px per item + list margins
+      } else if (child.tagName === 'TABLE') {
+        const rows = child.querySelectorAll('tr').length;
+        estimatedHeight = rows * 35 + 50; // ~35px per row + table margins
       }
-
-      // Start new page if content would overflow
+      
+      // Check if element is a large block that shouldn't be split
+      const isLargeBlock = ['TABLE', 'UL', 'OL'].includes(child.tagName);
+      
+      // If adding this element exceeds page height
       if (currentHeight + estimatedHeight > MAX_HEIGHT && currentPage) {
-        pages.push(currentPage);
-        currentPage = elementHTML;
-        currentHeight = estimatedHeight;
+        // For large blocks, if they're too big for remaining space
+        // but can fit on a new page, put them on a new page
+        if (isLargeBlock && estimatedHeight > MAX_HEIGHT * 0.7) {
+          // Element is very large, give it its own page
+          pages.push(currentPage);
+          pages.push(elementHTML);
+          currentPage = '';
+          currentHeight = 0;
+        } else {
+          // Normal case: start new page with this element
+          pages.push(currentPage);
+          currentPage = elementHTML;
+          currentHeight = estimatedHeight;
+        }
       } else {
         currentPage += elementHTML;
         currentHeight += estimatedHeight;
       }
     }
     
-    // Add final page
+    // Add the last page if there's content
     if (currentPage) {
       pages.push(currentPage);
     }
+    
+    console.log('📄 Content split into', pages.length, 'pages');
     
     return pages.length > 0 ? pages : [content];
   }
