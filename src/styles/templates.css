@@ -1,12 +1,15 @@
 /* Template Styles - Professional Dark Theme */
 
-/* A4 Portrait Page - Dark Professional */
+/* A4 Portrait Page - Professional Light Theme */
 .informe-page {
   width: 210mm;
   height: 297mm;
   margin: 20px auto;
-  background: #2d2d2d;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  background-color: #ffffff;
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   position: relative;
   page-break-after: always;
   page-break-inside: avoid;
@@ -30,27 +33,16 @@
   overflow: hidden;
 }
 
-/* Background Image Container - Subtle Watermark */
-.template-background {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  z-index: 0;
-  pointer-events: none;
-  opacity: 0.05;
-}
+/* Background Image Container - No longer needed, using CSS background */
 
-/* Editable Content Area - Dark Theme */
+/* Content Area - Light Theme */
 .template-content {
   position: relative;
   z-index: 1;
   width: 100%;
   height: 100%;
   outline: none;
-  color: white;
+  color: #1a1a1a;
 }
 
 .template-content:focus {
@@ -60,12 +52,12 @@
 
 /* Content areas for each template - Professional spacing */
 .informe-content {
-  padding: 50px 80px;
+  padding: 80px 60px 60px 60px;
   height: 100%;
-  font-family: 'Segoe UI', 'Arial', sans-serif;
-  font-size: 14px;
-  line-height: 1.8;
-  color: white;
+  font-family: 'Arial', 'Segoe UI', sans-serif;
+  font-size: 11pt;
+  line-height: 1.6;
+  color: #1a1a1a;
   overflow: hidden;
   box-sizing: border-box;
 }
@@ -114,13 +106,13 @@
 
 /* Container Backgrounds */
 .informe-container {
-  background: #1a1a1a;
+  background: #f5f5f5;
   min-height: 100vh;
   padding: 2rem 0;
 }
 
 .ppt-container {
-  background: #1a1a1a;
+  background: #f5f5f5;
   min-height: 100vh;
   padding: 2rem 0;
 }
@@ -131,105 +123,107 @@
   padding: 20px;
 }
 
-/* Typography inside template-content - Professional Dark Theme */
+/* Typography inside template-content - Professional Light Theme */
 .template-content h1 {
-  font-size: 32px;
+  font-size: 18pt;
   font-weight: bold;
-  margin: 30px 0 20px 0;
-  color: white;
+  margin: 20px 0 12px 0;
+  color: #1a1a1a;
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 0.5px;
 }
 
 .template-content h2 {
-  font-size: 28px;
+  font-size: 16pt;
   font-weight: bold;
-  margin: 25px 0 18px 0;
-  color: white;
+  margin: 18px 0 10px 0;
+  color: #1a1a1a;
   text-transform: uppercase;
-  letter-spacing: 0.8px;
+  letter-spacing: 0.3px;
 }
 
 .template-content h3 {
-  font-size: 22px;
+  font-size: 14pt;
   font-weight: bold;
-  margin: 20px 0 15px 0;
-  color: white;
+  margin: 16px 0 8px 0;
+  color: #1a1a1a;
   text-transform: uppercase;
 }
 
 .template-content p {
-  margin: 12px 0;
+  margin: 8px 0;
   text-align: justify;
-  color: white;
-  line-height: 1.8;
+  color: #1a1a1a;
+  line-height: 1.6;
+  font-size: 11pt;
 }
 
 .template-content ul,
 .template-content ol {
-  margin: 15px 0;
-  padding-left: 40px;
+  margin: 10px 0;
+  padding-left: 25px;
 }
 
 .template-content ul li {
-  margin: 10px 0;
-  color: white;
+  margin: 6px 0;
+  color: #1a1a1a;
   list-style-type: disc;
-  line-height: 1.7;
+  line-height: 1.5;
 }
 
 .template-content ul li::marker {
-  color: white;
-  font-size: 1.2em;
+  color: #1a1a1a;
+  font-size: 1em;
 }
 
 .template-content ol li {
-  margin: 10px 0;
-  color: white;
-  line-height: 1.7;
+  margin: 6px 0;
+  color: #1a1a1a;
+  line-height: 1.5;
 }
 
 .template-content table {
   width: 100%;
   border-collapse: collapse;
-  margin: 20px 0;
+  margin: 12px 0;
   background: transparent;
 }
 
 .template-content th,
 .template-content td {
-  border: 2px solid white;
-  padding: 12px 15px;
+  border: 1px solid #333;
+  padding: 8px 12px;
   text-align: left;
-  color: white;
+  color: #1a1a1a;
+  font-size: 10pt;
 }
 
 .template-content th {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(0, 0, 0, 0.05);
   font-weight: bold;
-  font-size: 15px;
+  font-size: 10pt;
 }
 
 .template-content td {
-  font-size: 14px;
+  font-size: 10pt;
 }
 
 .template-content strong,
 .template-content b {
   font-weight: bold;
-  color: white;
+  color: #1a1a1a;
 }
 
 .template-content em,
 .template-content i {
   font-style: italic;
-  color: white;
+  color: #1a1a1a;
 }
 
 .template-content hr {
   border: none;
-  border-top: 2px solid rgba(255, 255, 255, 0.3);
-  margin: 20px 0;
+  border-top: 1px solid rgba(0, 0, 0, 0.2);
+  margin: 12px 0;
 }
 
 /* Print Styles */

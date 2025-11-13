@@ -30,13 +30,15 @@ export class PdfGenerationService {
         const page = pages[i] as HTMLElement;
         
         const canvas = await html2canvas(page, {
-          scale: 2,
+          scale: 3, // Higher quality
           useCORS: true,
+          allowTaint: false,
           logging: false,
-          backgroundColor: '#2d2d2d', // Dark background
+          backgroundColor: '#ffffff', // White background
+          imageTimeout: 15000,
+          foreignObjectRendering: false,
           windowWidth: page.scrollWidth,
           windowHeight: page.scrollHeight,
-          allowTaint: true
         });
 
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
