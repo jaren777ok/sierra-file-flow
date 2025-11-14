@@ -21,7 +21,6 @@ const useSimpleProcessing = () => {
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [resultHtml, setResultHtml] = useState<string | null>(null);
   const { toast } = useToast();
-  const { saveProcessedFile } = useSavedFiles();
   const { timeElapsed, startTimer, stopTimer, resetTimer } = useProcessingTimer();
 
   // Update processing status with current time
@@ -122,10 +121,9 @@ const useSimpleProcessing = () => {
                 setResultHtml(statusResult.resultHtml);
               }
               
-              // Save URL if present
+              // Save URL if present (saved automatically by ProcessingService)
               if (statusResult.resultUrl) {
                 setResultUrl(statusResult.resultUrl);
-                await saveProcessedFile(projectTitle, 'Multi-área', statusResult.resultUrl);
               }
               
               toast({
@@ -231,7 +229,7 @@ const useSimpleProcessing = () => {
       
       throw error;
     }
-  }, [startTimer, stopTimer, toast, saveProcessedFile, processingStatus.requestId]);
+  }, [startTimer, stopTimer, toast, processingStatus.requestId]);
 
   const getProgressMessage = (progress: number): string => {
     if (progress < 30) return 'Procesando archivos en el servidor...';

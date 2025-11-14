@@ -15,8 +15,6 @@ interface FileUploadStatus {
 export const useFileUpload = (areaName: string) => {
   const [files, setFiles] = useState<FileUploadStatus[]>([]);
   const { toast } = useToast();
-  const { saveProcessedFile } = useSavedFiles();
-
   const WEBHOOK_URL = "https://cris.cloude.es/webhook/sierra";
   const TIMEOUT_DURATION = 15 * 60 * 1000; // 15 minutos
 
@@ -108,8 +106,8 @@ export const useFileUpload = (areaName: string) => {
           }
 
           if (driveUrl) {
-            // Guardar en Supabase
-            await saveProcessedFile(projectTitle, areaName, driveUrl);
+            // File completed successfully
+            // Note: Files are now saved automatically by processing service
 
             // Actualizar estado con enlace de descarga
             setFiles((prev) =>
