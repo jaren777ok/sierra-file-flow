@@ -66,6 +66,51 @@ export class HtmlToDocumentService {
   }
 
   /**
+   * Add inline styles to HTML for proper rendering
+   */
+  static addInlineStyles(html: string, isDark: boolean = false): string {
+    if (!html) return '';
+
+    const styles = isDark ? `
+      <style>
+        body { color: #ffffff; font-family: Arial, sans-serif; line-height: 1.6; }
+        h1, h2, h3, h4, h5, h6 { color: #ffffff; font-weight: bold; margin: 16px 0 8px 0; }
+        h1 { font-size: 24pt; }
+        h2 { font-size: 20pt; }
+        h3 { font-size: 16pt; text-transform: uppercase; }
+        p { margin: 12px 0; font-size: 11pt; }
+        table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+        th, td { border: 1px solid #555; padding: 8px; text-align: left; font-size: 10pt; }
+        th { background-color: rgba(255, 255, 255, 0.1); font-weight: bold; }
+        ul, ol { padding-left: 25px; margin: 10px 0; }
+        li { margin: 6px 0; line-height: 1.5; }
+        strong { font-weight: bold; }
+        em { font-style: italic; }
+        hr { border: none; border-top: 2px solid #555; margin: 20px 0; }
+      </style>
+    ` : `
+      <style>
+        body { color: #1a1a1a; font-family: Arial, sans-serif; line-height: 1.6; }
+        h1, h2, h3, h4, h5, h6 { color: #1a1a1a; font-weight: bold; margin: 16px 0 8px 0; }
+        h1 { font-size: 24pt; }
+        h2 { font-size: 20pt; }
+        h3 { font-size: 16pt; text-transform: uppercase; }
+        p { margin: 12px 0; font-size: 11pt; }
+        table { width: 100%; border-collapse: collapse; margin: 12px 0; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: left; font-size: 10pt; }
+        th { background-color: rgba(0, 0, 0, 0.05); font-weight: bold; }
+        ul, ol { padding-left: 25px; margin: 10px 0; }
+        li { margin: 6px 0; line-height: 1.5; }
+        strong { font-weight: bold; }
+        em { font-style: italic; }
+        hr { border: none; border-top: 2px solid #333; margin: 20px 0; }
+      </style>
+    `;
+
+    return styles + html;
+  }
+
+  /**
    * Split HTML content into pages for A4 portrait format
    * Improved algorithm with accurate height estimation
    */

@@ -9,6 +9,8 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ConvertAudio from "./pages/ConvertAudio";
 import SavedFiles from "./components/SavedFiles";
+import DocumentEditor from "./pages/DocumentEditor";
+import PresentationEditor from "./pages/PresentationEditor";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +27,8 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/convert-audio" element={<ConvertAudio />} />
             <Route path="/saved-files" element={<SavedFiles />} />
+            <Route path="/document-editor/:jobId" element={<DocumentEditor />} />
+            <Route path="/presentation-editor/:jobId" element={<PresentationEditor />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
