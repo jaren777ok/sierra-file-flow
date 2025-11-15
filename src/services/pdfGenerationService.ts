@@ -30,21 +30,23 @@ export class PdfGenerationService {
         const page = pages[i] as HTMLElement;
         
         const canvas = await html2canvas(page, {
-          scale: 4,
+          scale: 2,
           useCORS: true,
           allowTaint: true,
           logging: false,
           backgroundColor: '#ffffff',
           imageTimeout: 0,
           foreignObjectRendering: false,
-          width: page.offsetWidth,
-          height: page.offsetHeight,
-          windowWidth: page.scrollWidth,
-          windowHeight: page.scrollHeight,
+          width: 1545,
+          height: 2000,
+          windowWidth: 1545,
+          windowHeight: 2000,
           onclone: (clonedDoc) => {
             const clonedPage = clonedDoc.querySelector('.informe-page') as HTMLElement;
             if (clonedPage) {
-              clonedPage.style.backgroundSize = '210mm 297mm';
+              clonedPage.style.width = '1545px';
+              clonedPage.style.height = '2000px';
+              clonedPage.style.backgroundSize = '1545px 2000px';
               clonedPage.style.backgroundPosition = 'top left';
             }
           }

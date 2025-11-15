@@ -1,16 +1,16 @@
 /* Template Styles - Professional Dark Theme */
 
-/* A4 Portrait Page - Professional Light Theme */
+/* A4 Portrait Page - Professional Light Theme - FIXED DIMENSIONS */
 .informe-page {
-  width: 210mm;
-  height: 297mm;
-  min-width: 210mm;
-  min-height: 297mm;
-  max-width: 210mm;
-  max-height: 297mm;
+  width: 1545px;
+  height: 2000px;
+  min-width: 1545px;
+  min-height: 2000px;
+  max-width: 1545px;
+  max-height: 2000px;
   margin: 20px auto;
   background-color: #ffffff;
-  background-size: 210mm 297mm;
+  background-size: 1545px 2000px;
   background-position: top left;
   background-repeat: no-repeat;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
@@ -63,20 +63,23 @@
   outline-offset: -2px;
 }
 
-/* Content areas for each template - Professional spacing */
+/* Content areas for each template - Professional spacing - FIXED DIMENSIONS */
 .informe-content {
-  padding-top: 95mm;
-  padding-left: 20mm;
-  padding-right: 20mm;
-  padding-bottom: 25mm;
+  padding-top: 700px;
+  padding-left: 200px;
+  padding-right: 200px;
+  padding-bottom: 150px;
   height: 100%;
+  max-height: 2000px;
   font-family: 'Arial', 'Segoe UI', sans-serif;
-  font-size: 11pt;
+  font-size: 14px;
   line-height: 1.6;
   color: #1a1a1a;
   overflow: hidden;
   box-sizing: border-box;
   cursor: text;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
 
 .ppt-content {

@@ -10,6 +10,7 @@ import { useAutoSave } from '@/hooks/useAutoSave';
 import { useContentEditable } from '@/hooks/useContentEditable';
 import { RefreshCw } from 'lucide-react';
 import plantillaImage from '@/assets/plantilla_1.png';
+import { usePageOverflow } from '@/hooks/usePageOverflow';
 
 const DocumentEditor = () => {
   const { jobId } = useParams<{ jobId: string }>();
@@ -44,6 +45,16 @@ const DocumentEditor = () => {
 
   // Content editable hook
   const formatHandlers = useContentEditable(handleContentChange);
+
+  // Page overflow detection
+  const { registerPageRef } = usePageOverflow({
+    pages: editablePages,
+    onPagesChange: (newPages) => {
+      setEditablePages(newPages);
+      markAsChanged();
+    },
+    maxHeight: 1150, // 2000px - 700px (top) - 150px (bottom)
+  });
 
   const handleDownloadPdf = async () => {
     try {
@@ -124,13 +135,14 @@ const DocumentEditor = () => {
                   className="informe-page"
                   style={{
                     backgroundImage: `url(${plantillaImage})`,
-                    backgroundSize: '210mm 297mm',
+                    backgroundSize: '1545px 2000px',
                     backgroundPosition: 'top left',
                     backgroundRepeat: 'no-repeat',
                   }}
                   onClick={() => setCurrentPage(index)}
                 >
                   <div
+                    ref={(el) => registerPageRef(index, el)}
                     className="template-content informe-content"
                     contentEditable={true}
                     suppressContentEditableWarning={true}
