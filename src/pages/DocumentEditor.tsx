@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useDocumentEditor } from '@/hooks/useDocumentEditor';
 import { DocumentToolbar } from '@/components/editors/DocumentToolbar';
 import { PageThumbnails } from '@/components/editors/PageThumbnails';
+import { FormatToolbar } from '@/components/editors/FormatToolbar';
 import { PdfGenerationService } from '@/services/pdfGenerationService';
 import { useToast } from '@/hooks/use-toast';
+import { useAutoSave } from '@/hooks/useAutoSave';
+import { useContentEditable } from '@/hooks/useContentEditable';
 import { RefreshCw } from 'lucide-react';
 import plantillaImage from '@/assets/plantilla_1.png';
 
@@ -13,7 +16,34 @@ const DocumentEditor = () => {
   const { job, pages, loading } = useDocumentEditor(jobId || '', false);
   const [currentPage, setCurrentPage] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [editablePages, setEditablePages] = useState<string[]>([]);
   const { toast } = useToast();
+
+  // Initialize editable pages when pages load
+  React.useEffect(() => {
+    if (pages.length > 0 && editablePages.length === 0) {
+      setEditablePages(pages);
+    }
+  }, [pages]);
+
+  // Auto-save hook
+  const { isSaving, lastSaved, hasUnsavedChanges, saveNow, markAsChanged } = useAutoSave(
+    jobId || '',
+    editablePages
+  );
+
+  // Content change handler
+  const handleContentChange = useCallback((index: number, newContent: string) => {
+    setEditablePages(prev => {
+      const updated = [...prev];
+      updated[index] = newContent;
+      return updated;
+    });
+    markAsChanged();
+  }, [markAsChanged]);
+
+  // Content editable hook
+  const formatHandlers = useContentEditable(handleContentChange);
 
   const handleDownloadPdf = async () => {
     try {
@@ -62,17 +92,25 @@ const DocumentEditor = () => {
     );
   }
 
+  const pagesToRender = editablePages.length > 0 ? editablePages : pages;
+
   return (
     <div className="min-h-screen bg-background">
       <DocumentToolbar
         title={job.project_title}
         onDownloadPdf={handleDownloadPdf}
+        onSave={saveNow}
         isGenerating={isGenerating}
+        isSaving={isSaving}
+        lastSaved={lastSaved}
+        hasUnsavedChanges={hasUnsavedChanges}
       />
+      
+      <FormatToolbar onFormat={formatHandlers} />
       
       <div className="flex">
         <PageThumbnails
-          pages={pages}
+          pages={pagesToRender}
           currentPage={currentPage}
           onPageSelect={setCurrentPage}
         />
@@ -80,19 +118,23 @@ const DocumentEditor = () => {
         <div className="flex-1 overflow-auto">
           <div className="py-8 px-4" id="informe-container">
             <div className="max-w-[210mm] mx-auto space-y-8">
-              {pages.map((pageContent, index) => (
+              {pagesToRender.map((pageContent, index) => (
                 <div
                   key={index}
                   className="informe-page"
                   style={{
                     backgroundImage: `url(${plantillaImage})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
+                    backgroundSize: '210mm 297mm',
+                    backgroundPosition: 'top left',
                     backgroundRepeat: 'no-repeat',
                   }}
+                  onClick={() => setCurrentPage(index)}
                 >
                   <div
                     className="template-content informe-content"
+                    contentEditable={true}
+                    suppressContentEditableWarning={true}
+                    onInput={(e) => handleContentChange(index, e.currentTarget.innerHTML)}
                     dangerouslySetInnerHTML={{ __html: pageContent }}
                   />
                 </div>

@@ -30,15 +30,24 @@ export class PdfGenerationService {
         const page = pages[i] as HTMLElement;
         
         const canvas = await html2canvas(page, {
-          scale: 3, // Higher quality
+          scale: 4,
           useCORS: true,
-          allowTaint: false,
+          allowTaint: true,
           logging: false,
-          backgroundColor: '#ffffff', // White background
-          imageTimeout: 15000,
+          backgroundColor: '#ffffff',
+          imageTimeout: 0,
           foreignObjectRendering: false,
+          width: page.offsetWidth,
+          height: page.offsetHeight,
           windowWidth: page.scrollWidth,
           windowHeight: page.scrollHeight,
+          onclone: (clonedDoc) => {
+            const clonedPage = clonedDoc.querySelector('.informe-page') as HTMLElement;
+            if (clonedPage) {
+              clonedPage.style.backgroundSize = '210mm 297mm';
+              clonedPage.style.backgroundPosition = 'top left';
+            }
+          }
         });
 
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
@@ -86,13 +95,23 @@ export class PdfGenerationService {
         const slide = slides[i] as HTMLElement;
         
         const canvas = await html2canvas(slide, {
-          scale: 2,
+          scale: 3,
           useCORS: true,
           logging: false,
-          backgroundColor: '#2d2d2d', // Dark background
+          backgroundColor: '#2d2d2d',
+          imageTimeout: 0,
+          allowTaint: true,
+          width: slide.offsetWidth,
+          height: slide.offsetHeight,
           windowWidth: slide.scrollWidth,
           windowHeight: slide.scrollHeight,
-          allowTaint: true
+          onclone: (clonedDoc) => {
+            const clonedSlide = clonedDoc.querySelector('.ppt-slide') as HTMLElement;
+            if (clonedSlide) {
+              clonedSlide.style.backgroundSize = '297mm 210mm';
+              clonedSlide.style.backgroundPosition = 'top left';
+            }
+          }
         });
 
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
