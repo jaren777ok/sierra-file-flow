@@ -49,25 +49,36 @@ export const useRealTimePageOverflow = ({
     const element = pageRefs.current.get(pageIndex);
     if (!element) return;
     
-    // Medir altura REAL del contenido
-    const contentHeight = element.scrollHeight;
-    const paddingTop = 700; // según CSS
-    const paddingBottom = 150; // según CSS
-    const actualContentHeight = contentHeight - paddingTop - paddingBottom;
+    // MEDICIÓN CORRECTA: scrollHeight ya incluye padding, debemos restar
+    const scrollHeight = element.scrollHeight;
+    const computedStyle = window.getComputedStyle(element);
+    const paddingTop = parseFloat(computedStyle.paddingTop);
+    const paddingBottom = parseFloat(computedStyle.paddingBottom);
     
-    console.log(`📏 Page ${pageIndex}: ${actualContentHeight}px / ${maxContentHeight}px`);
+    // Altura real del contenido SIN padding
+    const actualContentHeight = scrollHeight - paddingTop - paddingBottom;
     
-    // Agregar clases visuales según porcentaje
+    console.log(`📏 Página ${pageIndex}:`);
+    console.log(`   - scrollHeight total: ${scrollHeight}px`);
+    console.log(`   - paddingTop: ${paddingTop}px`);
+    console.log(`   - paddingBottom: ${paddingBottom}px`);
+    console.log(`   - contenido real: ${actualContentHeight}px`);
+    console.log(`   - límite máximo: ${maxContentHeight}px`);
+    console.log(`   - porcentaje usado: ${(actualContentHeight / maxContentHeight * 100).toFixed(1)}%`);
+    
     const percentage = (actualContentHeight / maxContentHeight) * 100;
-    element.classList.remove('near-limit', 'at-limit');
-    if (percentage > 90) element.classList.add('near-limit');
-    if (percentage > 98) element.classList.add('at-limit');
     
-    // Si excede el 95% del límite, dividir
-    if (actualContentHeight > maxContentHeight * 0.95) {
+    // Clases visuales
+    element.classList.remove('near-limit', 'at-limit');
+    if (percentage > 85) element.classList.add('near-limit');
+    if (percentage > 95) element.classList.add('at-limit');
+    
+    // Solo dividir si REALMENTE excede el 98% (más conservador)
+    if (percentage > 98) {
+      console.log(`⚠️ EXCEDIÓ LÍMITE - Dividiendo página ${pageIndex}`);
       setIsProcessing(true);
       splitPage(pageIndex);
-      setTimeout(() => setIsProcessing(false), 100);
+      setTimeout(() => setIsProcessing(false), 200);
     }
   }, [maxContentHeight, isProcessing]);
 
@@ -78,47 +89,76 @@ export const useRealTimePageOverflow = ({
     const children = Array.from(element.children);
     const newPages = [...pages];
     
-    // Algoritmo de división inteligente
-    let currentHeight = 0;
+    console.log(`✂️ Intentando dividir página ${pageIndex} con ${children.length} elementos`);
+    
+    // Crear un div temporal para medir con precisión
+    const tempDiv = document.createElement('div');
+    tempDiv.style.width = '945px'; // ancho real editable (1545 - 300 - 300)
+    tempDiv.style.visibility = 'hidden';
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.fontFamily = 'Arial, sans-serif';
+    tempDiv.style.fontSize = '12pt';
+    tempDiv.style.lineHeight = '1.8';
+    document.body.appendChild(tempDiv);
+    
+    let accumulatedHeight = 0;
     let splitIndex = children.length;
     
+    // Encontrar punto de división óptimo
     for (let i = 0; i < children.length; i++) {
       const child = children[i] as HTMLElement;
-      const childHeight = child.offsetHeight;
       
-      // Si agregar este elemento excede el límite
-      if (currentHeight + childHeight > maxContentHeight) {
+      // Clonar y medir altura real
+      const clone = child.cloneNode(true) as HTMLElement;
+      tempDiv.appendChild(clone);
+      const childHeight = clone.offsetHeight;
+      
+      console.log(`   Elemento ${i}: ${child.tagName} - ${childHeight}px`);
+      
+      // Si agregar este elemento excede el 95% del límite
+      if (accumulatedHeight + childHeight > maxContentHeight * 0.95) {
         splitIndex = i;
+        console.log(`   ⚠️ Punto de división encontrado en elemento ${i}`);
         break;
       }
       
-      currentHeight += childHeight;
+      accumulatedHeight += childHeight;
     }
     
-    // No dividir si solo hay 1 elemento (evitar loop infinito)
-    if (splitIndex <= 0) splitIndex = 1;
+    // Cleanup
+    document.body.removeChild(tempDiv);
     
-    // Contenido que se queda en la página actual
-    const keepContent = children.slice(0, splitIndex)
-      .map(child => child.outerHTML)
-      .join('');
+    // Validaciones
+    if (splitIndex <= 0) {
+      console.log(`   ⚠️ No se puede dividir - solo 1 elemento`);
+      return;
+    }
     
-    // Contenido que se mueve a la siguiente página
-    const moveContent = children.slice(splitIndex)
-      .map(child => child.outerHTML)
-      .join('');
+    if (splitIndex >= children.length) {
+      console.log(`   ✅ No es necesario dividir - todo cabe`);
+      return;
+    }
     
-    // Actualizar página actual
+    // Contenido que se queda
+    const keepElements = children.slice(0, splitIndex);
+    const keepContent = keepElements.map(child => child.outerHTML).join('');
+    
+    // Contenido que se mueve
+    const moveElements = children.slice(splitIndex);
+    const moveContent = moveElements.map(child => child.outerHTML).join('');
+    
+    console.log(`   ✂️ Manteniendo ${splitIndex} elementos en página actual`);
+    console.log(`   ➡️ Moviendo ${moveElements.length} elementos a siguiente página`);
+    
+    // Actualizar páginas
     newPages[pageIndex] = keepContent;
     
-    // Crear nueva página o agregar a la siguiente
     if (pageIndex + 1 < newPages.length) {
       newPages[pageIndex + 1] = moveContent + newPages[pageIndex + 1];
     } else {
       newPages.push(moveContent);
     }
     
-    console.log(`✂️ Split page ${pageIndex}: ${splitIndex}/${children.length} elements`);
     onPagesChange(newPages);
   }, [pages, maxContentHeight, onPagesChange]);
 

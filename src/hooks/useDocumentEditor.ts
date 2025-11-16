@@ -44,7 +44,8 @@ export const useDocumentEditor = (jobId: string, isPresentation: boolean = false
         // Parse and paginate HTML
         if ((data as any).result_html) {
           const cleanedHtml = HtmlToDocumentService.cleanHtml((data as any).result_html);
-          const styledHtml = HtmlToDocumentService.addInlineStyles(cleanedHtml, isPresentation);
+          const formattedHtml = HtmlToDocumentService.applyDefaultFormatting(cleanedHtml);
+          const styledHtml = HtmlToDocumentService.addInlineStyles(formattedHtml, isPresentation);
           
           const paginatedContent = isPresentation 
             ? HtmlToDocumentService.splitIntoSlides(styledHtml)

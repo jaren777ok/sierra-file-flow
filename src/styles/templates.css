@@ -76,10 +76,10 @@
 
 /* Content areas for each template - Professional spacing - FIXED DIMENSIONS */
 .informe-content {
-  /* ÁREA EDITABLE EXACTA basada en tu plantilla */
+  /* MÁRGENES MÁS AMPLIOS PARA TEXTO CENTRADO */
   padding-top: 700px;    /* Logo superior */
-  padding-left: 200px;   /* Margen izquierdo */
-  padding-right: 200px;  /* Margen derecho */
+  padding-left: 300px;   /* Margen izquierdo AMPLIADO */
+  padding-right: 300px;  /* Margen derecho AMPLIADO */
   padding-bottom: 150px; /* Footer inferior */
   
   /* Dimensiones del área editable */
@@ -87,19 +87,19 @@
   height: 2000px !important;
   
   /* ÁREA REAL PARA ESCRIBIR: */
-  /* Ancho: 1545 - 200 - 200 = 1145px */
+  /* Ancho: 1545 - 300 - 300 = 945px */
   /* Alto: 2000 - 700 - 150 = 1150px */
   
   /* Prevenir overflow visual */
   overflow: hidden !important;
   box-sizing: border-box !important;
   
-  /* Tipografía centrada */
-  text-align: justify;
-  font-family: 'Arial', 'Segoe UI', sans-serif;
-  font-size: 14px;
-  line-height: 1.6;
-  color: #1a1a1a;
+  /* ESTILOS PREDETERMINADOS PROFESIONALES */
+  font-family: 'Arial', sans-serif;
+  font-size: 12pt;           /* Tamaño profesional */
+  line-height: 1.8;          /* Mejor legibilidad */
+  color: #000000;
+  text-align: justify;       /* Justificado profesional */
   
   /* Prevenir expansión */
   max-width: 1545px !important;
@@ -113,13 +113,86 @@
   cursor: text;
 }
 
+/* ESTILOS PREDETERMINADOS PARA ELEMENTOS HTML */
+
+.informe-content h1 {
+  font-size: 18pt;
+  font-weight: bold;
+  color: #000000;
+  margin-top: 24px;
+  margin-bottom: 16px;
+  text-align: left;
+  line-height: 1.4;
+}
+
+.informe-content h2 {
+  font-size: 14pt;
+  font-weight: bold;
+  color: #000000;
+  margin-top: 20px;
+  margin-bottom: 12px;
+  text-align: left;
+  line-height: 1.4;
+}
+
+.informe-content h3 {
+  font-size: 12pt;
+  font-weight: bold;
+  color: #000000;
+  margin-top: 16px;
+  margin-bottom: 10px;
+  text-align: left;
+  line-height: 1.4;
+}
+
+.informe-content p {
+  margin-bottom: 12px;
+  text-indent: 0;
+}
+
+.informe-content ul,
+.informe-content ol {
+  margin-left: 30px;
+  margin-bottom: 12px;
+}
+
+.informe-content li {
+  margin-bottom: 6px;
+}
+
+.informe-content strong {
+  font-weight: bold;
+}
+
+.informe-content em {
+  font-style: italic;
+}
+
+.informe-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 16px 0;
+}
+
+.informe-content td,
+.informe-content th {
+  border: 1px solid #000;
+  padding: 8px;
+  font-size: 11pt;
+}
+
+.informe-content th {
+  background-color: #f0f0f0;
+  font-weight: bold;
+}
+
 /* Indicador de capacidad - línea visual del límite */
 .informe-content::after {
   content: '';
   position: absolute;
   bottom: 160px; /* Justo antes del padding-bottom */
-  left: 200px;
-  right: 200px;
+  left: 300px;   /* Ajustado a nuevos márgenes */
+  right: 300px;  /* Ajustado a nuevos márgenes */
   height: 2px;
   background: rgba(255, 0, 0, 0.1);
   pointer-events: none;
