@@ -66,6 +66,42 @@ export class HtmlToDocumentService {
   }
 
   /**
+   * Apply default professional formatting to HTML content
+   */
+  static applyDefaultFormatting(html: string): string {
+    try {
+      if (!html) return '';
+      
+      const div = document.createElement('div');
+      div.innerHTML = html;
+      
+      // Envolver texto suelto en párrafos
+      const textNodes = Array.from(div.childNodes).filter(
+        node => node.nodeType === Node.TEXT_NODE && node.textContent?.trim()
+      );
+      
+      textNodes.forEach(node => {
+        const p = document.createElement('p');
+        p.textContent = node.textContent || '';
+        node.parentNode?.replaceChild(p, node);
+      });
+      
+      // Asegurar que todos los párrafos tengan margen
+      const paragraphs = div.querySelectorAll('p');
+      paragraphs.forEach(p => {
+        if (!p.style.marginBottom) {
+          p.style.marginBottom = '12px';
+        }
+      });
+      
+      return div.innerHTML;
+    } catch (error) {
+      console.error('Error applying default formatting:', error);
+      return html;
+    }
+  }
+
+  /**
    * Add inline styles to HTML for proper rendering
    */
   static addInlineStyles(html: string, isDark: boolean = false): string {

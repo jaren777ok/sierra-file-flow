@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { useDocumentEditor } from '@/hooks/useDocumentEditor';
 import { DocumentToolbar } from '@/components/editors/DocumentToolbar';
-import { PageThumbnails } from '@/components/editors/PageThumbnails';
+
 import { FormatToolbar } from '@/components/editors/FormatToolbar';
 import { PdfGenerationService } from '@/services/pdfGenerationService';
 import { useToast } from '@/hooks/use-toast';
@@ -156,70 +156,65 @@ const DocumentEditor = () => {
   const pagesToRender = editablePages.length > 0 ? editablePages : pages;
 
   return (
-    <div className="min-h-screen bg-background">
-      <DocumentToolbar
-        title={job.project_title}
-        onDownloadPdf={handleDownloadPdf}
-        onSave={saveNow}
-        isGenerating={isGenerating}
-        isSaving={isSaving}
-        lastSaved={lastSaved}
-        hasUnsavedChanges={hasUnsavedChanges}
-      />
-      
-      <FormatToolbar onFormat={formatHandlers} />
-      
-      <div className="flex">
-        <PageThumbnails
-          pages={pagesToRender}
-          currentPage={currentPage}
-          onPageSelect={setCurrentPage}
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* TOOLBAR FIJO - SIEMPRE VISIBLE */}
+      <div className="sticky top-0 z-50 bg-background border-b">
+        <DocumentToolbar
+          title={job.project_title}
+          onDownloadPdf={handleDownloadPdf}
+          onSave={saveNow}
+          isGenerating={isGenerating}
+          isSaving={isSaving}
+          lastSaved={lastSaved}
+          hasUnsavedChanges={hasUnsavedChanges}
         />
-        
-        <div className="flex-1 overflow-auto">
-          <div 
-            className="py-8 px-4" 
-            id="informe-container"
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '40px',
-              backgroundColor: '#f5f5f5',
-              minHeight: '100vh',
-            }}
-          >
-            {pagesToRender.map((pageContent, index) => (
+        <FormatToolbar onFormat={formatHandlers} />
+      </div>
+      
+      {/* Main Editor - Sin thumbnails */}
+      <div className="flex-1 overflow-auto">
+        <div 
+          className="py-8 px-4" 
+          id="informe-container"
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: '40px',
+            backgroundColor: '#f5f5f5',
+            minHeight: '100vh',
+          }}
+        >
+          {pagesToRender.map((pageContent, index) => (
+            <div
+              key={index}
+              className="informe-page"
+              style={{
+                backgroundImage: `url(${plantillaImage})`,
+                backgroundSize: '1545px 2000px',
+                backgroundPosition: '0 0',
+                backgroundRepeat: 'no-repeat',
+                width: '1545px',
+                height: '2000px',
+                flexShrink: 0,
+              }}
+              onClick={() => setCurrentPage(index)}
+            >
               <div
-                key={index}
-                className="informe-page"
+                ref={(el) => registerPageRef(index, el)}
+                className="template-content informe-content"
+                contentEditable={true}
+                suppressContentEditableWarning={true}
+                onInput={(e) => handleContentChange(index, e.currentTarget.innerHTML)}
+                onBeforeInput={(e) => handleBeforeInput(e, index)}
+                dangerouslySetInnerHTML={{ __html: pageContent }}
                 style={{
-                  backgroundImage: `url(${plantillaImage})`,
-                  backgroundSize: '1545px 2000px',
-                  backgroundPosition: '0 0',
-                  backgroundRepeat: 'no-repeat',
                   width: '1545px',
                   height: '2000px',
-                  flexShrink: 0,
                 }}
-                onClick={() => setCurrentPage(index)}
-              >
-                <div
-                  ref={(el) => registerPageRef(index, el)}
-                  className="template-content informe-content"
-                  contentEditable={true}
-                  suppressContentEditableWarning={true}
-                  onInput={(e) => handleContentChange(index, e.currentTarget.innerHTML)}
-                  onBeforeInput={(e) => handleBeforeInput(e, index)}
-                  dangerouslySetInnerHTML={{ __html: pageContent }}
-                  style={{
-                    width: '1545px',
-                    height: '2000px',
-                  }}
-                />
-              </div>
-            ))}
-          </div>
+              />
+            </div>
+          ))}
         </div>
       </div>
     </div>
