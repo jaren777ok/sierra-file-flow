@@ -43,13 +43,18 @@ export const useDocumentEditor = (jobId: string, isPresentation: boolean = false
 
         // Parse and paginate HTML
         if ((data as any).result_html) {
-          const cleanedHtml = HtmlToDocumentService.cleanHtml((data as any).result_html);
-          const formattedHtml = HtmlToDocumentService.applyDefaultFormatting(cleanedHtml);
-          const styledHtml = HtmlToDocumentService.addInlineStyles(formattedHtml, isPresentation);
+          const rawHtml = (data as any).result_html;
           
+          // 1. Limpiar (remover DOCTYPE, extraer body)
+          const cleanedHtml = HtmlToDocumentService.cleanHtml(rawHtml);
+          
+          // 2. Aplicar formateo básico (solo para loose text nodes)
+          const formattedHtml = HtmlToDocumentService.applyDefaultFormatting(cleanedHtml);
+          
+          // 3. Dividir por PAGE_BREAK (respetando estructura original)
           const paginatedContent = isPresentation 
-            ? HtmlToDocumentService.splitIntoSlides(styledHtml)
-            : HtmlToDocumentService.splitIntoPages(styledHtml);
+            ? HtmlToDocumentService.splitIntoSlides(formattedHtml)
+            : HtmlToDocumentService.splitIntoPages(formattedHtml);
           
           setPages(paginatedContent);
         } else {

@@ -96,8 +96,8 @@
   
   /* ESTILOS PREDETERMINADOS PROFESIONALES */
   font-family: 'Arial', sans-serif;
-  font-size: 12pt;           /* Tamaño profesional */
-  line-height: 1.8;          /* Mejor legibilidad */
+  font-size: 11pt;           /* Tamaño profesional */
+  line-height: 1.6;          /* Mejor legibilidad */
   color: #000000;
   text-align: justify;       /* Justificado profesional */
   
@@ -146,18 +146,21 @@
 }
 
 .informe-content p {
-  margin-bottom: 12px;
-  text-indent: 0;
+  margin: 12px 0;
+  font-size: 11pt;
+  line-height: 1.6;
 }
 
 .informe-content ul,
 .informe-content ol {
-  margin-left: 30px;
+  margin-left: 40px;
   margin-bottom: 12px;
+  padding-left: 0;
 }
 
 .informe-content li {
-  margin-bottom: 6px;
+  margin-bottom: 8px;
+  line-height: 1.6;
 }
 
 .informe-content strong {
@@ -168,21 +171,28 @@
   font-style: italic;
 }
 
+.informe-content hr {
+  border: none;
+  border-top: 1px solid #000;
+  margin: 12px 0;
+}
+
 .informe-content table {
   width: 100%;
   border-collapse: collapse;
   margin: 16px 0;
+  font-size: 10pt;
 }
 
 .informe-content td,
 .informe-content th {
-  border: 1px solid #000;
+  border: 1px solid #333;
   padding: 8px;
-  font-size: 11pt;
+  text-align: left;
 }
 
 .informe-content th {
-  background-color: #f0f0f0;
+  background-color: rgba(0, 0, 0, 0.05);
   font-weight: bold;
 }
 
