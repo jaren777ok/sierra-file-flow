@@ -1,8 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import { useParams } from 'react-router-dom';
 import { useDocumentEditor } from '@/hooks/useDocumentEditor';
 import { DocumentToolbar } from '@/components/editors/DocumentToolbar';
-
 import { FormatToolbar } from '@/components/editors/FormatToolbar';
 import { PdfGenerationService } from '@/services/pdfGenerationService';
 import { useToast } from '@/hooks/use-toast';
@@ -10,7 +9,6 @@ import { useAutoSave } from '@/hooks/useAutoSave';
 import { useContentEditable } from '@/hooks/useContentEditable';
 import { RefreshCw } from 'lucide-react';
 import plantillaImage from '@/assets/plantilla_1.png';
-import { useRealTimePageOverflow } from '@/hooks/useRealTimePageOverflow';
 
 const DocumentEditor = () => {
   const { jobId } = useParams<{ jobId: string }>();
@@ -46,15 +44,17 @@ const DocumentEditor = () => {
   // Content editable hook
   const formatHandlers = useContentEditable(handleContentChange);
 
-  // Page overflow detection en tiempo real
-  const { registerPageRef, pageRefs } = useRealTimePageOverflow({
-    pages: editablePages,
-    onPagesChange: (newPages) => {
-      setEditablePages(newPages);
-      markAsChanged();
-    },
-    maxContentHeight: 1150, // 2000px - 700px (top) - 150px (bottom)
-  });
+  // DESACTIVADO: useRealTimePageOverflow
+  // El contenido viene pre-paginado con PAGE_BREAK del backend
+  const pageRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+
+  const registerPageRef = useCallback((index: number, element: HTMLDivElement | null) => {
+    if (element) {
+      pageRefs.current.set(index, element);
+    } else {
+      pageRefs.current.delete(index);
+    }
+  }, []);
 
   // Prevención proactiva de escritura fuera de límites
   const handleBeforeInput = useCallback((e: React.FormEvent<HTMLDivElement>, pageIndex: number) => {

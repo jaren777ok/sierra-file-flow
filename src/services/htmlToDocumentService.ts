@@ -40,7 +40,11 @@ export class HtmlToDocumentService {
       const doc = parser.parseFromString(html, 'text/html');
       
       // Get body content only - this preserves all HTML structure
-      const bodyContent = doc.body.innerHTML || html;
+      let bodyContent = doc.body.innerHTML || html;
+      
+      // Remover solo el tag <style> inicial para evitar duplicación
+      // Los estilos inline en elementos se preservan automáticamente
+      bodyContent = bodyContent.replace(/<style>[\s\S]*?<\/style>/gi, '');
       
       console.log('✅ HTML cleaned, new length:', bodyContent.length);
       
@@ -113,7 +117,7 @@ export class HtmlToDocumentService {
         h1, h2, h3, h4, h5, h6 { color: #ffffff; font-weight: bold; margin: 16px 0 8px 0; }
         h1 { font-size: 24pt; }
         h2 { font-size: 20pt; }
-        h3 { font-size: 16pt; text-transform: uppercase; }
+        h3 { font-size: 12pt; }
         p { margin: 12px 0; font-size: 11pt; }
         table { width: 100%; border-collapse: collapse; margin: 12px 0; }
         th, td { border: 1px solid #555; padding: 8px; text-align: left; font-size: 10pt; }
@@ -152,6 +156,20 @@ export class HtmlToDocumentService {
    */
   static splitIntoPages(content: string): string[] {
     if (!content) return ['<p>No hay contenido para mostrar.</p>'];
+    
+    // PRIMERO: Buscar marcadores de page break
+    if (content.includes('<!-- PAGE_BREAK -->')) {
+      console.log('📄 Usando marcadores PAGE_BREAK existentes');
+      const pages = content
+        .split('<!-- PAGE_BREAK -->')
+        .map(page => page.trim())
+        .filter(page => page.length > 0);
+      
+      console.log(`✅ Dividido en ${pages.length} páginas usando PAGE_BREAK`);
+      return pages;
+    }
+    
+    console.log('📄 Starting pagination process (no PAGE_BREAK found)');
     
     const div = document.createElement('div');
     div.innerHTML = content;
