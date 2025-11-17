@@ -45,16 +45,25 @@ export const useDocumentEditor = (jobId: string, isPresentation: boolean = false
         if ((data as any).result_html) {
           const rawHtml = (data as any).result_html;
           
+          console.log('🔄 Processing HTML flow:');
+          
           // 1. Limpiar (remover DOCTYPE, extraer body)
           const cleanedHtml = HtmlToDocumentService.cleanHtml(rawHtml);
+          console.log('   ✓ Step 1: HTML cleaned');
           
-          // 2. Aplicar formateo básico (solo para loose text nodes)
-          const formattedHtml = HtmlToDocumentService.applyDefaultFormatting(cleanedHtml);
+          // 2. REMOVER TAGS <font> que arruinan el sizing
+          const noFontHtml = HtmlToDocumentService.removeFontTags(cleanedHtml);
+          console.log('   ✓ Step 2: Font tags removed');
           
-          // 3. Dividir por PAGE_BREAK (respetando estructura original)
+          // 3. Aplicar formateo básico (solo para loose text nodes)
+          const formattedHtml = HtmlToDocumentService.applyDefaultFormatting(noFontHtml);
+          console.log('   ✓ Step 3: Default formatting applied');
+          
+          // 4. Dividir por PAGE_BREAK (respetando estructura original)
           const paginatedContent = isPresentation 
             ? HtmlToDocumentService.splitIntoSlides(formattedHtml)
             : HtmlToDocumentService.splitIntoPages(formattedHtml);
+          console.log('   ✓ Step 4: Content paginated');
           
           setPages(paginatedContent);
         } else {

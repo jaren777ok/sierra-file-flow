@@ -27,6 +27,24 @@ export class HtmlToDocumentService {
   }
 
   /**
+   * Remove all <font> tags but preserve their content
+   * This allows CSS to control all font sizing
+   */
+  static removeFontTags(html: string): string {
+    if (!html) return '';
+    
+    console.log('🧹 Removing <font> tags that break sizing...');
+    
+    // Remove all <font> opening tags with any attributes
+    let cleaned = html.replace(/<font[^>]*>/gi, '');
+    // Remove all closing </font> tags
+    cleaned = cleaned.replace(/<\/font>/gi, '');
+    
+    console.log('✅ Font tags removed successfully');
+    return cleaned;
+  }
+
+  /**
    * Clean HTML by removing DOCTYPE, html, head tags
    * PRESERVE all body content with formatting
    */
