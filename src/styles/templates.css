@@ -78,8 +78,8 @@
 .informe-content {
   /* MÁRGENES MÁS AMPLIOS PARA TEXTO CENTRADO */
   padding-top: 700px;    /* Logo superior */
-  padding-left: 300px;   /* Margen izquierdo AMPLIADO */
-  padding-right: 300px;  /* Margen derecho AMPLIADO */
+  padding-left: 350px;   /* Margen izquierdo AMPLIADO */
+  padding-right: 350px;  /* Margen derecho AMPLIADO */
   padding-bottom: 150px; /* Footer inferior */
   
   /* Dimensiones del área editable */
@@ -87,7 +87,7 @@
   height: 2000px !important;
   
   /* ÁREA REAL PARA ESCRIBIR: */
-  /* Ancho: 1545 - 300 - 300 = 945px */
+  /* Ancho: 1545 - 350 - 350 = 845px */
   /* Alto: 2000 - 700 - 150 = 1150px */
   
   /* Prevenir overflow visual */
@@ -96,8 +96,8 @@
   
   /* ESTILOS PREDETERMINADOS PROFESIONALES */
   font-family: 'Arial', sans-serif;
-  font-size: 11pt;           /* Tamaño profesional */
-  line-height: 1.6;          /* Mejor legibilidad */
+  font-size: 11pt !important;           /* Tamaño profesional */
+  line-height: 1.6 !important;          /* Mejor legibilidad */
   color: #000000;
   text-align: justify;       /* Justificado profesional */
   
@@ -115,9 +115,14 @@
 
 /* ESTILOS PREDETERMINADOS PARA ELEMENTOS HTML */
 
+/* Resetear cualquier tamaño inline heredado */
+.informe-content * {
+  font-size: inherit !important;
+}
+
 .informe-content h1 {
-  font-size: 18pt;
-  font-weight: bold;
+  font-size: 18pt !important;
+  font-weight: bold !important;
   color: #000000;
   margin-top: 24px;
   margin-bottom: 16px;
@@ -126,8 +131,8 @@
 }
 
 .informe-content h2 {
-  font-size: 14pt;
-  font-weight: bold;
+  font-size: 14pt !important;
+  font-weight: bold !important;
   color: #000000;
   margin-top: 20px;
   margin-bottom: 12px;
@@ -136,8 +141,8 @@
 }
 
 .informe-content h3 {
-  font-size: 12pt;
-  font-weight: bold;
+  font-size: 12pt !important;
+  font-weight: bold !important;
   color: #000000;
   margin-top: 16px;
   margin-bottom: 10px;
@@ -147,7 +152,7 @@
 
 .informe-content p {
   margin: 12px 0;
-  font-size: 11pt;
+  font-size: 11pt !important;
   line-height: 1.6;
 }
 
@@ -156,19 +161,23 @@
   margin-left: 40px;
   margin-bottom: 12px;
   padding-left: 0;
+  font-size: 11pt !important;
 }
 
 .informe-content li {
   margin-bottom: 8px;
   line-height: 1.6;
+  font-size: 11pt !important;
 }
 
 .informe-content strong {
   font-weight: bold;
+  font-size: inherit !important;
 }
 
 .informe-content em {
   font-style: italic;
+  font-size: inherit !important;
 }
 
 .informe-content hr {
@@ -181,7 +190,7 @@
   width: 100%;
   border-collapse: collapse;
   margin: 16px 0;
-  font-size: 10pt;
+  font-size: 10pt !important;
 }
 
 .informe-content td,
@@ -189,6 +198,7 @@
   border: 1px solid #333;
   padding: 8px;
   text-align: left;
+  font-size: 10pt !important;
 }
 
 .informe-content th {
@@ -201,8 +211,8 @@
   content: '';
   position: absolute;
   bottom: 160px; /* Justo antes del padding-bottom */
-  left: 300px;   /* Ajustado a nuevos márgenes */
-  right: 300px;  /* Ajustado a nuevos márgenes */
+  left: 350px;   /* Ajustado a nuevos márgenes */
+  right: 350px;  /* Ajustado a nuevos márgenes */
   height: 2px;
   background: rgba(255, 0, 0, 0.1);
   pointer-events: none;
