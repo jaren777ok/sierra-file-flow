@@ -21,6 +21,16 @@ export const DocumentRuler: React.FC<DocumentRulerProps> = ({
 
   const effectiveWidth = pageWidth - leftMargin - rightMargin;
 
+  // Debug log para verificar renderizado
+  useEffect(() => {
+    console.log('🎨 DocumentRuler rendered:', {
+      pageWidth,
+      leftMargin,
+      rightMargin,
+      effectiveWidth
+    });
+  }, [pageWidth, leftMargin, rightMargin, effectiveWidth]);
+
   // Generar escala en centímetros (0-21cm para A4 portrait)
   const cmScale = Array.from({ length: 22 }, (_, i) => i);
   
@@ -84,7 +94,29 @@ export const DocumentRuler: React.FC<DocumentRulerProps> = ({
   }, [isDraggingLeft, isDraggingRight, handleMouseMove, handleMouseUp]);
 
   return (
-    <div className="document-ruler-container" style={{ width: pageWidth, margin: '0 auto' }}>
+    <div 
+      className="document-ruler-container" 
+      style={{ 
+        width: pageWidth, 
+        margin: '0 auto',
+        backgroundColor: '#f5f5f5',
+        minHeight: '80px'
+      }}
+    >
+      {/* Banner de debug temporal */}
+      <div style={{
+        textAlign: 'center',
+        padding: '4px',
+        background: 'linear-gradient(90deg, #3DD6C4, #205059)',
+        color: 'white',
+        fontSize: '11px',
+        fontWeight: 'bold',
+        borderRadius: '4px 4px 0 0',
+        marginBottom: '8px'
+      }}>
+        📐 REGLA DE MÁRGENES - Arrastra los triángulos verdes ▼
+      </div>
+      
       <div ref={rulerRef} className="document-ruler" style={{ width: pageWidth }}>
         {/* Escala superior en cm */}
         <div className="ruler-scale">
