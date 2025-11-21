@@ -1,8 +1,9 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { useDocumentEditor } from '@/hooks/useDocumentEditor';
 import { DocumentToolbar } from '@/components/editors/DocumentToolbar';
 import { FormatToolbar } from '@/components/editors/FormatToolbar';
+import { DocumentRuler } from '@/components/editors/DocumentRuler';
 import { PdfGenerationService } from '@/services/pdfGenerationService';
 import { useToast } from '@/hooks/use-toast';
 import { useAutoSave } from '@/hooks/useAutoSave';
@@ -10,12 +11,17 @@ import { useContentEditable } from '@/hooks/useContentEditable';
 import { RefreshCw } from 'lucide-react';
 import plantillaImage from '@/assets/plantilla_1.png';
 
+const PAGE_WIDTH = 1545;
+
 const DocumentEditor = () => {
   const { jobId } = useParams<{ jobId: string }>();
   const { job, pages, loading } = useDocumentEditor(jobId || '', false);
   const [currentPage, setCurrentPage] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [editablePages, setEditablePages] = useState<string[]>([]);
+  const [leftMargin, setLeftMargin] = useState(350);
+  const [rightMargin, setRightMargin] = useState(350);
+  const [effectiveWidth, setEffectiveWidth] = useState(845);
   const { toast } = useToast();
 
   // Initialize editable pages when pages load
@@ -25,11 +31,27 @@ const DocumentEditor = () => {
     }
   }, [pages]);
 
+  // Calculate effective width when margins change
+  useEffect(() => {
+    setEffectiveWidth(PAGE_WIDTH - leftMargin - rightMargin);
+  }, [leftMargin, rightMargin]);
+
   // Auto-save hook
   const { isSaving, lastSaved, hasUnsavedChanges, saveNow, markAsChanged } = useAutoSave(
     jobId || '',
     editablePages
   );
+
+  // Handle margin changes
+  const handleLeftMarginChange = useCallback((margin: number) => {
+    setLeftMargin(margin);
+    markAsChanged();
+  }, [markAsChanged]);
+
+  const handleRightMarginChange = useCallback((margin: number) => {
+    setRightMargin(margin);
+    markAsChanged();
+  }, [markAsChanged]);
 
   // Content change handler
   const handleContentChange = useCallback((index: number, newContent: string) => {
@@ -173,6 +195,17 @@ const DocumentEditor = () => {
       
       {/* Main Editor - Sin thumbnails */}
       <div className="flex-1 overflow-auto">
+        {/* Regla con marcadores arrastrables */}
+        <div className="sticky top-[140px] z-40 bg-[#f5f5f5] py-2">
+          <DocumentRuler
+            pageWidth={PAGE_WIDTH}
+            leftMargin={leftMargin}
+            rightMargin={rightMargin}
+            onLeftMarginChange={handleLeftMarginChange}
+            onRightMarginChange={handleRightMarginChange}
+          />
+        </div>
+
         <div 
           className="py-8 px-4" 
           id="informe-container"
@@ -211,6 +244,8 @@ const DocumentEditor = () => {
                 style={{
                   width: '1545px',
                   height: '2000px',
+                  paddingLeft: `${leftMargin}px`,
+                  paddingRight: `${rightMargin}px`,
                 }}
               />
             </div>
