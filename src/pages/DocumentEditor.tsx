@@ -179,8 +179,8 @@ const DocumentEditor = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
-      {/* TOOLBAR FIJO - SIEMPRE VISIBLE */}
-      <div className="sticky top-0 z-50 bg-background border-b">
+      {/* Toolbar superior fijo */}
+      <div className="sticky top-0 z-50 bg-background border-b shadow-md">
         <DocumentToolbar
           title={job.project_title}
           onDownloadPdf={handleDownloadPdf}
@@ -192,20 +192,20 @@ const DocumentEditor = () => {
         />
         <FormatToolbar onFormat={formatHandlers} />
       </div>
-      
-      {/* Main Editor - Sin thumbnails */}
-      <div className="flex-1 overflow-auto">
-        {/* Regla con marcadores arrastrables */}
-        <div className="sticky top-[140px] z-40 bg-[#f5f5f5] py-2">
-          <DocumentRuler
-            pageWidth={PAGE_WIDTH}
-            leftMargin={leftMargin}
-            rightMargin={rightMargin}
-            onLeftMarginChange={handleLeftMarginChange}
-            onRightMarginChange={handleRightMarginChange}
-          />
-        </div>
 
+      {/* Regla con marcadores arrastrables - STICKY INDEPENDIENTE */}
+      <div className="sticky top-[120px] z-[45] bg-[#f5f5f5] border-b-2 border-gray-300 shadow-md">
+        <DocumentRuler
+          pageWidth={PAGE_WIDTH}
+          leftMargin={leftMargin}
+          rightMargin={rightMargin}
+          onLeftMarginChange={handleLeftMarginChange}
+          onRightMarginChange={handleRightMarginChange}
+        />
+      </div>
+
+      {/* Contenedor principal scrollable - SIN overflow-auto que rompe sticky */}
+      <div className="flex-1 bg-[#f5f5f5]">
         <div 
           className="py-8 px-4" 
           id="informe-container"
