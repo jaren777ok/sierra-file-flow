@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { useSavedFiles } from '@/hooks/useSavedFiles';
-import { FileText, Search, Calendar, RefreshCw, ArrowLeft, FolderOpen, Sparkles, FileDown, Presentation } from 'lucide-react';
+import { FileText, Search, Calendar, RefreshCw, ArrowLeft, FolderOpen, Sparkles, FileEdit, Presentation } from 'lucide-react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
@@ -175,12 +175,12 @@ const SavedFiles = () => {
                     {/* Action Buttons */}
                     <div className="space-y-3">
                       <Button
-                        onClick={() => navigate(`/document-editor/${file.id}`)}
+                        onClick={() => navigate(`/simple-word/${file.id}`)}
                         size="lg"
                         className="w-full sierra-teal-gradient text-white border-0 shadow-lg hover:shadow-xl hover:shadow-sierra-teal/30 transition-all duration-300 group/btn"
                       >
-                        <FileDown className="h-5 w-5 mr-2 transition-transform group-hover/btn:scale-110" />
-                        ABRIR INFORME
+                        <FileEdit className="h-5 w-5 mr-2 transition-transform group-hover/btn:scale-110" />
+                        ABRIR EN WORD
                       </Button>
                       
                       <Button
