@@ -33,21 +33,21 @@ export const MarginGuidesHorizontal = ({
   if (!headerHeight || headerHeight <= 0) return null;
   if (topMargin < 0 || bottomMargin < 0) return null;
 
+  // Solo mostrar líneas cuando se está arrastrando
+  if (!isDragging) return null;
+
   // Calculate line positions
   const topLinePosition = headerHeight + topMargin;
   const bottomLinePosition = headerHeight + pageHeight - bottomMargin;
 
   const lineStyle = {
     width: '100vw',
-    height: isDragging ? '3px' : '3px',
-    background: isDragging ? '#3DD6C4' : '#666666',
-    opacity: isDragging ? 1 : 0.9,
-    zIndex: 35,
+    height: '1px',
+    background: '#d0d0d0',
+    opacity: 0.5,
+    zIndex: 10,
     pointerEvents: 'none' as const,
-    boxShadow: isDragging 
-      ? '0 0 16px rgba(61, 214, 196, 1)'
-      : '0 0 6px rgba(0, 0, 0, 0.4)',
-    transition: 'all 0.15s ease',
+    transition: 'none',
   };
 
   return (

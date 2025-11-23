@@ -87,31 +87,53 @@ export const VerticalRuler = ({
     <div 
       className="vertical-ruler-container"
       style={{ 
-        width: `${rulerWidth}px`,
+        width: '30px',
         height: `calc(100vh - ${headerHeight}px)`,
         position: 'fixed',
         left: 0,
         top: `${headerHeight}px`,
-        zIndex: 45,
+        zIndex: 40,
+        background: '#fafafa',
+        borderRight: '1px solid #e0e0e0',
       }}
     >
-      <div className="vertical-ruler" style={{ width: `${rulerWidth}px`, height: `${pageHeight}px` }}>
-        {/* Scale */}
-        <div className="vertical-ruler-scale">
+      <div className="vertical-ruler" style={{ 
+        height: pageHeight,
+        width: '30px',
+        background: '#fafafa',
+        borderRight: '1px solid #e0e0e0',
+        position: 'relative',
+      }}>
+        {/* Escala vertical */}
+        <div className="vertical-ruler-scale" style={{ width: '15px', borderRight: '1px solid #e0e0e0' }}>
           {scaleNumbers.map((cm) => {
             const y = cmToPx(cm);
             return (
               <div key={cm}>
-                {/* Tick mark */}
+                {/* Marca de centímetro */}
                 <div
-                  className="vertical-ruler-tick"
-                  style={{ top: `${y}px` }}
+                  style={{ 
+                    position: 'absolute',
+                    top: `${y}px`,
+                    right: 0,
+                    width: '6px',
+                    height: '1px',
+                    background: '#999',
+                    transform: 'translateY(-50%)',
+                  }}
                 />
-                {/* Number */}
+                {/* Número de centímetro */}
                 {cm > 0 && (
                   <div
-                    className="vertical-ruler-number"
-                    style={{ top: `${y}px` }}
+                    style={{ 
+                      position: 'absolute',
+                      top: `${y}px`,
+                      left: '2px',
+                      transform: 'translateY(-50%)',
+                      fontSize: '8px',
+                      fontWeight: '500',
+                      color: '#999',
+                    }}
                   >
                     {cm}
                   </div>
@@ -121,67 +143,55 @@ export const VerticalRuler = ({
           })}
         </div>
 
-        {/* Top margin zone (gray striped) */}
+        {/* Marcador de margen superior */}
         <div
-          className="vertical-ruler-margin-top"
           style={{
-            top: 0,
-            height: `${topMargin}px`,
-          }}
-        />
-
-        {/* Editable area (white) */}
-        <div
-          className="vertical-ruler-editable-area"
-          style={{
+            position: 'absolute',
+            left: '15px',
             top: `${topMargin}px`,
-            height: `${pageHeight - topMargin - bottomMargin}px`,
-          }}
-        />
-
-        {/* Bottom margin zone (gray striped) */}
-        <div
-          className="vertical-ruler-margin-bottom"
-          style={{
-            top: `${pageHeight - bottomMargin}px`,
-            height: `${bottomMargin}px`,
-          }}
-        />
-
-        {/* Top margin marker */}
-        <div
-          className="vertical-ruler-marker"
-          style={{
-            top: `${topMargin}px`,
-            cursor: 'ns-resize',
+            width: '15px',
+            height: '20px',
+            cursor: isDraggingTop ? 'grabbing' : 'ns-resize',
+            zIndex: 20,
+            transform: 'translateY(-10px)',
           }}
           onMouseDown={handleTopMouseDown}
           title={`Margen superior: ${topMargin}px (${pxToCm(topMargin).toFixed(1)}cm)`}
         >
-          <div 
-            className="vertical-ruler-marker-triangle"
-            style={{
-              borderLeft: `24px solid ${isDraggingTop ? '#3DD6C4' : 'hsl(var(--sierra-teal))'}`,
-            }}
-          />
+          <div style={{
+            width: 0,
+            height: 0,
+            borderTop: '10px solid transparent',
+            borderBottom: '10px solid transparent',
+            borderLeft: '15px solid hsl(var(--sierra-teal))',
+            filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))',
+          }} />
         </div>
 
-        {/* Bottom margin marker */}
+        {/* Marcador de margen inferior */}
         <div
-          className="vertical-ruler-marker vertical-ruler-marker-bottom"
           style={{
+            position: 'absolute',
+            left: '15px',
             top: `${pageHeight - bottomMargin}px`,
-            cursor: 'ns-resize',
+            width: '15px',
+            height: '20px',
+            cursor: isDraggingBottom ? 'grabbing' : 'ns-resize',
+            zIndex: 20,
+            transform: 'translateY(-10px)',
           }}
           onMouseDown={handleBottomMouseDown}
           title={`Margen inferior: ${bottomMargin}px (${pxToCm(bottomMargin).toFixed(1)}cm)`}
         >
-          <div 
-            className="vertical-ruler-marker-triangle vertical-ruler-marker-triangle-bottom"
-            style={{
-              borderLeft: `24px solid ${isDraggingBottom ? '#3DD6C4' : 'hsl(var(--sierra-teal))'}`,
-            }}
-          />
+          <div style={{
+            width: 0,
+            height: 0,
+            borderTop: '10px solid transparent',
+            borderBottom: '10px solid transparent',
+            borderLeft: '15px solid hsl(var(--sierra-teal))',
+            filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2))',
+            transform: 'rotate(180deg)',
+          }} />
         </div>
       </div>
     </div>

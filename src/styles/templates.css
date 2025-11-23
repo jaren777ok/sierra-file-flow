@@ -432,12 +432,13 @@
 
 .document-ruler {
   position: relative;
-  height: 40px;
-  background: linear-gradient(180deg, #f8f8f8 0%, #ececec 100%);
-  border: 2px solid #bbb;
+  height: 30px;
+  background: #fafafa;
+  border: 1px solid #e0e0e0;
   border-radius: 0;
-  box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
+  box-shadow: none;
   margin: 0 auto;
+  user-select: none;
 }
 
 /* Escala de medición - MÁS VISIBLE */
@@ -464,9 +465,9 @@
   position: absolute;
   top: 2px;
   transform: translateX(-50%);
-  font-size: 11px;
-  font-weight: 600;
-  color: #333;
+  font-size: 10px;
+  font-weight: 500;
+  color: #666;
   font-family: Arial, sans-serif;
   user-select: none;
 }
@@ -511,34 +512,34 @@
   pointer-events: none;
 }
 
-/* Marcadores arrastrables - MÁS GRANDES Y VISIBLES */
+/* Marcadores arrastrables */
 .ruler-marker {
   position: absolute;
   top: 20px;
-  width: 28px;
+  width: 24px;
   height: 20px;
   cursor: ew-resize;
   z-index: 20;
-  transform: translateX(-14px);
+  transform: translateX(-12px);
   transition: transform 0.2s ease;
 }
 
 .ruler-marker:hover {
-  transform: translateX(-14px) scale(1.15);
+  transform: translateX(-12px) scale(1.1);
 }
 
 .ruler-marker:active {
-  transform: translateX(-14px) scale(1.05);
+  transform: translateX(-12px) scale(1.05);
 }
 
 .ruler-marker-triangle {
   width: 0;
   height: 0;
-  border-left: 14px solid transparent;
-  border-right: 14px solid transparent;
-  border-top: 24px solid hsl(var(--sierra-teal));
+  border-left: 12px solid transparent;
+  border-right: 12px solid transparent;
+  border-top: 20px solid hsl(var(--sierra-teal));
   transition: all 0.2s ease;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
 }
 
 .ruler-marker:hover .ruler-marker-triangle {
@@ -598,85 +599,62 @@
   border-right: 2px solid #999;
 }
 
+/* Regla vertical */
+.vertical-ruler-container {
+  width: 30px;
+  background: #fafafa;
+  border-right: 1px solid #e0e0e0;
+  user-select: none;
+}
+
+.vertical-ruler {
+  position: relative;
+  width: 30px;
+  background: #fafafa;
+  border-right: 1px solid #e0e0e0;
+}
+
 .vertical-ruler-scale {
   position: absolute;
   left: 0;
   top: 0;
-  width: 20px;
+  width: 15px;
   height: 100%;
-  border-right: 1px solid #d0d0d0;
+  border-right: 1px solid #e0e0e0;
 }
 
 .vertical-ruler-tick {
   position: absolute;
   right: 0;
-  width: 8px;
+  width: 6px;
   height: 1px;
-  background: #444;
+  background: #999;
   transform: translateY(-50%);
 }
 
 .vertical-ruler-number {
   position: absolute;
-  left: 4px;
+  left: 2px;
   transform: translateY(-50%);
-  font-size: 9px;
-  font-weight: 600;
-  color: #333;
+  font-size: 8px;
+  font-weight: 500;
+  color: #999;
   writing-mode: horizontal-tb;
 }
 
-.vertical-ruler-marker {
-  position: absolute;
-  left: 20px;
-  width: 20px;
-  height: 28px;
-  cursor: ns-resize;
-  z-index: 20;
-  transform: translateY(-14px);
-  transition: transform 0.2s ease;
+/* Ocultar zonas grises confusas */
+.vertical-ruler-margin-top,
+.vertical-ruler-margin-bottom,
+.vertical-ruler-editable-area {
+  display: none;
 }
 
-.vertical-ruler-marker:hover {
-  transform: translateY(-14px) scale(1.1);
+.vertical-ruler-marker {
+  display: none; /* Los marcadores ahora son inline en el componente */
 }
 
 .vertical-ruler-marker-triangle {
-  width: 0;
-  height: 0;
-  border-top: 14px solid transparent;
-  border-bottom: 14px solid transparent;
-  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
-  transition: all 0.2s ease;
-}
-
-.vertical-ruler-marker-bottom .vertical-ruler-marker-triangle-bottom {
-  transform: rotate(180deg);
-}
-
-.vertical-ruler-margin-top,
-.vertical-ruler-margin-bottom {
-  position: absolute;
-  left: 20px;
-  width: 20px;
-  background: repeating-linear-gradient(
-    0deg,
-    #f0f0f0,
-    #f0f0f0 3px,
-    #c8c8c8 3px,
-    #c8c8c8 6px
-  );
-  pointer-events: none;
-}
-
-.vertical-ruler-editable-area {
-  position: absolute;
-  left: 20px;
-  width: 20px;
-  background: #ffffff;
-  border-top: 1px solid #d0d0d0;
-  border-bottom: 1px solid #d0d0d0;
-  pointer-events: none;
+  display: none;
 }
 
 /* Responsive adjustments for smaller screens */
@@ -702,7 +680,9 @@
   }
 
   .document-ruler-container,
+  .document-ruler,
   .vertical-ruler-container,
+  .vertical-ruler,
   .margin-guide {
     display: none;
   }

@@ -19,8 +19,8 @@ const PAGE_WIDTH = 1545; // A4 width in pixels at 150 DPI
 const PAGE_HEIGHT = 2000; // A4 height in pixels at 150 DPI
 const TOOLBAR_HEIGHT = 60;
 const FORMAT_TOOLBAR_HEIGHT = 40;
-const RULER_HEIGHT = 50;
-const TOTAL_HEADER_HEIGHT = TOOLBAR_HEIGHT + FORMAT_TOOLBAR_HEIGHT + RULER_HEIGHT;
+const RULER_HEIGHT = 30;
+const TOTAL_HEADER_HEIGHT = TOOLBAR_HEIGHT + FORMAT_TOOLBAR_HEIGHT + RULER_HEIGHT; // 130px total
 
 const DocumentEditor = () => {
   const { jobId } = useParams<{ jobId: string }>();

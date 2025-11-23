@@ -31,28 +31,13 @@ export const MarginGuides = ({
   const leftLinePosition = centerOffset + leftMargin;
   const rightLinePosition = centerOffset + pageWidth - rightMargin;
 
-  useEffect(() => {
-    console.log('📏 MarginGuides rendered:', {
-      windowWidth,
-      pageWidth,
-      centerOffset,
-      leftMargin,
-      rightMargin,
-      leftLinePosition,
-      rightLinePosition,
-      rulerHeight,
-      isDragging,
-    });
-  }, [windowWidth, pageWidth, centerOffset, leftMargin, rightMargin, leftLinePosition, rightLinePosition, rulerHeight, isDragging]);
-
-  // Validar rulerHeight
-  if (!rulerHeight || rulerHeight < 100) {
-    console.warn('⚠️ MarginGuides: rulerHeight inválido:', rulerHeight);
-  }
-
   // Validar que las posiciones sean correctas
   if (leftLinePosition < 0 || rightLinePosition < 0 || leftLinePosition >= rightLinePosition) {
-    console.warn('⚠️ MarginGuides: Posiciones inválidas, no renderizando líneas');
+    return null;
+  }
+
+  // Solo mostrar líneas cuando se está arrastrando
+  if (!isDragging) {
     return null;
   }
 
@@ -60,41 +45,33 @@ export const MarginGuides = ({
     <>
       {/* Línea izquierda */}
       <div
-        className={`margin-guide left ${isDragging ? 'dragging' : ''}`}
         style={{
           left: `${leftLinePosition}px`,
           top: `${rulerHeight}px`,
           bottom: 0,
           position: 'fixed',
-          width: '4px',
-          background: isDragging ? '#3DD6C4' : '#555555',
-          opacity: isDragging ? 1 : 0.95,
-          zIndex: 35,
+          width: '1px',
+          background: '#d0d0d0',
+          opacity: 0.5,
+          zIndex: 10,
           pointerEvents: 'none',
-          boxShadow: isDragging 
-            ? '0 0 16px rgba(61, 214, 196, 1)' 
-            : '0 0 6px rgba(0, 0, 0, 0.4)',
-          transition: 'all 0.15s ease',
+          transition: 'none',
         }}
       />
       
       {/* Línea derecha */}
       <div
-        className={`margin-guide right ${isDragging ? 'dragging' : ''}`}
         style={{
           left: `${rightLinePosition}px`,
           top: `${rulerHeight}px`,
           bottom: 0,
           position: 'fixed',
-          width: '4px',
-          background: isDragging ? '#3DD6C4' : '#555555',
-          opacity: isDragging ? 1 : 0.95,
-          zIndex: 35,
+          width: '1px',
+          background: '#d0d0d0',
+          opacity: 0.5,
+          zIndex: 10,
           pointerEvents: 'none',
-          boxShadow: isDragging 
-            ? '0 0 16px rgba(61, 214, 196, 1)' 
-            : '0 0 6px rgba(0, 0, 0, 0.4)',
-          transition: 'all 0.15s ease',
+          transition: 'none',
         }}
       />
     </>
