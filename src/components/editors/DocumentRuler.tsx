@@ -103,13 +103,13 @@ export const DocumentRuler: React.FC<DocumentRulerProps> = ({
       style={{ 
         width: pageWidth, 
         margin: '0 auto',
-        padding: '10px 0',
-        minHeight: '50px',
-        background: 'linear-gradient(180deg, #ffffff 0%, #f0f0f0 100%)',
-        border: '2px solid #999',
+        padding: '0',
+        minHeight: '30px',
+        background: '#fafafa',
+        border: '1px solid #e0e0e0',
       }}
     >
-      <div ref={rulerRef} className="document-ruler" style={{ width: pageWidth, height: '50px' }}>
+      <div ref={rulerRef} className="document-ruler" style={{ width: pageWidth, height: '30px' }}>
         {/* Escala superior en cm */}
         <div className="ruler-scale">
           {cmScale.map((cm) => {
@@ -134,9 +134,9 @@ export const DocumentRuler: React.FC<DocumentRulerProps> = ({
                     className="ruler-number"
                     style={{ 
                       left: `${cmToPx(cm)}px`,
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      color: '#000',
+                      fontSize: '10px',
+                      fontWeight: 500,
+                      color: '#666',
                     }}
                   >
                     {cm}
@@ -184,10 +184,10 @@ export const DocumentRuler: React.FC<DocumentRulerProps> = ({
           <div 
             className="ruler-marker-triangle"
             style={{
-              borderLeft: '16px solid transparent',
-              borderRight: '16px solid transparent',
-              borderTop: `28px solid ${isDraggingLeft ? '#3DD6C4' : 'hsl(var(--sierra-teal))'}`,
-              filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4))',
+              borderLeft: '10px solid transparent',
+              borderRight: '10px solid transparent',
+              borderTop: `16px solid ${isDraggingLeft ? '#3DD6C4' : 'hsl(var(--sierra-teal))'}`,
+              filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
             }}
           />
         </div>
@@ -202,10 +202,10 @@ export const DocumentRuler: React.FC<DocumentRulerProps> = ({
           <div 
             className="ruler-marker-triangle"
             style={{
-              borderLeft: '16px solid transparent',
-              borderRight: '16px solid transparent',
-              borderTop: `28px solid ${isDraggingRight ? '#3DD6C4' : 'hsl(var(--sierra-teal))'}`,
-              filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4))',
+              borderLeft: '10px solid transparent',
+              borderRight: '10px solid transparent',
+              borderTop: `16px solid ${isDraggingRight ? '#3DD6C4' : 'hsl(var(--sierra-teal))'}`,
+              filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3))',
             }}
           />
         </div>

@@ -427,7 +427,7 @@
   padding: 8px 0;
   background: #f5f5f5;
   border-bottom: 1px solid #d0d0d0;
-  min-height: 40px;
+  min-height: 30px;
 }
 
 .document-ruler {
@@ -476,8 +476,8 @@
 .ruler-margin-left,
 .ruler-margin-right {
   position: absolute;
-  top: 20px;
-  height: 20px;
+  top: 15px;
+  height: 15px;
   background: repeating-linear-gradient(
     45deg,
     #f0f0f0,
@@ -504,8 +504,8 @@
 /* Zona editable (blanca) - MÁS CLARA */
 .ruler-editable-area {
   position: absolute;
-  top: 20px;
-  height: 20px;
+  top: 15px;
+  height: 15px;
   background: #ffffff;
   border-left: 1px solid #d0d0d0;
   border-right: 1px solid #d0d0d0;
@@ -515,12 +515,12 @@
 /* Marcadores arrastrables */
 .ruler-marker {
   position: absolute;
-  top: 20px;
-  width: 24px;
-  height: 20px;
+  top: 15px;
+  width: 16px;
+  height: 15px;
   cursor: ew-resize;
   z-index: 20;
-  transform: translateX(-12px);
+  transform: translateX(-8px);
   transition: transform 0.2s ease;
 }
 
@@ -585,77 +585,6 @@
   box-shadow: 0 0 6px rgba(32, 80, 89, 0.4) !important;
 }
 
-/* Vertical Ruler Styles */
-.vertical-ruler-container {
-  background: #f5f5f5;
-  border-right: 1px solid #d0d0d0;
-  user-select: none;
-  overflow: hidden;
-}
-
-.vertical-ruler {
-  position: relative;
-  background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%);
-  border-right: 2px solid #999;
-}
-
-/* Regla vertical */
-.vertical-ruler-container {
-  width: 30px;
-  background: #fafafa;
-  border-right: 1px solid #e0e0e0;
-  user-select: none;
-}
-
-.vertical-ruler {
-  position: relative;
-  width: 30px;
-  background: #fafafa;
-  border-right: 1px solid #e0e0e0;
-}
-
-.vertical-ruler-scale {
-  position: absolute;
-  left: 0;
-  top: 0;
-  width: 15px;
-  height: 100%;
-  border-right: 1px solid #e0e0e0;
-}
-
-.vertical-ruler-tick {
-  position: absolute;
-  right: 0;
-  width: 6px;
-  height: 1px;
-  background: #999;
-  transform: translateY(-50%);
-}
-
-.vertical-ruler-number {
-  position: absolute;
-  left: 2px;
-  transform: translateY(-50%);
-  font-size: 8px;
-  font-weight: 500;
-  color: #999;
-  writing-mode: horizontal-tb;
-}
-
-/* Ocultar zonas grises confusas */
-.vertical-ruler-margin-top,
-.vertical-ruler-margin-bottom,
-.vertical-ruler-editable-area {
-  display: none;
-}
-
-.vertical-ruler-marker {
-  display: none; /* Los marcadores ahora son inline en el componente */
-}
-
-.vertical-ruler-marker-triangle {
-  display: none;
-}
 
 /* Responsive adjustments for smaller screens */
 @media screen and (max-width: 1200px) {
