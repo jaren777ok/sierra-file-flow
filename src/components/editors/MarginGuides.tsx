@@ -27,19 +27,28 @@ export const MarginGuides = ({
   }, []);
 
   // Calcular posiciones considerando que las páginas están centradas
-  const centerOffset = (windowWidth - pageWidth) / 2;
+  const centerOffset = Math.max(0, (windowWidth - pageWidth) / 2);
   const leftLinePosition = centerOffset + leftMargin;
   const rightLinePosition = centerOffset + pageWidth - rightMargin;
 
   useEffect(() => {
     console.log('📏 MarginGuides positions:', {
       windowWidth,
+      pageWidth,
       centerOffset,
+      leftMargin,
+      rightMargin,
       leftLine: leftLinePosition,
       rightLine: rightLinePosition,
       isDragging,
     });
-  }, [windowWidth, centerOffset, leftLinePosition, rightLinePosition, isDragging]);
+  }, [windowWidth, pageWidth, centerOffset, leftMargin, rightMargin, leftLinePosition, rightLinePosition, isDragging]);
+
+  // Validar que las posiciones sean correctas
+  if (leftLinePosition < 0 || rightLinePosition < 0 || leftLinePosition >= rightLinePosition) {
+    console.warn('⚠️ MarginGuides: Posiciones inválidas, no renderizando líneas');
+    return null;
+  }
 
   return (
     <>
@@ -51,8 +60,13 @@ export const MarginGuides = ({
           top: `${rulerHeight}px`,
           bottom: 0,
           position: 'fixed',
-          width: isDragging ? '2px' : '1px',
+          width: '2px',
+          background: isDragging ? 'hsl(var(--sierra-teal))' : '#888888',
+          opacity: isDragging ? 0.9 : 0.7,
           zIndex: 35,
+          pointerEvents: 'none',
+          boxShadow: isDragging ? '0 0 4px rgba(32, 80, 89, 0.5)' : 'none',
+          transition: 'all 0.15s ease',
         }}
       />
       
@@ -64,8 +78,13 @@ export const MarginGuides = ({
           top: `${rulerHeight}px`,
           bottom: 0,
           position: 'fixed',
-          width: isDragging ? '2px' : '1px',
+          width: '2px',
+          background: isDragging ? 'hsl(var(--sierra-teal))' : '#888888',
+          opacity: isDragging ? 0.9 : 0.7,
           zIndex: 35,
+          pointerEvents: 'none',
+          boxShadow: isDragging ? '0 0 4px rgba(32, 80, 89, 0.5)' : 'none',
+          transition: 'all 0.15s ease',
         }}
       />
     </>
