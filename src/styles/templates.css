@@ -433,10 +433,10 @@
 .document-ruler {
   position: relative;
   height: 40px;
-  background: #f8f8f8;
-  border: 1px solid #c0c0c0;
+  background: linear-gradient(180deg, #f8f8f8 0%, #ececec 100%);
+  border: 2px solid #bbb;
   border-radius: 0;
-  box-shadow: none;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.05);
   margin: 0 auto;
 }
 
@@ -464,8 +464,8 @@
   position: absolute;
   top: 2px;
   transform: translateX(-50%);
-  font-size: 9px;
-  font-weight: 500;
+  font-size: 11px;
+  font-weight: 600;
   color: #333;
   font-family: Arial, sans-serif;
   user-select: none;
@@ -515,30 +515,30 @@
 .ruler-marker {
   position: absolute;
   top: 20px;
-  width: 24px;
+  width: 28px;
   height: 20px;
   cursor: ew-resize;
   z-index: 20;
-  transform: translateX(-12px);
+  transform: translateX(-14px);
   transition: transform 0.2s ease;
 }
 
 .ruler-marker:hover {
-  transform: translateX(-12px) scale(1.15);
+  transform: translateX(-14px) scale(1.15);
 }
 
 .ruler-marker:active {
-  transform: translateX(-12px) scale(1.05);
+  transform: translateX(-14px) scale(1.05);
 }
 
 .ruler-marker-triangle {
   width: 0;
   height: 0;
-  border-left: 12px solid transparent;
-  border-right: 12px solid transparent;
-  border-top: 20px solid hsl(var(--sierra-teal));
+  border-left: 14px solid transparent;
+  border-right: 14px solid transparent;
+  border-top: 24px solid hsl(var(--sierra-teal));
   transition: all 0.2s ease;
-  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
 }
 
 .ruler-marker:hover .ruler-marker-triangle {
