@@ -584,6 +584,101 @@
   box-shadow: 0 0 6px rgba(32, 80, 89, 0.4) !important;
 }
 
+/* Vertical Ruler Styles */
+.vertical-ruler-container {
+  background: #f5f5f5;
+  border-right: 1px solid #d0d0d0;
+  user-select: none;
+  overflow: hidden;
+}
+
+.vertical-ruler {
+  position: relative;
+  background: linear-gradient(90deg, #ffffff 0%, #f0f0f0 100%);
+  border-right: 2px solid #999;
+}
+
+.vertical-ruler-scale {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 20px;
+  height: 100%;
+  border-right: 1px solid #d0d0d0;
+}
+
+.vertical-ruler-tick {
+  position: absolute;
+  right: 0;
+  width: 8px;
+  height: 1px;
+  background: #444;
+  transform: translateY(-50%);
+}
+
+.vertical-ruler-number {
+  position: absolute;
+  left: 4px;
+  transform: translateY(-50%);
+  font-size: 9px;
+  font-weight: 600;
+  color: #333;
+  writing-mode: horizontal-tb;
+}
+
+.vertical-ruler-marker {
+  position: absolute;
+  left: 20px;
+  width: 20px;
+  height: 28px;
+  cursor: ns-resize;
+  z-index: 20;
+  transform: translateY(-14px);
+  transition: transform 0.2s ease;
+}
+
+.vertical-ruler-marker:hover {
+  transform: translateY(-14px) scale(1.1);
+}
+
+.vertical-ruler-marker-triangle {
+  width: 0;
+  height: 0;
+  border-top: 14px solid transparent;
+  border-bottom: 14px solid transparent;
+  filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4));
+  transition: all 0.2s ease;
+}
+
+.vertical-ruler-marker-bottom .vertical-ruler-marker-triangle-bottom {
+  transform: rotate(180deg);
+}
+
+.vertical-ruler-margin-top,
+.vertical-ruler-margin-bottom {
+  position: absolute;
+  left: 20px;
+  width: 20px;
+  background: repeating-linear-gradient(
+    0deg,
+    #f0f0f0,
+    #f0f0f0 3px,
+    #c8c8c8 3px,
+    #c8c8c8 6px
+  );
+  pointer-events: none;
+}
+
+.vertical-ruler-editable-area {
+  position: absolute;
+  left: 20px;
+  width: 20px;
+  background: #ffffff;
+  border-top: 1px solid #d0d0d0;
+  border-bottom: 1px solid #d0d0d0;
+  pointer-events: none;
+}
+
 /* Responsive adjustments for smaller screens */
 @media screen and (max-width: 1200px) {
   .informe-page {
@@ -607,6 +702,7 @@
   }
 
   .document-ruler-container,
+  .vertical-ruler-container,
   .margin-guide {
     display: none;
   }
