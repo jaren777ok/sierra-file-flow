@@ -570,6 +570,33 @@
   font-size: 13px;
 }
 
+/* Líneas verticales de guía de márgenes (estilo Word) */
+.margin-guide {
+  position: fixed;
+  width: 1px;
+  background: #999999;
+  pointer-events: none;
+  z-index: 35;
+  opacity: 0.6;
+  transition: left 0.15s ease, width 0.15s ease, opacity 0.2s ease, background 0.2s ease;
+}
+
+.margin-guide.left {
+  /* Se posicionará dinámicamente via inline style */
+}
+
+.margin-guide.right {
+  /* Se posicionará dinámicamente via inline style */
+}
+
+/* Cuando se arrastra, hacerlas más visibles */
+.margin-guide.dragging {
+  opacity: 0.9;
+  background: hsl(var(--sierra-teal));
+  width: 2px;
+  box-shadow: 0 0 4px rgba(32, 80, 89, 0.3);
+}
+
 /* Responsive adjustments for smaller screens */
 @media screen and (max-width: 1200px) {
   .informe-page {
@@ -592,7 +619,8 @@
     padding: 50px 70px;
   }
 
-  .document-ruler-container {
+  .document-ruler-container,
+  .margin-guide {
     display: none;
   }
 }
