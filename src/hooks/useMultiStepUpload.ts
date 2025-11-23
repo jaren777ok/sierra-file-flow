@@ -23,10 +23,7 @@ export const useMultiStepUpload = () => {
   const [isAnalyzingCompany, setIsAnalyzingCompany] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
   
-  // Template navigation states
-  const [currentTemplate, setCurrentTemplate] = useState<'informe' | 'ppt' | null>(null);
-  const [editedInformeContent, setEditedInformeContent] = useState('');
-  const [editedPptContent, setEditedPptContent] = useState('');
+  // Template state removed - editors accessed from Saved Files
 
   const { toast } = useToast();
   const {
@@ -301,39 +298,7 @@ export const useMultiStepUpload = () => {
     setCurrentStep(totalSteps - 1);
   }, [totalSteps]);
 
-  const goToInformeTemplate = useCallback(() => {
-    if (resultHtml) {
-      setCurrentTemplate('informe');
-      setEditedInformeContent(resultHtml);
-    }
-  }, [resultHtml]);
-
-  const goToPptTemplate = useCallback(() => {
-    setCurrentTemplate('ppt');
-    setEditedPptContent(editedInformeContent);
-  }, [editedInformeContent]);
-
-  const handleDownloadInformePdf = useCallback(async () => {
-    // This will be implemented by the InformeTemplate component itself
-    console.log('Download Informe PDF');
-  }, []);
-
-  const handleDownloadPptPdf = useCallback(async () => {
-    // This will be implemented by the PptTemplate component itself
-    console.log('Download PPT PDF');
-  }, []);
-
-  const handleCompleteBothTemplates = useCallback(() => {
-    toast({
-      title: "✅ Documentos Completados",
-      description: "Ambas plantillas han sido editadas y descargadas correctamente.",
-    });
-    
-    // Reset flow after completion
-    setTimeout(() => {
-      resetFlow();
-    }, 2000);
-  }, [resetFlow, toast]);
+  // Template functions removed - editors accessed from Saved Files
 
   return {
     currentStep,
@@ -355,14 +320,6 @@ export const useMultiStepUpload = () => {
     updateCustomAreaFiles,
     processingStatus,
     resultHtml,
-    currentTemplate,
-    editedInformeContent,
-    editedPptContent,
-    setEditedInformeContent,
-    setEditedPptContent,
-    handleDownloadInformePdf,
-    handleDownloadPptPdf,
-    handleCompleteBothTemplates,
     areas,
     totalSteps,
     nextStep,
@@ -377,8 +334,6 @@ export const useMultiStepUpload = () => {
     forceCleanup,
     setCurrentStep,
     jumpToProcessing,
-    goToInformeTemplate,
-    goToPptTemplate,
     hideConfetti,
     isRecovering: false,
     activeJob: null

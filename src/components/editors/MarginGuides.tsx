@@ -66,14 +66,14 @@ export const MarginGuides = ({
           top: `${rulerHeight}px`,
           bottom: 0,
           position: 'fixed',
-          width: '2px',
-          background: isDragging ? '#3DD6C4' : '#999999',
-          opacity: isDragging ? 1 : 0.8,
+          width: '3px',
+          background: isDragging ? '#3DD6C4' : '#666666',
+          opacity: isDragging ? 1 : 0.9,
           zIndex: 35,
           pointerEvents: 'none',
           boxShadow: isDragging 
-            ? '0 0 8px rgba(61, 214, 196, 0.6)' 
-            : '0 0 2px rgba(0, 0, 0, 0.2)',
+            ? '0 0 12px rgba(61, 214, 196, 0.8)' 
+            : '0 0 4px rgba(0, 0, 0, 0.3)',
           transition: 'all 0.15s ease',
         }}
       />
@@ -86,14 +86,14 @@ export const MarginGuides = ({
           top: `${rulerHeight}px`,
           bottom: 0,
           position: 'fixed',
-          width: '2px',
-          background: isDragging ? '#3DD6C4' : '#999999',
-          opacity: isDragging ? 1 : 0.8,
+          width: '3px',
+          background: isDragging ? '#3DD6C4' : '#666666',
+          opacity: isDragging ? 1 : 0.9,
           zIndex: 35,
           pointerEvents: 'none',
           boxShadow: isDragging 
-            ? '0 0 8px rgba(61, 214, 196, 0.6)' 
-            : '0 0 2px rgba(0, 0, 0, 0.2)',
+            ? '0 0 12px rgba(61, 214, 196, 0.8)' 
+            : '0 0 4px rgba(0, 0, 0, 0.3)',
           transition: 'all 0.15s ease',
         }}
       />

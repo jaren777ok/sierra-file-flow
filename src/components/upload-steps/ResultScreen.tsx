@@ -1,167 +1,89 @@
-import React from 'react';
+import { CheckCircle, FileText, ArrowRight, RotateCcw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { CheckCircle, Download, RotateCcw, ExternalLink, Sparkles, FileText } from 'lucide-react';
-import { ProcessingStatus } from '@/types/processing';
-import { useToast } from '@/hooks/use-toast';
+import { Card } from '@/components/ui/card';
+import { useNavigate } from 'react-router-dom';
 
 interface ResultScreenProps {
-  processingStatus: ProcessingStatus;
+  projectTitle: string;
   onStartNew: () => void;
 }
 
-const ResultScreen = ({ processingStatus, onStartNew }: ResultScreenProps) => {
-  const { toast } = useToast();
-
-  const handleDownload = () => {
-    if (processingStatus.resultUrl) {
-      if (processingStatus.resultUrl.includes('drive.google.com')) {
-        // Para enlaces de Google Drive, abrir en nueva pestaña
-        window.open(processingStatus.resultUrl, '_blank');
-        toast({
-          title: "📁 Archivo Abierto",
-          description: "Se ha abierto tu informe IA en Google Drive.",
-        });
-      } else if (processingStatus.resultUrl.startsWith('blob:')) {
-        // Para URLs blob, descarga directa
-        const link = document.createElement('a');
-        link.href = processingStatus.resultUrl;
-        link.download = `informe-ia-${Date.now()}.zip`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast({
-          title: "📥 Descarga Iniciada",
-          description: "Tu informe IA se está descargando.",
-        });
-      } else {
-        // Para otras URLs, intentar descarga directa creando un enlace temporal
-        const link = document.createElement('a');
-        link.href = processingStatus.resultUrl;
-        link.download = `informe-ia-${Date.now()}.zip`;
-        link.target = '_blank';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast({
-          title: "📥 Descarga Iniciada",
-          description: "Tu informe IA se está descargando.",
-        });
-      }
-    }
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}m ${secs}s`;
-  };
+export const ResultScreen = ({ projectTitle, onStartNew }: ResultScreenProps) => {
+  const navigate = useNavigate();
 
   return (
-    <div className="text-center max-w-2xl mx-auto py-12">
-      {/* Success Animation */}
-      <div className="relative mb-12">
-        <div className="w-32 h-32 mx-auto rounded-full bg-gradient-to-r from-green-400/20 to-sierra-teal/40 flex items-center justify-center relative overflow-hidden">
-          {/* Success pulse */}
-          <div className="absolute inset-0 rounded-full bg-green-400/10 animate-ping"></div>
-          
-          {/* Success icon */}
-          <div className="relative z-10">
-            <CheckCircle className="h-16 w-16 text-sierra-teal" />
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-sierra-teal/5 flex items-center justify-center p-6">
+      <Card className="max-w-2xl w-full p-8 space-y-8 text-center">
+        {/* Success Icon */}
+        <div className="flex justify-center">
+          <div className="relative">
+            <div className="absolute inset-0 bg-sierra-bright/20 rounded-full blur-xl animate-pulse" />
+            <CheckCircle className="w-24 h-24 text-sierra-bright relative z-10" />
           </div>
         </div>
-        
-        {/* Success particles */}
-        <div className="absolute top-4 left-8 text-2xl animate-bounce delay-100">✨</div>
-        <div className="absolute top-8 right-12 text-xl animate-bounce delay-300">🎉</div>
-        <div className="absolute bottom-12 left-16 text-lg animate-bounce delay-500">⭐</div>
-        <div className="absolute bottom-4 right-8 text-2xl animate-bounce delay-700">🚀</div>
-      </div>
 
-      {/* Success Message */}
-      <div className="mb-8">
-        <h2 className="text-4xl font-bold text-sierra-teal mb-4">
-          ¡Informe IA Completado! 
-        </h2>
-        <div className="inline-flex items-center gap-2 bg-sierra-teal/10 px-4 py-2 rounded-full mb-4">
-          <Sparkles className="h-5 w-5 text-sierra-teal" />
-          <span className="text-sierra-teal font-medium">ÉXITO</span>
+        {/* Success Message */}
+        <div className="space-y-3">
+          <h2 className="text-3xl font-bold text-foreground">
+            ¡Procesamiento Completado con Éxito!
+          </h2>
+          <p className="text-lg text-muted-foreground">
+            Tu informe <span className="font-semibold text-sierra-teal">"{projectTitle}"</span> ha sido generado y guardado
+          </p>
         </div>
-        <p className="text-xl text-sierra-gray mb-6">
-          Tu informe ha sido procesado con inteligencia artificial y está listo para descargar.
-        </p>
-      </div>
 
-      {/* File Download Card */}
-      {processingStatus.resultUrl && (
-        <div className="bg-gradient-to-r from-sierra-teal/10 to-sierra-teal/5 rounded-2xl p-6 mb-8 border border-sierra-teal/20">
-          <div className="flex items-center justify-center gap-4 mb-4">
-            <div className="w-16 h-16 rounded-xl bg-sierra-teal/20 flex items-center justify-center">
-              <FileText className="h-8 w-8 text-sierra-teal" />
-            </div>
-            <div className="text-left">
-              <h3 className="text-xl font-bold text-sierra-teal">Informe IA Generado</h3>
-              <p className="text-sierra-gray">Archivo procesado listo para descargar</p>
-            </div>
+        {/* Info Card */}
+        <div className="bg-sierra-teal/5 border border-sierra-teal/20 rounded-lg p-6 space-y-3">
+          <div className="flex items-center justify-center gap-3 text-sierra-teal">
+            <FileText className="w-6 h-6" />
+            <p className="font-medium text-lg">Documento listo para editar</p>
           </div>
-          
+          <p className="text-sm text-muted-foreground">
+            Encontrarás tu proyecto en <span className="font-semibold">Archivos Guardados</span> donde podrás:
+          </p>
+          <ul className="text-sm text-muted-foreground space-y-2 text-left max-w-md mx-auto">
+            <li className="flex items-start gap-2">
+              <span className="text-sierra-bright mt-0.5">•</span>
+              <span>Abrir y editar el informe tipo Microsoft Word</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-sierra-bright mt-0.5">•</span>
+              <span>Crear presentación PowerPoint del contenido</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-sierra-bright mt-0.5">•</span>
+              <span>Descargar en PDF con formato profesional</span>
+            </li>
+          </ul>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
           <Button
-            onClick={handleDownload}
             size="lg"
-            className="sierra-gradient hover:opacity-90 transition-all duration-300 px-8 py-4 text-lg font-semibold shadow-lg hover:shadow-xl transform hover:scale-105 w-full md:w-auto"
+            className="bg-sierra-teal hover:bg-sierra-teal/90 text-white gap-2 shadow-lg hover:shadow-xl transition-all"
+            onClick={() => navigate('/saved-files')}
           >
-            <Download className="mr-2 h-5 w-5" />
-            Descargar Informe IA
-            <ExternalLink className="ml-2 h-4 w-4" />
+            Ver Archivos Guardados
+            <ArrowRight className="w-5 h-5" />
           </Button>
-        </div>
-      )}
-
-      {/* Processing Stats */}
-      <div className="bg-gradient-to-r from-sierra-teal/10 to-sierra-teal/5 rounded-2xl p-6 mb-8 border border-sierra-teal/20">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
-          <div>
-            <div className="text-2xl font-bold text-sierra-teal">
-              {formatTime(processingStatus.timeElapsed)}
-            </div>
-            <div className="text-sm text-sierra-gray">Tiempo de procesamiento</div>
-          </div>
-          <div>
-            <div className="text-2xl font-bold text-sierra-teal">100%</div>
-            <div className="text-sm text-sierra-gray">Completado</div>
-          </div>
-        </div>
-      </div>
-
-      {/* Success Message */}
-      {processingStatus.message && (
-        <p className="text-sierra-teal font-medium mb-8 bg-sierra-teal/5 rounded-lg p-4">
-          {processingStatus.message}
-        </p>
-      )}
-
-      {/* Action Buttons */}
-      <div className="space-y-4">
-        <div>
+          
           <Button
-            variant="outline"
-            onClick={onStartNew}
             size="lg"
-            className="px-6 py-3 border-sierra-teal text-sierra-teal hover:bg-sierra-teal hover:text-white"
+            variant="outline"
+            className="gap-2 border-sierra-teal/30 hover:bg-sierra-teal/5"
+            onClick={onStartNew}
           >
-            <RotateCcw className="mr-2 h-4 w-4" />
+            <RotateCcw className="w-5 h-5" />
             Procesar Nuevo Proyecto
           </Button>
         </div>
-      </div>
 
-      {/* Footer Note */}
-      <div className="mt-12 text-center">
-        <p className="text-sm text-sierra-gray/70">
-          Tu informe también se guarda automáticamente en la sección "Archivos Guardados"
+        {/* Footer Info */}
+        <p className="text-xs text-muted-foreground pt-4">
+          El documento permanecerá guardado hasta que decidas eliminarlo
         </p>
-      </div>
+      </Card>
     </div>
   );
 };
-
-export default ResultScreen;
