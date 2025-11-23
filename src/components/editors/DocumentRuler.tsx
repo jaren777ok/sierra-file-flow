@@ -103,11 +103,13 @@ export const DocumentRuler: React.FC<DocumentRulerProps> = ({
       style={{ 
         width: pageWidth, 
         margin: '0 auto',
-        padding: '8px 0',
-        minHeight: '40px'
+        padding: '10px 0',
+        minHeight: '50px',
+        background: 'linear-gradient(180deg, #ffffff 0%, #f0f0f0 100%)',
+        border: '2px solid #999',
       }}
     >
-      <div ref={rulerRef} className="document-ruler" style={{ width: pageWidth }}>
+      <div ref={rulerRef} className="document-ruler" style={{ width: pageWidth, height: '50px' }}>
         {/* Escala superior en cm */}
         <div className="ruler-scale">
           {cmScale.map((cm) => {
@@ -132,8 +134,9 @@ export const DocumentRuler: React.FC<DocumentRulerProps> = ({
                     className="ruler-number"
                     style={{ 
                       left: `${cmToPx(cm)}px`,
-                      fontSize: cm % 5 === 0 ? '10px' : '9px',
-                      fontWeight: cm % 5 === 0 ? '600' : '500'
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: '#000',
                     }}
                   >
                     {cm}
@@ -178,7 +181,15 @@ export const DocumentRuler: React.FC<DocumentRulerProps> = ({
           onMouseDown={() => handleMouseDown('left')}
           title={`Margen izquierdo: ${leftMargin}px (${pxToCm(leftMargin)}cm)`}
         >
-          <div className="ruler-marker-triangle" />
+          <div 
+            className="ruler-marker-triangle"
+            style={{
+              borderLeft: '16px solid transparent',
+              borderRight: '16px solid transparent',
+              borderTop: `28px solid ${isDraggingLeft ? '#3DD6C4' : 'hsl(var(--sierra-teal))'}`,
+              filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4))',
+            }}
+          />
         </div>
 
         {/* Marcador derecho (triángulo verde) */}
@@ -188,7 +199,15 @@ export const DocumentRuler: React.FC<DocumentRulerProps> = ({
           onMouseDown={() => handleMouseDown('right')}
           title={`Margen derecho: ${rightMargin}px (${pxToCm(rightMargin)}cm)`}
         >
-          <div className="ruler-marker-triangle" />
+          <div 
+            className="ruler-marker-triangle"
+            style={{
+              borderLeft: '16px solid transparent',
+              borderRight: '16px solid transparent',
+              borderTop: `28px solid ${isDraggingRight ? '#3DD6C4' : 'hsl(var(--sierra-teal))'}`,
+              filter: 'drop-shadow(0 4px 8px rgba(0, 0, 0, 0.4))',
+            }}
+          />
         </div>
       </div>
     </div>
