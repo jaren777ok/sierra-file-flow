@@ -6,6 +6,7 @@ interface DocumentRulerProps {
   rightMargin: number;
   onLeftMarginChange: (margin: number) => void;
   onRightMarginChange: (margin: number) => void;
+  onDraggingChange?: (isDragging: boolean) => void;
 }
 
 export const DocumentRuler: React.FC<DocumentRulerProps> = ({
@@ -14,6 +15,7 @@ export const DocumentRuler: React.FC<DocumentRulerProps> = ({
   rightMargin,
   onLeftMarginChange,
   onRightMarginChange,
+  onDraggingChange,
 }) => {
   const [isDraggingLeft, setIsDraggingLeft] = useState(false);
   const [isDraggingRight, setIsDraggingRight] = useState(false);
@@ -44,7 +46,8 @@ export const DocumentRuler: React.FC<DocumentRulerProps> = ({
     } else {
       setIsDraggingRight(true);
     }
-  }, []);
+    onDraggingChange?.(true);
+  }, [onDraggingChange]);
 
   const handleMouseMove = useCallback(
     (e: MouseEvent) => {
@@ -80,7 +83,8 @@ export const DocumentRuler: React.FC<DocumentRulerProps> = ({
   const handleMouseUp = useCallback(() => {
     setIsDraggingLeft(false);
     setIsDraggingRight(false);
-  }, []);
+    onDraggingChange?.(false);
+  }, [onDraggingChange]);
 
   useEffect(() => {
     if (isDraggingLeft || isDraggingRight) {

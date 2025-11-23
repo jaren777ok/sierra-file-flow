@@ -4,6 +4,7 @@ import { useDocumentEditor } from '@/hooks/useDocumentEditor';
 import { DocumentToolbar } from '@/components/editors/DocumentToolbar';
 import { FormatToolbar } from '@/components/editors/FormatToolbar';
 import { DocumentRuler } from '@/components/editors/DocumentRuler';
+import { MarginGuides } from '@/components/editors/MarginGuides';
 import { PdfGenerationService } from '@/services/pdfGenerationService';
 import { useToast } from '@/hooks/use-toast';
 import { useAutoSave } from '@/hooks/useAutoSave';
@@ -12,6 +13,9 @@ import { RefreshCw } from 'lucide-react';
 import plantillaImage from '@/assets/plantilla_1.png';
 
 const PAGE_WIDTH = 1545;
+const TOOLBAR_HEIGHT = 120;
+const RULER_HEIGHT = 100;
+const TOTAL_HEADER_HEIGHT = TOOLBAR_HEIGHT + RULER_HEIGHT;
 
 const DocumentEditor = () => {
   const { jobId } = useParams<{ jobId: string }>();
@@ -22,6 +26,7 @@ const DocumentEditor = () => {
   const [leftMargin, setLeftMargin] = useState(350);
   const [rightMargin, setRightMargin] = useState(350);
   const [effectiveWidth, setEffectiveWidth] = useState(845);
+  const [isDraggingMargin, setIsDraggingMargin] = useState(false);
   const { toast } = useToast();
 
   // Initialize editable pages when pages load
@@ -201,8 +206,18 @@ const DocumentEditor = () => {
           rightMargin={rightMargin}
           onLeftMarginChange={handleLeftMarginChange}
           onRightMarginChange={handleRightMarginChange}
+          onDraggingChange={setIsDraggingMargin}
         />
       </div>
+
+      {/* Líneas verticales de guía de márgenes */}
+      <MarginGuides
+        pageWidth={PAGE_WIDTH}
+        leftMargin={leftMargin}
+        rightMargin={rightMargin}
+        rulerHeight={TOTAL_HEADER_HEIGHT}
+        isDragging={isDraggingMargin}
+      />
 
       {/* Contenedor principal scrollable - SIN overflow-auto que rompe sticky */}
       <div className="flex-1 bg-[#f5f5f5]">
