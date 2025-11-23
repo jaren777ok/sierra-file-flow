@@ -5,8 +5,6 @@ import { DocumentToolbar } from '@/components/editors/DocumentToolbar';
 import { FormatToolbar } from '@/components/editors/FormatToolbar';
 import { DocumentRuler } from '@/components/editors/DocumentRuler';
 import { MarginGuides } from '@/components/editors/MarginGuides';
-import { VerticalRuler } from '@/components/editors/VerticalRuler';
-import { MarginGuidesHorizontal } from '@/components/editors/MarginGuidesHorizontal';
 import { PdfGenerationService } from '@/services/pdfGenerationService';
 import { useToast } from '@/hooks/use-toast';
 import { useAutoSave } from '@/hooks/useAutoSave';
@@ -30,11 +28,8 @@ const DocumentEditor = () => {
   const [editablePages, setEditablePages] = useState<string[]>([]);
   const [leftMargin, setLeftMargin] = useState(350);
   const [rightMargin, setRightMargin] = useState(350);
-  const [topMargin, setTopMargin] = useState(700);
-  const [bottomMargin, setBottomMargin] = useState(150);
   const [effectiveWidth, setEffectiveWidth] = useState(845);
   const [isDraggingMargin, setIsDraggingMargin] = useState(false);
-  const [isDraggingVerticalMargin, setIsDraggingVerticalMargin] = useState(false);
   const { toast } = useToast();
 
   // Initialize editable pages when pages load
@@ -63,16 +58,6 @@ const DocumentEditor = () => {
 
   const handleRightMarginChange = useCallback((margin: number) => {
     setRightMargin(margin);
-    markAsChanged();
-  }, [markAsChanged]);
-
-  const handleTopMarginChange = useCallback((margin: number) => {
-    setTopMargin(margin);
-    markAsChanged();
-  }, [markAsChanged]);
-
-  const handleBottomMarginChange = useCallback((margin: number) => {
-    setBottomMargin(margin);
     markAsChanged();
   }, [markAsChanged]);
 
@@ -202,17 +187,6 @@ const DocumentEditor = () => {
 
   return (
     <div className="min-h-screen bg-background flex">
-      {/* Vertical Ruler - Fixed left */}
-      <VerticalRuler
-        pageHeight={PAGE_HEIGHT}
-        topMargin={topMargin}
-        bottomMargin={bottomMargin}
-        onTopMarginChange={handleTopMarginChange}
-        onBottomMarginChange={handleBottomMarginChange}
-        onDraggingChange={setIsDraggingVerticalMargin}
-        headerHeight={TOTAL_HEADER_HEIGHT}
-      />
-
       <div className="flex-1 flex flex-col">
         {/* Toolbar superior fijo */}
         <div className="sticky top-0 z-50 bg-background border-b shadow-md">
@@ -247,16 +221,6 @@ const DocumentEditor = () => {
           rightMargin={rightMargin}
           rulerHeight={TOTAL_HEADER_HEIGHT}
           isDragging={isDraggingMargin}
-        />
-
-        {/* Horizontal margin guide lines */}
-        <MarginGuidesHorizontal
-          pageHeight={PAGE_HEIGHT}
-          topMargin={topMargin}
-          bottomMargin={bottomMargin}
-          rulerWidth={40}
-          headerHeight={TOTAL_HEADER_HEIGHT}
-          isDragging={isDraggingVerticalMargin}
         />
 
         {/* Contenedor principal scrollable */}
@@ -299,10 +263,8 @@ const DocumentEditor = () => {
                 style={{
                   width: '1545px',
                   height: '2000px',
-                    paddingLeft: `${leftMargin}px`,
-                    paddingRight: `${rightMargin}px`,
-                    paddingTop: `${topMargin}px`,
-                    paddingBottom: `${bottomMargin}px`,
+                  paddingLeft: `${leftMargin}px`,
+                  paddingRight: `${rightMargin}px`,
                 }}
               />
             </div>
