@@ -13,9 +13,9 @@ import { RefreshCw } from 'lucide-react';
 import plantillaImage from '@/assets/plantilla_1.png';
 
 const PAGE_WIDTH = 1545;
-const TOOLBAR_HEIGHT = 120;
-const RULER_HEIGHT = 100;
-const TOTAL_HEADER_HEIGHT = TOOLBAR_HEIGHT + RULER_HEIGHT;
+const TOOLBAR_HEIGHT = 100;
+const RULER_HEIGHT = 40;
+const TOTAL_HEADER_HEIGHT = TOOLBAR_HEIGHT + RULER_HEIGHT; // 140px
 
 const DocumentEditor = () => {
   const { jobId } = useParams<{ jobId: string }>();
@@ -199,7 +199,7 @@ const DocumentEditor = () => {
       </div>
 
       {/* Regla con marcadores arrastrables - STICKY INDEPENDIENTE */}
-      <div className="sticky top-[120px] z-[45] bg-[#f5f5f5] border-b-2 border-gray-300 shadow-md">
+      <div className="sticky top-[100px] z-[45] bg-[#f5f5f5] shadow-sm">
         <DocumentRuler
           pageWidth={PAGE_WIDTH}
           leftMargin={leftMargin}
