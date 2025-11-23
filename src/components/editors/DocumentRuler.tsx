@@ -103,36 +103,45 @@ export const DocumentRuler: React.FC<DocumentRulerProps> = ({
       style={{ 
         width: pageWidth, 
         margin: '0 auto',
-        backgroundColor: '#f5f5f5',
-        minHeight: '80px'
+        padding: '8px 0',
+        minHeight: '40px'
       }}
     >
-      {/* Banner de debug temporal */}
-      <div style={{
-        textAlign: 'center',
-        padding: '4px',
-        background: 'linear-gradient(90deg, #3DD6C4, #205059)',
-        color: 'white',
-        fontSize: '11px',
-        fontWeight: 'bold',
-        borderRadius: '4px 4px 0 0',
-        marginBottom: '8px'
-      }}>
-        📐 REGLA DE MÁRGENES - Arrastra los triángulos verdes ▼
-      </div>
-      
       <div ref={rulerRef} className="document-ruler" style={{ width: pageWidth }}>
         {/* Escala superior en cm */}
         <div className="ruler-scale">
-          {cmScale.map((cm) => (
-            <div
-              key={cm}
-              className="ruler-tick"
-              style={{ left: `${cmToPx(cm)}px` }}
-            >
-              {cm % 5 === 0 && <span className="ruler-number">{cm}</span>}
-            </div>
-          ))}
+          {cmScale.map((cm) => {
+            const isMajorTick = cm > 0;
+            const tickHeight = cm % 5 === 0 ? 12 : 8;
+            
+            return (
+              <React.Fragment key={cm}>
+                {/* Tick mark */}
+                <div
+                  className="ruler-tick"
+                  style={{ 
+                    left: `${cmToPx(cm)}px`,
+                    height: `${tickHeight}px`,
+                    width: cm % 5 === 0 ? '2px' : '1px'
+                  }}
+                />
+                
+                {/* Número - MOSTRAR TODOS excepto 0 */}
+                {isMajorTick && (
+                  <span 
+                    className="ruler-number"
+                    style={{ 
+                      left: `${cmToPx(cm)}px`,
+                      fontSize: cm % 5 === 0 ? '10px' : '9px',
+                      fontWeight: cm % 5 === 0 ? '600' : '500'
+                    }}
+                  >
+                    {cm}
+                  </span>
+                )}
+              </React.Fragment>
+            );
+          })}
         </div>
 
         {/* Zona margen izquierdo (gris rayado) */}
@@ -181,19 +190,6 @@ export const DocumentRuler: React.FC<DocumentRulerProps> = ({
         >
           <div className="ruler-marker-triangle" />
         </div>
-      </div>
-
-      {/* Información de márgenes */}
-      <div className="ruler-info" style={{ width: pageWidth }}>
-        <span className="ruler-info-item">
-          Izq: <strong>{leftMargin}px</strong> ({pxToCm(leftMargin)}cm)
-        </span>
-        <span className="ruler-info-item">
-          Área editable: <strong>{effectiveWidth}px</strong> ({pxToCm(effectiveWidth)}cm)
-        </span>
-        <span className="ruler-info-item">
-          Der: <strong>{rightMargin}px</strong> ({pxToCm(rightMargin)}cm)
-        </span>
       </div>
     </div>
   );

@@ -32,17 +32,23 @@ export const MarginGuides = ({
   const rightLinePosition = centerOffset + pageWidth - rightMargin;
 
   useEffect(() => {
-    console.log('📏 MarginGuides positions:', {
+    console.log('📏 MarginGuides rendered:', {
       windowWidth,
       pageWidth,
       centerOffset,
       leftMargin,
       rightMargin,
-      leftLine: leftLinePosition,
-      rightLine: rightLinePosition,
+      leftLinePosition,
+      rightLinePosition,
+      rulerHeight,
       isDragging,
     });
-  }, [windowWidth, pageWidth, centerOffset, leftMargin, rightMargin, leftLinePosition, rightLinePosition, isDragging]);
+  }, [windowWidth, pageWidth, centerOffset, leftMargin, rightMargin, leftLinePosition, rightLinePosition, rulerHeight, isDragging]);
+
+  // Validar rulerHeight
+  if (!rulerHeight || rulerHeight < 100) {
+    console.warn('⚠️ MarginGuides: rulerHeight inválido:', rulerHeight);
+  }
 
   // Validar que las posiciones sean correctas
   if (leftLinePosition < 0 || rightLinePosition < 0 || leftLinePosition >= rightLinePosition) {
@@ -61,11 +67,13 @@ export const MarginGuides = ({
           bottom: 0,
           position: 'fixed',
           width: '2px',
-          background: isDragging ? 'hsl(var(--sierra-teal))' : '#888888',
-          opacity: isDragging ? 0.9 : 0.7,
+          background: isDragging ? '#3DD6C4' : '#999999',
+          opacity: isDragging ? 1 : 0.8,
           zIndex: 35,
           pointerEvents: 'none',
-          boxShadow: isDragging ? '0 0 4px rgba(32, 80, 89, 0.5)' : 'none',
+          boxShadow: isDragging 
+            ? '0 0 8px rgba(61, 214, 196, 0.6)' 
+            : '0 0 2px rgba(0, 0, 0, 0.2)',
           transition: 'all 0.15s ease',
         }}
       />
@@ -79,11 +87,13 @@ export const MarginGuides = ({
           bottom: 0,
           position: 'fixed',
           width: '2px',
-          background: isDragging ? 'hsl(var(--sierra-teal))' : '#888888',
-          opacity: isDragging ? 0.9 : 0.7,
+          background: isDragging ? '#3DD6C4' : '#999999',
+          opacity: isDragging ? 1 : 0.8,
           zIndex: 35,
           pointerEvents: 'none',
-          boxShadow: isDragging ? '0 0 4px rgba(32, 80, 89, 0.5)' : 'none',
+          boxShadow: isDragging 
+            ? '0 0 8px rgba(61, 214, 196, 0.6)' 
+            : '0 0 2px rgba(0, 0, 0, 0.2)',
           transition: 'all 0.15s ease',
         }}
       />
