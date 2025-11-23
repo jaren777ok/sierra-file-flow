@@ -11,6 +11,7 @@ import ConvertAudio from "./pages/ConvertAudio";
 import SavedFiles from "./components/SavedFiles";
 import DocumentEditor from "./pages/DocumentEditor";
 import PresentationEditor from "./pages/PresentationEditor";
+import SimpleWordEditor from "./pages/SimpleWordEditor";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +30,7 @@ const App = () => (
             <Route path="/saved-files" element={<SavedFiles />} />
             <Route path="/document-editor/:jobId" element={<DocumentEditor />} />
             <Route path="/presentation-editor/:jobId" element={<PresentationEditor />} />
+            <Route path="/simple-word/:jobId" element={<SimpleWordEditor />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
