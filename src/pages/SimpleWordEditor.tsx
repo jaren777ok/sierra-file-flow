@@ -25,7 +25,7 @@ const SimpleWordEditor = () => {
   const BOTTOM_MARGIN = 120; // 3.17cm margen inferior (más espacio)
   const CHARS_PER_PAGE = 2800; // ~30-35 líneas de texto por página (conservador para respetar márgenes)
 
-  // Divide content into pages based on character count
+  // Divide content into pages - unified algorithm that splits everything naturally
   const divideContentIntoPages = useCallback((html: string): string[] => {
     if (!html) return [''];
     
@@ -36,99 +36,148 @@ const SimpleWordEditor = () => {
     let currentPageHtml = '';
     let currentCharCount = 0;
     
-    // Iterar sobre cada elemento hijo
+    // Helper to start new page
+    const startNewPage = () => {
+      if (currentPageHtml.trim()) {
+        pages.push(currentPageHtml);
+      }
+      currentPageHtml = '';
+      currentCharCount = 0;
+    };
+    
+    // Split paragraph by sentences
+    const splitParagraph = (element: Element) => {
+      const text = element.textContent || '';
+      const sentences = text.split(/(?<=[.!?:;])\s+/);
+      let currentSentences = '';
+      
+      sentences.forEach((sentence) => {
+        const testLength = currentCharCount + currentSentences.length + sentence.length;
+        
+        if (testLength <= CHARS_PER_PAGE) {
+          currentSentences += (currentSentences ? ' ' : '') + sentence;
+        } else {
+          // Save what we have so far
+          if (currentSentences.trim()) {
+            currentPageHtml += `<p>${currentSentences.trim()}</p>`;
+          }
+          startNewPage();
+          currentSentences = sentence;
+        }
+      });
+      
+      // Add remaining sentences
+      if (currentSentences.trim()) {
+        currentPageHtml += `<p>${currentSentences.trim()}</p>`;
+        currentCharCount += currentSentences.length;
+      }
+    };
+    
+    // Split list by items
+    const splitList = (element: Element) => {
+      const tagName = element.tagName.toLowerCase();
+      const items = Array.from(element.children);
+      let currentListHtml = `<${tagName}>`;
+      let currentListChars = 0;
+      
+      items.forEach((item) => {
+        const itemLength = item.textContent?.length || 0;
+        const testLength = currentCharCount + currentListChars + itemLength;
+        
+        if (testLength <= CHARS_PER_PAGE) {
+          currentListHtml += item.outerHTML;
+          currentListChars += itemLength;
+        } else {
+          // Close current list and save page
+          currentListHtml += `</${tagName}>`;
+          currentPageHtml += currentListHtml;
+          startNewPage();
+          // Start new list with this item
+          currentListHtml = `<${tagName}>${item.outerHTML}`;
+          currentListChars = itemLength;
+        }
+      });
+      
+      // Add remaining list
+      currentListHtml += `</${tagName}>`;
+      currentPageHtml += currentListHtml;
+      currentCharCount += currentListChars;
+    };
+    
+    // Split table by rows
+    const splitTable = (element: Element) => {
+      const rows = Array.from(element.querySelectorAll('tr'));
+      let currentTableHtml = '<table>';
+      let currentTableChars = 0;
+      let headerRow = '';
+      
+      rows.forEach((row, index) => {
+        const rowLength = row.textContent?.length || 0;
+        const isHeader = row.querySelector('th') !== null;
+        
+        // Save header to repeat on each page
+        if (isHeader && index === 0) {
+          headerRow = row.outerHTML;
+        }
+        
+        const testLength = currentCharCount + currentTableChars + rowLength;
+        
+        if (testLength <= CHARS_PER_PAGE) {
+          currentTableHtml += row.outerHTML;
+          currentTableChars += rowLength;
+        } else {
+          // Close current table and save page
+          currentTableHtml += '</table>';
+          currentPageHtml += currentTableHtml;
+          startNewPage();
+          // Start new table (with header if exists and this isn't the header)
+          currentTableHtml = '<table>' + (headerRow && !isHeader ? headerRow : '') + row.outerHTML;
+          currentTableChars = rowLength + (headerRow && !isHeader ? rows[0].textContent?.length || 0 : 0);
+        }
+      });
+      
+      // Add remaining table
+      currentTableHtml += '</table>';
+      currentPageHtml += currentTableHtml;
+      currentCharCount += currentTableChars;
+    };
+    
+    // Process each element
     Array.from(tempDiv.children).forEach((element) => {
-      const elementHtml = element.outerHTML;
+      const tagName = element.tagName.toUpperCase();
       const elementTextLength = element.textContent?.length || 0;
       
-      // Si un solo elemento es muy grande (más de CHARS_PER_PAGE)
-      if (elementTextLength > CHARS_PER_PAGE) {
-        // Caso especial: Lista muy larga - dividir por items
-        if (element.tagName === 'UL' || element.tagName === 'OL') {
-          const items = Array.from(element.children);
-          let listHtml = `<${element.tagName.toLowerCase()}>`;
-          let listCharCount = 0;
-          
-          items.forEach((item) => {
-            const itemLength = item.textContent?.length || 0;
-            
-            if (listCharCount + itemLength > CHARS_PER_PAGE && listHtml !== `<${element.tagName.toLowerCase()}>`) {
-              // Cerrar lista actual y crear nueva página
-              listHtml += `</${element.tagName.toLowerCase()}>`;
-              if (currentPageHtml) {
-                pages.push(currentPageHtml + listHtml);
-              } else {
-                pages.push(listHtml);
-              }
-              currentPageHtml = '';
-              currentCharCount = 0;
-              listHtml = `<${element.tagName.toLowerCase()}>`;
-              listCharCount = 0;
-            }
-            
-            listHtml += item.outerHTML;
-            listCharCount += itemLength;
-          });
-          
-          // Agregar resto de la lista
-          listHtml += `</${element.tagName.toLowerCase()}>`;
-          currentPageHtml += listHtml;
-          currentCharCount = listCharCount;
-        }
-        // Caso especial: Párrafo muy largo - dividir por oraciones
-        else if (element.tagName === 'P') {
-          const text = element.textContent || '';
-          const sentences = text.split(/(?<=[.!?])\s+/);
-          let paragraphText = '';
-          
-          sentences.forEach((sentence) => {
-            if ((paragraphText.length + sentence.length) > CHARS_PER_PAGE && paragraphText) {
-              const pTag = `<p>${paragraphText.trim()}</p>`;
-              if (currentPageHtml) {
-                pages.push(currentPageHtml + pTag);
-              } else {
-                pages.push(pTag);
-              }
-              currentPageHtml = '';
-              currentCharCount = 0;
-              paragraphText = sentence;
-            } else {
-              paragraphText += (paragraphText ? ' ' : '') + sentence;
-            }
-          });
-          
-          if (paragraphText) {
-            currentPageHtml += `<p>${paragraphText.trim()}</p>`;
-            currentCharCount = paragraphText.length;
-          }
-        }
-        // Otros elementos grandes: mantener completos pero en página nueva
-        else {
-          if (currentPageHtml) {
-            pages.push(currentPageHtml);
-            currentPageHtml = '';
-            currentCharCount = 0;
-          }
-          currentPageHtml = elementHtml;
-          currentCharCount = elementTextLength;
-        }
-      }
-      // Si agregar este elemento excede el límite
-      else if (currentCharCount + elementTextLength > CHARS_PER_PAGE && currentPageHtml) {
-        // Guardar página actual
-        pages.push(currentPageHtml);
-        // Iniciar nueva página con el elemento actual
-        currentPageHtml = elementHtml;
-        currentCharCount = elementTextLength;
-      } else {
-        // Agregar elemento a la página actual
-        currentPageHtml += elementHtml;
+      // If element fits completely in current page
+      if (currentCharCount + elementTextLength <= CHARS_PER_PAGE) {
+        currentPageHtml += element.outerHTML;
         currentCharCount += elementTextLength;
+        return;
+      }
+      
+      // Element doesn't fit - split based on type
+      switch (tagName) {
+        case 'P':
+          splitParagraph(element);
+          break;
+        case 'UL':
+        case 'OL':
+          splitList(element);
+          break;
+        case 'TABLE':
+          splitTable(element);
+          break;
+        default:
+          // For H1, H2, H3, DIV, etc.: start new page if current has content
+          if (currentPageHtml.trim()) {
+            startNewPage();
+          }
+          currentPageHtml = element.outerHTML;
+          currentCharCount = elementTextLength;
       }
     });
     
-    // Agregar última página si tiene contenido
-    if (currentPageHtml) {
+    // Add last page
+    if (currentPageHtml.trim()) {
       pages.push(currentPageHtml);
     }
     
