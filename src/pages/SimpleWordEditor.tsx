@@ -21,8 +21,9 @@ const SimpleWordEditor = () => {
   
   const PAGE_WIDTH = 793; // 21cm en px
   const PAGE_HEIGHT = 1123; // 29.7cm en px
-  const VERTICAL_PADDING = 192; // 96px top + 96px bottom
-  const MAX_CONTENT_HEIGHT = PAGE_HEIGHT - VERTICAL_PADDING; // 931px
+  const TOP_MARGIN = 96; // 2.54cm margen superior
+  const BOTTOM_MARGIN = 120; // 3.17cm margen inferior (más espacio)
+  const MAX_CONTENT_HEIGHT = PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN; // 907px
 
   // Divide content into pages
   const divideContentIntoPages = useCallback((html: string): string[] => {
@@ -31,40 +32,63 @@ const SimpleWordEditor = () => {
     const tempDiv = document.createElement('div');
     tempDiv.innerHTML = html;
     tempDiv.style.width = `${PAGE_WIDTH - leftMargin - rightMargin}px`;
+    tempDiv.style.fontSize = '11pt';
+    tempDiv.style.lineHeight = '1.5';
+    tempDiv.style.fontFamily = 'Arial, sans-serif';
     tempDiv.style.visibility = 'hidden';
     tempDiv.style.position = 'absolute';
     tempDiv.style.top = '-9999px';
     document.body.appendChild(tempDiv);
     
     const pages: string[] = [];
-    let currentPage = '';
-    let currentHeight = 0;
+    let currentPage = document.createElement('div');
     
     try {
+      const SAFETY_MARGIN = 20; // px de margen de seguridad
+      const effectiveMaxHeight = MAX_CONTENT_HEIGHT - SAFETY_MARGIN; // 887px
+      
       Array.from(tempDiv.children).forEach((element) => {
-        const elementHeight = (element as HTMLElement).offsetHeight;
+        const elementClone = element.cloneNode(true) as HTMLElement;
+        currentPage.appendChild(elementClone);
         
-        if (currentHeight + elementHeight > MAX_CONTENT_HEIGHT && currentPage) {
-          // Start new page
-          pages.push(currentPage);
-          currentPage = element.outerHTML;
-          currentHeight = elementHeight;
-        } else {
-          currentPage += element.outerHTML;
-          currentHeight += elementHeight;
+        const currentHeight = currentPage.offsetHeight;
+        
+        // Si excede el límite
+        if (currentHeight > effectiveMaxHeight) {
+          // Remover el elemento que causó el desbordamiento
+          currentPage.removeChild(elementClone);
+          
+          // Guardar página actual si tiene contenido
+          if (currentPage.children.length > 0) {
+            pages.push(currentPage.innerHTML);
+          }
+          
+          // Crear nueva página con el elemento
+          currentPage = document.createElement('div');
+          currentPage.appendChild(elementClone);
+          
+          // Si un solo elemento es muy grande, mantenerlo completo
+          if (currentPage.offsetHeight > effectiveMaxHeight) {
+            if (elementClone.tagName === 'TABLE' || 
+                elementClone.tagName === 'UL' || 
+                elementClone.tagName === 'OL') {
+              console.warn('Elemento muy grande detectado:', elementClone.tagName);
+            }
+          }
         }
       });
       
-      // Add last page
-      if (currentPage) {
-        pages.push(currentPage);
+      // Agregar última página
+      if (currentPage.children.length > 0) {
+        pages.push(currentPage.innerHTML);
       }
+      
     } finally {
       document.body.removeChild(tempDiv);
     }
     
     return pages.length > 0 ? pages : [''];
-  }, [leftMargin, rightMargin]);
+  }, [leftMargin, rightMargin, MAX_CONTENT_HEIGHT]);
 
   // Load initial content from Supabase
   useEffect(() => {
@@ -186,8 +210,8 @@ const SimpleWordEditor = () => {
             style={{
               width: `${PAGE_WIDTH}px`,
               height: `${PAGE_HEIGHT}px`,
-              paddingTop: '96px',
-              paddingBottom: '96px',
+              paddingTop: `${TOP_MARGIN}px`,
+              paddingBottom: `${BOTTOM_MARGIN}px`,
               paddingLeft: `${leftMargin}px`,
               paddingRight: `${rightMargin}px`,
               overflow: 'hidden'
