@@ -23,7 +23,7 @@ const SimpleWordEditor = () => {
   const PAGE_HEIGHT = 1123; // 29.7cm en px
   const TOP_MARGIN = 96; // 2.54cm margen superior
   const BOTTOM_MARGIN = 120; // 3.17cm margen inferior (más espacio)
-  const CHARS_PER_PAGE = 3500; // ~35-40 líneas de texto por página
+  const CHARS_PER_PAGE = 2800; // ~30-35 líneas de texto por página (conservador para respetar márgenes)
 
   // Divide content into pages based on character count
   const divideContentIntoPages = useCallback((html: string): string[] => {
@@ -265,7 +265,7 @@ const SimpleWordEditor = () => {
             <div
               contentEditable
               suppressContentEditableWarning
-              className="outline-none h-full
+              className="outline-none
                          [&_h1]:text-[18pt] [&_h1]:font-bold [&_h1]:mb-[12pt] [&_h1]:text-gray-900
                          [&_h2]:text-[14pt] [&_h2]:font-bold [&_h2]:mb-[10pt] [&_h2]:text-gray-900
                          [&_h3]:text-[12pt] [&_h3]:font-bold [&_h3]:mb-[8pt] [&_h3]:text-gray-900
@@ -279,6 +279,10 @@ const SimpleWordEditor = () => {
                          [&_th]:border [&_th]:border-gray-300 [&_th]:p-[6pt] [&_th]:bg-gray-100 [&_th]:font-bold [&_th]:text-[11pt] [&_th]:text-gray-900
                          [&_strong]:font-bold [&_em]:italic [&_u]:underline
                          text-[11pt] leading-[1.5] font-['Arial',sans-serif]"
+              style={{
+                height: `${PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN}px`,
+                overflow: 'hidden'
+              }}
               dangerouslySetInnerHTML={{ __html: pageContent }}
               onInput={(e) => handlePageContentChange(index, e.currentTarget.innerHTML)}
               onBlur={(e) => handlePageContentChange(index, e.currentTarget.innerHTML)}
