@@ -167,12 +167,19 @@ const SimpleWordEditor = () => {
           splitTable(element);
           break;
         default:
-          // For H1, H2, H3, DIV, etc.: start new page if current has content
-          if (currentPageHtml.trim()) {
-            startNewPage();
+          // For H1, H2, H3, DIV, etc.: ADD to current page if it fits
+          // Only start new page if element + current content exceeds limit
+          if (currentCharCount + elementTextLength <= CHARS_PER_PAGE) {
+            currentPageHtml += element.outerHTML;
+            currentCharCount += elementTextLength;
+          } else {
+            // Only start new page if current page has content
+            if (currentPageHtml.trim()) {
+              startNewPage();
+            }
+            currentPageHtml = element.outerHTML;
+            currentCharCount = elementTextLength;
           }
-          currentPageHtml = element.outerHTML;
-          currentCharCount = elementTextLength;
       }
     });
     
@@ -219,16 +226,21 @@ const SimpleWordEditor = () => {
     loadJobContent();
   }, [jobId, toast]);
 
-  // Divide content into pages when content or margins change
+  // Divide content into pages ONLY on initial load
   useEffect(() => {
-    if (content) {
+    if (content && pages.length === 0) {
       const dividedPages = divideContentIntoPages(content);
       setPages(dividedPages);
     }
-  }, [content, divideContentIntoPages]);
+  }, [content, divideContentIntoPages, pages.length]);
 
-  // Auto-save hook
-  const { isSaving, lastSaved, saveNow } = useSimpleAutoSave(jobId || '', content);
+  // Function to get current content from all pages
+  const getCurrentContent = useCallback(() => {
+    return pages.join(''); // Join without separator to maintain HTML integrity
+  }, [pages]);
+
+  // Manual save hook
+  const { isSaving, lastSaved, saveNow } = useSimpleAutoSave(jobId || '', getCurrentContent);
 
   // Format text
   const handleFormat = (command: string, value?: string) => {
@@ -255,12 +267,12 @@ const SimpleWordEditor = () => {
 
   // Handle content changes from any page
   const handlePageContentChange = (pageIndex: number, newContent: string) => {
-    const updatedPages = [...pages];
-    updatedPages[pageIndex] = newContent;
-    setPages(updatedPages);
-    
-    // Update full content for auto-save
-    setContent(updatedPages.join('\n'));
+    setPages(prevPages => {
+      const updatedPages = [...prevPages];
+      updatedPages[pageIndex] = newContent;
+      return updatedPages;
+    });
+    // Don't update content state - this prevents re-pagination
   };
 
   if (isLoading) {
@@ -307,8 +319,7 @@ const SimpleWordEditor = () => {
               paddingTop: `${TOP_MARGIN}px`,
               paddingBottom: `${BOTTOM_MARGIN}px`,
               paddingLeft: `${leftMargin}px`,
-              paddingRight: `${rightMargin}px`,
-              overflow: 'hidden'
+              paddingRight: `${rightMargin}px`
             }}
           >
             <div
@@ -329,8 +340,7 @@ const SimpleWordEditor = () => {
                          [&_strong]:font-bold [&_em]:italic [&_u]:underline
                          text-[11pt] leading-[1.5] font-['Arial',sans-serif]"
               style={{
-                height: `${PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN}px`,
-                overflow: 'hidden'
+                minHeight: `${PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN}px`
               }}
               dangerouslySetInnerHTML={{ __html: pageContent }}
               onInput={(e) => handlePageContentChange(index, e.currentTarget.innerHTML)}
