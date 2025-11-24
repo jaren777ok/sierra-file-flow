@@ -3,8 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { SimpleToolbar } from '@/components/editors/SimpleToolbar';
+import { SimpleRuler } from '@/components/editors/SimpleRuler';
 import { useSimpleAutoSave } from '@/hooks/useSimpleAutoSave';
 import { SimplePdfService } from '@/services/simplePdfService';
+import { HtmlCleaner } from '@/utils/htmlCleaner';
 
 const SimpleWordEditor = () => {
   const { jobId } = useParams();
@@ -13,7 +15,11 @@ const SimpleWordEditor = () => {
   const [content, setContent] = useState('');
   const [projectTitle, setProjectTitle] = useState('Documento');
   const [isLoading, setIsLoading] = useState(true);
+  const [leftMargin, setLeftMargin] = useState(96); // ~2.54cm default
+  const [rightMargin, setRightMargin] = useState(96);
   const contentRef = useRef<HTMLDivElement>(null);
+  
+  const PAGE_WIDTH = 793; // 21cm en px
 
   // Load initial content from Supabase
   useEffect(() => {
@@ -30,7 +36,9 @@ const SimpleWordEditor = () => {
         if (error) throw error;
 
         if (data) {
-          setContent(data.result_html || '');
+          // Limpiar HTML antes de renderizar
+          const cleanedHtml = HtmlCleaner.cleanHtmlFromWebhook(data.result_html || '');
+          setContent(cleanedHtml);
           setProjectTitle(data.project_title || 'Documento');
         }
       } catch (error) {
@@ -108,29 +116,52 @@ const SimpleWordEditor = () => {
         title={projectTitle}
       />
 
-      <div className="flex justify-center p-8">
+      <SimpleRuler
+        leftMargin={leftMargin}
+        rightMargin={rightMargin}
+        onLeftMarginChange={setLeftMargin}
+        onRightMarginChange={setRightMargin}
+        pageWidth={PAGE_WIDTH}
+      />
+
+      {/* Contenedor de páginas A4 */}
+      <div className="flex flex-col items-center gap-6 py-8">
+        {/* Página A4 limpia */}
         <div
-          id="word-container"
-          ref={contentRef}
-          contentEditable
-          suppressContentEditableWarning
-          className="bg-white w-[800px] min-h-[1100px] p-[60px] shadow-lg rounded-sm 
-                     focus:outline-none focus:ring-2 focus:ring-sierra-teal/20
-                     [&_h1]:text-2xl [&_h1]:font-bold [&_h1]:mb-4 [&_h1]:text-foreground
-                     [&_h2]:text-xl [&_h2]:font-bold [&_h2]:mb-3 [&_h2]:text-foreground
-                     [&_h3]:text-lg [&_h3]:font-semibold [&_h3]:mb-2 [&_h3]:text-foreground
-                     [&_p]:mb-3 [&_p]:text-foreground [&_p]:leading-relaxed
-                     [&_ul]:list-disc [&_ul]:ml-6 [&_ul]:mb-3
-                     [&_ol]:list-decimal [&_ol]:ml-6 [&_ol]:mb-3
-                     [&_li]:mb-1 [&_li]:text-foreground
-                     [&_table]:border-collapse [&_table]:w-full [&_table]:mb-4
-                     [&_td]:border [&_td]:border-border [&_td]:p-2
-                     [&_th]:border [&_th]:border-border [&_th]:p-2 [&_th]:bg-muted
-                     text-base font-['Arial']"
-          dangerouslySetInnerHTML={{ __html: content }}
-          onInput={handleContentChange}
-          onBlur={handleContentChange}
-        />
+          className="bg-white shadow-lg"
+          style={{
+            width: `${PAGE_WIDTH}px`, // 21cm
+            minHeight: '1123px', // 29.7cm
+            paddingTop: '96px', // 2.54cm
+            paddingBottom: '96px',
+            paddingLeft: `${leftMargin}px`,
+            paddingRight: `${rightMargin}px`
+          }}
+        >
+          <div
+            id="word-container"
+            ref={contentRef}
+            contentEditable
+            suppressContentEditableWarning
+            className="outline-none min-h-[800px]
+                       [&_h1]:text-[18pt] [&_h1]:font-bold [&_h1]:mb-[12pt] [&_h1]:text-gray-900
+                       [&_h2]:text-[14pt] [&_h2]:font-bold [&_h2]:mb-[10pt] [&_h2]:text-gray-900
+                       [&_h3]:text-[12pt] [&_h3]:font-bold [&_h3]:mb-[8pt] [&_h3]:text-gray-900
+                       [&_h4]:text-[11pt] [&_h4]:font-semibold [&_h4]:mb-[6pt] [&_h4]:text-gray-900
+                       [&_p]:text-[11pt] [&_p]:mb-[8pt] [&_p]:leading-[1.5] [&_p]:text-gray-800
+                       [&_ul]:list-disc [&_ul]:ml-[20pt] [&_ul]:mb-[8pt]
+                       [&_ol]:list-decimal [&_ol]:ml-[20pt] [&_ol]:mb-[8pt]
+                       [&_li]:text-[11pt] [&_li]:mb-[4pt] [&_li]:text-gray-800
+                       [&_table]:border-collapse [&_table]:w-full [&_table]:mb-[12pt]
+                       [&_td]:border [&_td]:border-gray-300 [&_td]:p-[6pt] [&_td]:text-[11pt] [&_td]:text-gray-800
+                       [&_th]:border [&_th]:border-gray-300 [&_th]:p-[6pt] [&_th]:bg-gray-100 [&_th]:font-bold [&_th]:text-[11pt] [&_th]:text-gray-900
+                       [&_strong]:font-bold [&_em]:italic [&_u]:underline
+                       text-[11pt] leading-[1.5] font-['Arial',sans-serif]"
+            dangerouslySetInnerHTML={{ __html: content }}
+            onInput={handleContentChange}
+            onBlur={handleContentChange}
+          />
+        </div>
       </div>
     </div>
   );
