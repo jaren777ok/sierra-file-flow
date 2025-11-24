@@ -7,14 +7,17 @@ interface UseSimpleAutoSaveReturn {
   saveNow: () => Promise<void>;
 }
 
-export const useSimpleAutoSave = (jobId: string, content: string): UseSimpleAutoSaveReturn => {
+export const useSimpleAutoSave = (jobId: string, getContent: () => string): UseSimpleAutoSaveReturn => {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
-  const timeoutRef = useRef<NodeJS.Timeout>();
-  const lastContentRef = useRef(content);
+  const lastContentRef = useRef('');
 
-  const saveContent = useCallback(async () => {
-    if (!jobId || !content) return;
+  // Manual save function only - no auto-save
+  const saveNow = useCallback(async () => {
+    if (!jobId) return;
+    
+    const content = getContent();
+    if (!content) return;
     
     // Don't save if content hasn't changed
     if (content === lastContentRef.current) return;
@@ -38,36 +41,7 @@ export const useSimpleAutoSave = (jobId: string, content: string): UseSimpleAuto
     } finally {
       setIsSaving(false);
     }
-  }, [jobId, content]);
-
-  // Auto-save every 30 seconds after content changes
-  useEffect(() => {
-    if (!content) return;
-
-    // Clear existing timeout
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-
-    // Set new timeout for 30 seconds
-    timeoutRef.current = setTimeout(() => {
-      saveContent();
-    }, 30000);
-
-    return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
-    };
-  }, [content, saveContent]);
-
-  // Manual save function
-  const saveNow = useCallback(async () => {
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
-    await saveContent();
-  }, [saveContent]);
+  }, [jobId, getContent]);
 
   return {
     isSaving,
