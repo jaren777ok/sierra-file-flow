@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Download, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PdfGenerationService } from '@/services/pdfGenerationService';
-import { HtmlToDocumentService } from '@/services/htmlToDocumentService';
+// import { HtmlToDocumentService } from '@/services/htmlToDocumentService'; // DEPRECATED - usando Markdown ahora
 import presentacion1 from '@/assets/presentacion_1.png';
 import presentacion11 from '@/assets/presentacion_1_1.png';
 
@@ -27,12 +27,13 @@ export const PptTemplate: React.FC<PptTemplateProps> = ({
   const contentSlides = useMemo(() => {
     if (!htmlContent) return ['<p>No hay contenido para mostrar.</p>'];
     
-    const cleanedHtml = HtmlToDocumentService.cleanHtml(htmlContent);
-    const splitSlides = HtmlToDocumentService.splitIntoSlides(cleanedHtml);
+    // DEPRECATED: Using Markdown in SimpleWordEditor now
+    // const cleanedHtml = HtmlToDocumentService.cleanHtml(htmlContent);
+    // const splitSlides = HtmlToDocumentService.splitIntoSlides(cleanedHtml);
     
-    console.log('📊 Content split into', splitSlides.length, 'slides');
+    console.log('📊 Content split into', 1, 'slides (fallback)');
     
-    return splitSlides;
+    return [htmlContent]; // Fallback: just return raw content
   }, [htmlContent]);
 
   const handleDownloadPdf = async () => {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { HtmlToDocumentService } from '@/services/htmlToDocumentService';
+// import { HtmlToDocumentService } from '@/services/htmlToDocumentService'; // DEPRECATED - usando Markdown ahora
 
 interface ProcessingJob {
   id: string;
@@ -41,31 +41,14 @@ export const useDocumentEditor = (jobId: string, isPresentation: boolean = false
 
         setJob(data as any);
 
-        // Parse and paginate HTML
+        // Parse and paginate HTML (DEPRECATED - using Markdown in SimpleWordEditor now)
         if ((data as any).result_html) {
-          const rawHtml = (data as any).result_html;
+          const rawContent = (data as any).result_html;
           
-          console.log('🔄 Processing HTML flow:');
+          console.log('🔄 Processing content (fallback mode - Markdown expected)');
           
-          // 1. Limpiar (remover DOCTYPE, extraer body)
-          const cleanedHtml = HtmlToDocumentService.cleanHtml(rawHtml);
-          console.log('   ✓ Step 1: HTML cleaned');
-          
-          // 2. REMOVER TAGS <font> que arruinan el sizing
-          const noFontHtml = HtmlToDocumentService.removeFontTags(cleanedHtml);
-          console.log('   ✓ Step 2: Font tags removed');
-          
-          // 3. Aplicar formateo básico (solo para loose text nodes)
-          const formattedHtml = HtmlToDocumentService.applyDefaultFormatting(noFontHtml);
-          console.log('   ✓ Step 3: Default formatting applied');
-          
-          // 4. Dividir por PAGE_BREAK (respetando estructura original)
-          const paginatedContent = isPresentation 
-            ? HtmlToDocumentService.splitIntoSlides(formattedHtml)
-            : HtmlToDocumentService.splitIntoPages(formattedHtml);
-          console.log('   ✓ Step 4: Content paginated');
-          
-          setPages(paginatedContent);
+          // Fallback: just use raw content without processing
+          setPages([rawContent]);
         } else {
           setPages(['<p>No hay contenido disponible.</p>']);
         }
