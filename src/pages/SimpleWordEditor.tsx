@@ -48,14 +48,9 @@ const SimpleWordEditor = () => {
         if (error) throw error;
 
         if (data) {
-          // Limpiar HTML antes de renderizar
           const cleanedHtml = HtmlCleaner.cleanHtmlFromWebhook(data.result_html || '');
           setContent(cleanedHtml);
-          
-          // Cargar TODO el contenido en una sola página inicial
-          // useRealTimePageOverflow lo dividirá automáticamente
           setPages([cleanedHtml]);
-          
           setProjectTitle(data.project_title || 'Documento');
         }
       } catch (error) {
@@ -72,6 +67,38 @@ const SimpleWordEditor = () => {
 
     loadJobContent();
   }, [jobId, toast]);
+
+  // Forzar división inicial después de renderizar
+  useEffect(() => {
+    if (pages.length === 1 && pages[0]) {
+      // Pequeño delay para que el DOM se renderice
+      const timer = setTimeout(() => {
+        // Disparar chequeo manual de overflow para todas las páginas
+        const pageElements = document.querySelectorAll('[data-page]');
+        pageElements.forEach((element, index) => {
+          const contentDiv = element.querySelector('[contenteditable]') as HTMLElement;
+          if (contentDiv) {
+            const scrollHeight = contentDiv.scrollHeight;
+            const maxHeight = MAX_CONTENT_HEIGHT;
+            
+            console.log(`Página ${index}: scrollHeight=${scrollHeight}, maxHeight=${maxHeight}`);
+            
+            if (scrollHeight > maxHeight) {
+              console.log(`⚠️ Página ${index} tiene overflow - forzando división`);
+              // Trigger manual split mediante mutación artificial
+              const text = contentDiv.textContent || '';
+              contentDiv.textContent = text + ' ';
+              setTimeout(() => {
+                contentDiv.textContent = text;
+              }, 10);
+            }
+          }
+        });
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [pages, MAX_CONTENT_HEIGHT]);
 
   // Function to get current content from all pages
   const getCurrentContent = useCallback(() => {

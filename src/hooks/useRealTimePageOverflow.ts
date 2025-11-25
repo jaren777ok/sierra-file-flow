@@ -19,6 +19,9 @@ export const useRealTimePageOverflow = ({
     if (element) {
       pageRefs.current.set(index, element);
       
+      // Chequeo inmediato al registrar
+      setTimeout(() => checkPageOverflow(index), 100);
+      
       // Crear MutationObserver para detectar cambios EN TIEMPO REAL
       const observer = new MutationObserver(() => {
         checkPageOverflow(index);
@@ -73,9 +76,9 @@ export const useRealTimePageOverflow = ({
     if (percentage > 85) element.classList.add('near-limit');
     if (percentage > 95) element.classList.add('at-limit');
     
-    // Dividir más agresivamente al 95% para evitar overflow
-    if (percentage > 95) {
-      console.log(`⚠️ EXCEDIÓ LÍMITE - Dividiendo página ${pageIndex}`);
+    // Dividir más agresivamente al 90% para evitar overflow
+    if (percentage > 90) {
+      console.log(`⚠️ EXCEDIÓ LÍMITE (${percentage.toFixed(1)}%) - Dividiendo página ${pageIndex}`);
       setIsProcessing(true);
       splitPage(pageIndex);
       setTimeout(() => setIsProcessing(false), 100);
@@ -115,10 +118,10 @@ export const useRealTimePageOverflow = ({
       
       console.log(`   Elemento ${i}: ${child.tagName} - ${childHeight}px`);
       
-      // Si agregar este elemento excede el 90% del límite (más agresivo)
-      if (accumulatedHeight + childHeight > maxContentHeight * 0.90) {
+      // Si agregar este elemento excede el 85% del límite (muy agresivo)
+      if (accumulatedHeight + childHeight > maxContentHeight * 0.85) {
         splitIndex = i;
-        console.log(`   ⚠️ Punto de división encontrado en elemento ${i}`);
+        console.log(`   ⚠️ Punto de división encontrado en elemento ${i} (${((accumulatedHeight / maxContentHeight) * 100).toFixed(1)}%)`);
         break;
       }
       
