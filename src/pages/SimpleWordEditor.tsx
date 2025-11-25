@@ -26,14 +26,193 @@ const SimpleWordEditor = () => {
   const BOTTOM_MARGIN = 120; // 3.17cm margen inferior (más espacio)
   const MAX_CONTENT_HEIGHT = PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN; // 907px
 
-  // Hook para monitoreo en tiempo real de overflow de páginas
+  // Hook para monitoreo en tiempo real de overflow de páginas (solo para edición)
   const { registerPageRef } = useRealTimePageOverflow({
     pages,
     onPagesChange: setPages,
     maxContentHeight: MAX_CONTENT_HEIGHT
   });
 
-  // Load initial content from Supabase - CARGAR TODO EN UNA PÁGINA
+  // ALGORITMO PIXEL-PERFECT: Divide contenido midiendo altura exacta
+  const divideContentIntoPages = useCallback((html: string): string[] => {
+    if (!html) return [''];
+    
+    console.log('🎯 Iniciando paginación pixel-perfect...');
+    
+    // Crear div temporal con dimensiones exactas
+    const tempContainer = document.createElement('div');
+    tempContainer.style.width = `${PAGE_WIDTH - leftMargin - rightMargin}px`;
+    tempContainer.style.fontFamily = 'Arial, sans-serif';
+    tempContainer.style.fontSize = '11pt';
+    tempContainer.style.lineHeight = '1.5';
+    tempContainer.style.position = 'absolute';
+    tempContainer.style.visibility = 'hidden';
+    tempContainer.style.top = '-9999px';
+    tempContainer.innerHTML = html;
+    document.body.appendChild(tempContainer);
+    
+    const pages: string[] = [];
+    const allChildren = Array.from(tempContainer.children);
+    
+    let currentPageHtml = '';
+    let currentPageHeight = 0;
+    
+    for (let i = 0; i < allChildren.length; i++) {
+      const element = allChildren[i] as HTMLElement;
+      
+      // Crear div de prueba para medir este elemento
+      const testDiv = document.createElement('div');
+      testDiv.style.width = `${PAGE_WIDTH - leftMargin - rightMargin}px`;
+      testDiv.style.fontFamily = 'Arial, sans-serif';
+      testDiv.style.fontSize = '11pt';
+      testDiv.style.lineHeight = '1.5';
+      testDiv.style.position = 'absolute';
+      testDiv.style.visibility = 'hidden';
+      testDiv.style.top = '-9999px';
+      testDiv.innerHTML = currentPageHtml + element.outerHTML;
+      document.body.appendChild(testDiv);
+      
+      const testHeight = testDiv.offsetHeight;
+      document.body.removeChild(testDiv);
+      
+      console.log(`  Elemento ${i} (${element.tagName}): altura acumulada ${testHeight}px / ${MAX_CONTENT_HEIGHT}px`);
+      
+      if (testHeight <= MAX_CONTENT_HEIGHT) {
+        // Cabe completo
+        currentPageHtml += element.outerHTML;
+        currentPageHeight = testHeight;
+      } else {
+        // NO cabe
+        
+        // Guardar página actual si tiene contenido
+        if (currentPageHtml.trim()) {
+          pages.push(currentPageHtml);
+          console.log(`  ✅ Página ${pages.length} completada con ${currentPageHeight}px`);
+          currentPageHtml = '';
+          currentPageHeight = 0;
+        }
+        
+        // Verificar si el elemento solo es muy grande
+        const soloDiv = document.createElement('div');
+        soloDiv.style.width = `${PAGE_WIDTH - leftMargin - rightMargin}px`;
+        soloDiv.style.fontFamily = 'Arial, sans-serif';
+        soloDiv.style.fontSize = '11pt';
+        soloDiv.style.lineHeight = '1.5';
+        soloDiv.style.position = 'absolute';
+        soloDiv.style.visibility = 'hidden';
+        soloDiv.style.top = '-9999px';
+        soloDiv.innerHTML = element.outerHTML;
+        document.body.appendChild(soloDiv);
+        const soloHeight = soloDiv.offsetHeight;
+        document.body.removeChild(soloDiv);
+        
+        if (soloHeight > MAX_CONTENT_HEIGHT) {
+          // Elemento MUY GRANDE - dividir
+          console.log(`  ⚠️ Elemento muy grande (${soloHeight}px) - dividiendo...`);
+          const divided = divideOversizedElement(element);
+          divided.forEach(part => {
+            currentPageHtml += part;
+            
+            // Medir si esta parte llena la página
+            const measureDiv = document.createElement('div');
+            measureDiv.style.width = `${PAGE_WIDTH - leftMargin - rightMargin}px`;
+            measureDiv.style.fontFamily = 'Arial, sans-serif';
+            measureDiv.style.fontSize = '11pt';
+            measureDiv.style.lineHeight = '1.5';
+            measureDiv.style.position = 'absolute';
+            measureDiv.style.visibility = 'hidden';
+            measureDiv.style.top = '-9999px';
+            measureDiv.innerHTML = currentPageHtml;
+            document.body.appendChild(measureDiv);
+            const partHeight = measureDiv.offsetHeight;
+            document.body.removeChild(measureDiv);
+            
+            if (partHeight > MAX_CONTENT_HEIGHT * 0.95) {
+              pages.push(currentPageHtml);
+              console.log(`  ✅ Página ${pages.length} completada (elemento dividido)`);
+              currentPageHtml = '';
+            }
+          });
+        } else {
+          // Elemento cabe solo en página nueva
+          currentPageHtml = element.outerHTML;
+          currentPageHeight = soloHeight;
+        }
+      }
+    }
+    
+    // Última página
+    if (currentPageHtml.trim()) {
+      pages.push(currentPageHtml);
+      console.log(`  ✅ Última página ${pages.length} completada`);
+    }
+    
+    document.body.removeChild(tempContainer);
+    
+    console.log(`✅ Paginación completa: ${pages.length} páginas creadas`);
+    return pages;
+  }, [leftMargin, rightMargin, MAX_CONTENT_HEIGHT]);
+
+  // Función para dividir elementos muy grandes
+  const divideOversizedElement = (element: HTMLElement): string[] => {
+    const parts: string[] = [];
+    const tagName = element.tagName.toLowerCase();
+    
+    if (tagName === 'ul' || tagName === 'ol') {
+      // Dividir lista por items
+      const items = Array.from(element.children);
+      let currentList = `<${tagName}>`;
+      
+      items.forEach((item, idx) => {
+        currentList += item.outerHTML;
+        
+        if (idx < items.length - 1 && (idx + 1) % 10 === 0) {
+          // Cada 10 items, cerrar y crear nueva lista
+          currentList += `</${tagName}>`;
+          parts.push(currentList);
+          currentList = `<${tagName}>`;
+        }
+      });
+      
+      currentList += `</${tagName}>`;
+      parts.push(currentList);
+      
+    } else if (tagName === 'table') {
+      // Dividir tabla por filas
+      const thead = element.querySelector('thead');
+      const rows = Array.from(element.querySelectorAll('tbody tr'));
+      
+      let currentTable = `<table>${thead?.outerHTML || ''}<tbody>`;
+      
+      rows.forEach((row, idx) => {
+        currentTable += row.outerHTML;
+        
+        if (idx < rows.length - 1 && (idx + 1) % 15 === 0) {
+          // Cada 15 filas, nueva tabla
+          currentTable += '</tbody></table>';
+          parts.push(currentTable);
+          currentTable = `<table>${thead?.outerHTML || ''}<tbody>`;
+        }
+      });
+      
+      currentTable += '</tbody></table>';
+      parts.push(currentTable);
+      
+    } else {
+      // Dividir texto por caracteres
+      const text = element.textContent || '';
+      const chunkSize = 2000;
+      
+      for (let i = 0; i < text.length; i += chunkSize) {
+        const chunk = text.substring(i, i + chunkSize);
+        parts.push(`<${tagName}>${chunk}</${tagName}>`);
+      }
+    }
+    
+    return parts.length > 0 ? parts : [element.outerHTML];
+  };
+
+  // Load initial content from Supabase
   useEffect(() => {
     const loadJobContent = async () => {
       if (!jobId) return;
@@ -50,7 +229,6 @@ const SimpleWordEditor = () => {
         if (data) {
           const cleanedHtml = HtmlCleaner.cleanHtmlFromWebhook(data.result_html || '');
           setContent(cleanedHtml);
-          setPages([cleanedHtml]);
           setProjectTitle(data.project_title || 'Documento');
         }
       } catch (error) {
@@ -68,37 +246,13 @@ const SimpleWordEditor = () => {
     loadJobContent();
   }, [jobId, toast]);
 
-  // Forzar división inicial después de renderizar
+  // Paginar contenido cuando se carga
   useEffect(() => {
-    if (pages.length === 1 && pages[0]) {
-      // Pequeño delay para que el DOM se renderice
-      const timer = setTimeout(() => {
-        // Disparar chequeo manual de overflow para todas las páginas
-        const pageElements = document.querySelectorAll('[data-page]');
-        pageElements.forEach((element, index) => {
-          const contentDiv = element.querySelector('[contenteditable]') as HTMLElement;
-          if (contentDiv) {
-            const scrollHeight = contentDiv.scrollHeight;
-            const maxHeight = MAX_CONTENT_HEIGHT;
-            
-            console.log(`Página ${index}: scrollHeight=${scrollHeight}, maxHeight=${maxHeight}`);
-            
-            if (scrollHeight > maxHeight) {
-              console.log(`⚠️ Página ${index} tiene overflow - forzando división`);
-              // Trigger manual split mediante mutación artificial
-              const text = contentDiv.textContent || '';
-              contentDiv.textContent = text + ' ';
-              setTimeout(() => {
-                contentDiv.textContent = text;
-              }, 10);
-            }
-          }
-        });
-      }, 500);
-
-      return () => clearTimeout(timer);
+    if (content && pages.length === 0) {
+      const dividedPages = divideContentIntoPages(content);
+      setPages(dividedPages);
     }
-  }, [pages, MAX_CONTENT_HEIGHT]);
+  }, [content, divideContentIntoPages, pages.length]);
 
   // Function to get current content from all pages
   const getCurrentContent = useCallback(() => {
