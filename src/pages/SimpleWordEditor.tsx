@@ -358,6 +358,27 @@ const SimpleWordEditor = () => {
     return pages.join(''); // Join without separator to maintain HTML integrity
   }, [pages]);
 
+  // Re-paginate automatically when margins change
+  useEffect(() => {
+    // Only re-paginate if we already have pages (avoid initial load)
+    if (pages.length > 0) {
+      console.log('🔄 Márgenes cambiados - re-paginando contenido...');
+      console.log(`   Margen izquierdo: ${leftMargin}px`);
+      console.log(`   Margen derecho: ${rightMargin}px`);
+      console.log(`   Ancho disponible: ${PAGE_WIDTH - leftMargin - rightMargin}px`);
+      
+      // Get ALL current content (may be edited by user)
+      const currentFullContent = getCurrentContent();
+      
+      // Re-paginate with new margins
+      const newPages = divideContentIntoPages(currentFullContent);
+      
+      console.log(`✅ Re-paginación completa: ${pages.length} → ${newPages.length} páginas`);
+      
+      setPages(newPages);
+    }
+  }, [leftMargin, rightMargin, pages.length, getCurrentContent, divideContentIntoPages, PAGE_WIDTH]);
+
   // Manual save hook
   const { isSaving, lastSaved, saveNow } = useSimpleAutoSave(jobId || '', getCurrentContent);
 
