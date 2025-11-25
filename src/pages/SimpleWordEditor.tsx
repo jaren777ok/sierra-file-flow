@@ -65,6 +65,7 @@ const SimpleWordEditor = () => {
         testElement.textContent = text.substring(0, mid);
         
         const testDiv = document.createElement('div');
+        testDiv.id = 'temp-measure-container';
         testDiv.style.width = referenceContainer.style.width;
         testDiv.style.fontFamily = referenceContainer.style.fontFamily;
         testDiv.style.fontSize = referenceContainer.style.fontSize;
@@ -102,7 +103,7 @@ const SimpleWordEditor = () => {
       
       return {
         pageContent: `<${tagName}>${firstPart}</${tagName}>`,
-        remainingContent: secondPart
+        remainingContent: `<${tagName}>${secondPart}</${tagName}>`
       };
     };
     
@@ -123,6 +124,7 @@ const SimpleWordEditor = () => {
         const mid = Math.floor((low + high) / 2);
         
         const testDiv = document.createElement('div');
+        testDiv.id = 'temp-measure-container';
         testDiv.style.width = container.style.width;
         testDiv.style.fontFamily = container.style.fontFamily;
         testDiv.style.fontSize = container.style.fontSize;
@@ -166,6 +168,7 @@ const SimpleWordEditor = () => {
       
       // Medir altura real usada
       const measureDiv = document.createElement('div');
+      measureDiv.id = 'temp-measure-container';
       measureDiv.style.width = container.style.width;
       measureDiv.style.fontFamily = container.style.fontFamily;
       measureDiv.style.fontSize = container.style.fontSize;
@@ -191,10 +194,15 @@ const SimpleWordEditor = () => {
         if (partialResult && partialResult.pageContent.trim()) {
           finalPageContent += partialResult.pageContent;
           
-          // Actualizar elemento con contenido restante
-          allChildren[bestFit].innerHTML = partialResult.remainingContent || '';
+          // NO modificar el elemento original - crear uno nuevo para el contenido restante
+          const tempDiv = document.createElement('div');
+          tempDiv.innerHTML = partialResult.remainingContent;
           
-          if (!partialResult.remainingContent.trim()) {
+          if (tempDiv.textContent?.trim()) {
+            // Hay contenido restante - reemplazar elemento
+            allChildren[bestFit].outerHTML = partialResult.remainingContent;
+          } else {
+            // No hay contenido restante - saltar este elemento
             startIndex = bestFit + 1;
           }
         }
@@ -211,7 +219,7 @@ const SimpleWordEditor = () => {
       };
     };
     
-    // Crear contenedor temporal
+    // Crear contenedor temporal con estilos CSS completos
     const tempContainer = document.createElement('div');
     tempContainer.style.width = `${PAGE_WIDTH - leftMargin - rightMargin}px`;
     tempContainer.style.fontFamily = 'Arial, sans-serif';
@@ -221,6 +229,27 @@ const SimpleWordEditor = () => {
     tempContainer.style.visibility = 'hidden';
     tempContainer.style.top = '-9999px';
     
+    // Aplicar TODOS los estilos CSS del editor para mediciones precisas
+    const styleSheet = document.createElement('style');
+    styleSheet.textContent = `
+      #temp-measure-container h1 { font-size: 18pt; font-weight: bold; margin-bottom: 12pt; }
+      #temp-measure-container h2 { font-size: 14pt; font-weight: bold; margin-bottom: 10pt; }
+      #temp-measure-container h3 { font-size: 12pt; font-weight: bold; margin-bottom: 8pt; }
+      #temp-measure-container h4 { font-size: 11pt; font-weight: 600; margin-bottom: 6pt; }
+      #temp-measure-container p { font-size: 11pt; margin-bottom: 8pt; line-height: 1.5; }
+      #temp-measure-container ul { list-style-type: disc; margin-left: 20pt; margin-bottom: 8pt; }
+      #temp-measure-container ol { list-style-type: decimal; margin-left: 20pt; margin-bottom: 8pt; }
+      #temp-measure-container li { font-size: 11pt; margin-bottom: 4pt; }
+      #temp-measure-container table { border-collapse: collapse; width: 100%; margin-bottom: 12pt; }
+      #temp-measure-container td { border: 1px solid #d1d5db; padding: 6pt; font-size: 11pt; }
+      #temp-measure-container th { border: 1px solid #d1d5db; padding: 6pt; background: #f3f4f6; font-weight: bold; font-size: 11pt; }
+      #temp-measure-container strong { font-weight: bold; }
+      #temp-measure-container em { font-style: italic; }
+      #temp-measure-container u { text-decoration: underline; }
+    `;
+    document.head.appendChild(styleSheet);
+    
+    tempContainer.id = 'temp-measure-container';
     tempContainer.innerHTML = html;
     document.body.appendChild(tempContainer);
     
@@ -257,6 +286,7 @@ const SimpleWordEditor = () => {
     }
     
     document.body.removeChild(tempContainer);
+    document.head.removeChild(styleSheet);
     console.log(`\n✅ ${pages.length} páginas creadas sin espacios vacíos`);
     
     return pages.length > 0 ? pages : [''];
