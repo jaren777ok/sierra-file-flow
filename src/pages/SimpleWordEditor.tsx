@@ -23,7 +23,7 @@ const SimpleWordEditor = () => {
   const PAGE_HEIGHT = 1123; // 29.7cm en px
   const TOP_MARGIN = 96; // 2.54cm margen superior
   const BOTTOM_MARGIN = 120; // 3.17cm margen inferior (más espacio)
-  const CHARS_PER_PAGE = 2800; // ~30-35 líneas de texto por página (conservador para respetar márgenes)
+  const CHARS_PER_PAGE = 2400; // ~30-35 líneas de texto por página (conservador para respetar márgenes)
 
   // Divide content into pages - unified algorithm that splits everything naturally
   const divideContentIntoPages = useCallback((html: string): string[] => {
@@ -73,7 +73,7 @@ const SimpleWordEditor = () => {
       }
     };
     
-    // Split list by items
+    // Split list by items (handles nested lists)
     const splitList = (element: Element) => {
       const tagName = element.tagName.toLowerCase();
       const items = Array.from(element.children);
@@ -81,27 +81,75 @@ const SimpleWordEditor = () => {
       let currentListChars = 0;
       
       items.forEach((item) => {
-        const itemLength = item.textContent?.length || 0;
-        const testLength = currentCharCount + currentListChars + itemLength;
+        const hasNestedList = item.querySelector('ul, ol') !== null;
+        const itemTextLength = item.textContent?.length || 0;
         
-        if (testLength <= CHARS_PER_PAGE) {
-          currentListHtml += item.outerHTML;
-          currentListChars += itemLength;
+        if (hasNestedList) {
+          const itemClone = item.cloneNode(true) as Element;
+          const nestedLists = itemClone.querySelectorAll('ul, ol');
+          nestedLists.forEach(list => list.remove());
+          
+          if (currentCharCount + currentListChars + itemTextLength <= CHARS_PER_PAGE) {
+            currentListHtml += item.outerHTML;
+            currentListChars += itemTextLength;
+          } else {
+            currentListHtml += `</${tagName}>`;
+            currentPageHtml += currentListHtml;
+            startNewPage();
+            currentListHtml = `<${tagName}>${item.outerHTML}`;
+            currentListChars = itemTextLength;
+          }
         } else {
-          // Close current list and save page
-          currentListHtml += `</${tagName}>`;
-          currentPageHtml += currentListHtml;
-          startNewPage();
-          // Start new list with this item
-          currentListHtml = `<${tagName}>${item.outerHTML}`;
-          currentListChars = itemLength;
+          const testLength = currentCharCount + currentListChars + itemTextLength;
+          
+          if (testLength <= CHARS_PER_PAGE) {
+            currentListHtml += item.outerHTML;
+            currentListChars += itemTextLength;
+          } else {
+            currentListHtml += `</${tagName}>`;
+            currentPageHtml += currentListHtml;
+            startNewPage();
+            currentListHtml = `<${tagName}>${item.outerHTML}`;
+            currentListChars = itemTextLength;
+          }
         }
       });
       
-      // Add remaining list
       currentListHtml += `</${tagName}>`;
       currentPageHtml += currentListHtml;
       currentCharCount += currentListChars;
+    };
+    
+    // Split individual list item by sentences
+    const splitListItem = (element: Element) => {
+      const itemText = element.textContent || '';
+      const itemLength = itemText.length;
+      
+      if (currentCharCount + itemLength <= CHARS_PER_PAGE) {
+        currentPageHtml += element.outerHTML;
+        currentCharCount += itemLength;
+        return;
+      }
+      
+      const sentences = itemText.split(/(?<=[.!?:;])\s+/);
+      let currentSentences = '';
+      
+      sentences.forEach((sentence) => {
+        if (currentCharCount + currentSentences.length + sentence.length <= CHARS_PER_PAGE) {
+          currentSentences += (currentSentences ? ' ' : '') + sentence;
+        } else {
+          if (currentSentences.trim()) {
+            currentPageHtml += `<li>${currentSentences.trim()}</li>`;
+          }
+          startNewPage();
+          currentSentences = sentence;
+        }
+      });
+      
+      if (currentSentences.trim()) {
+        currentPageHtml += `<li>${currentSentences.trim()}</li>`;
+        currentCharCount += currentSentences.length;
+      }
     };
     
     // Split table by rows
@@ -142,46 +190,47 @@ const SimpleWordEditor = () => {
       currentCharCount += currentTableChars;
     };
     
-    // Process each element
-    Array.from(tempDiv.children).forEach((element) => {
+    // Process element recursively
+    const processElement = (element: Element) => {
       const tagName = element.tagName.toUpperCase();
       const elementTextLength = element.textContent?.length || 0;
-      
-      // If element fits completely in current page
+
       if (currentCharCount + elementTextLength <= CHARS_PER_PAGE) {
         currentPageHtml += element.outerHTML;
         currentCharCount += elementTextLength;
         return;
       }
-      
-      // Element doesn't fit - split based on type
+
       switch (tagName) {
         case 'P':
           splitParagraph(element);
           break;
+        
         case 'UL':
         case 'OL':
           splitList(element);
           break;
+        
         case 'TABLE':
           splitTable(element);
           break;
+        
+        case 'LI':
+          splitListItem(element);
+          break;
+        
         default:
-          // For H1, H2, H3, DIV, etc.: ADD to current page if it fits
-          // Only start new page if element + current content exceeds limit
-          if (currentCharCount + elementTextLength <= CHARS_PER_PAGE) {
-            currentPageHtml += element.outerHTML;
-            currentCharCount += elementTextLength;
-          } else {
-            // Only start new page if current page has content
-            if (currentPageHtml.trim()) {
-              startNewPage();
-            }
-            currentPageHtml = element.outerHTML;
-            currentCharCount = elementTextLength;
+          if (currentPageHtml.trim()) {
+            startNewPage();
           }
+          currentPageHtml = element.outerHTML;
+          currentCharCount = elementTextLength;
+          break;
       }
-    });
+    };
+    
+    // Process each element
+    Array.from(tempDiv.children).forEach(processElement);
     
     // Add last page
     if (currentPageHtml.trim()) {
@@ -340,7 +389,9 @@ const SimpleWordEditor = () => {
                          [&_strong]:font-bold [&_em]:italic [&_u]:underline
                          text-[11pt] leading-[1.5] font-['Arial',sans-serif]"
               style={{
-                minHeight: `${PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN}px`
+                height: `${PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN}px`,
+                maxHeight: `${PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN}px`,
+                overflow: 'auto'
               }}
               dangerouslySetInnerHTML={{ __html: pageContent }}
               onInput={(e) => handlePageContentChange(index, e.currentTarget.innerHTML)}
