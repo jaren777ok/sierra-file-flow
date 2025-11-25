@@ -3,7 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Download, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PdfGenerationService } from '@/services/pdfGenerationService';
-import { HtmlToDocumentService } from '@/services/htmlToDocumentService';
+// import { HtmlToDocumentService } from '@/services/htmlToDocumentService'; // DEPRECATED - usando Markdown ahora
 import plantillaImage from '@/assets/plantilla_1.png';
 
 interface InformeTemplateProps {
@@ -26,12 +26,13 @@ export const InformeTemplate: React.FC<InformeTemplateProps> = ({
   const pages = useMemo(() => {
     if (!htmlContent) return ['<p>No hay contenido para mostrar.</p>'];
     
-    const cleanedHtml = HtmlToDocumentService.cleanHtml(htmlContent);
-    const paginatedContent = HtmlToDocumentService.splitIntoPages(cleanedHtml);
+    // DEPRECATED: Using Markdown in SimpleWordEditor now
+    // const cleanedHtml = HtmlToDocumentService.cleanHtml(htmlContent);
+    // const paginatedContent = HtmlToDocumentService.splitIntoPages(cleanedHtml);
     
-    console.log('📄 Content paginated:', paginatedContent.length, 'pages');
+    console.log('📄 Content paginated:', 1, 'pages (fallback)');
     
-    return paginatedContent;
+    return [htmlContent]; // Fallback: just return raw content
   }, [htmlContent]);
 
   const handleDownloadPdf = async () => {
