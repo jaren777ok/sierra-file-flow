@@ -33,13 +33,185 @@ const SimpleWordEditor = () => {
     maxContentHeight: MAX_CONTENT_HEIGHT
   });
 
-  // ALGORITMO PIXEL-PERFECT: Divide contenido midiendo altura exacta
+  // ALGORITMO DE BÚSQUEDA BINARIA: Llena páginas al 100% sin espacios
   const divideContentIntoPages = useCallback((html: string): string[] => {
     if (!html) return [''];
     
-    console.log('🎯 Iniciando paginación pixel-perfect...');
+    console.log('🎯 Iniciando paginación con búsqueda binaria...');
     
-    // Crear div temporal con dimensiones exactas
+    // Helper: Divide un elemento individual por palabras
+    const splitFirstElement = (
+      element: HTMLElement,
+      referenceContainer: HTMLElement,
+      maxHeight: number
+    ): { pageContent: string; remainingContent: string } | null => {
+      const tagName = element.tagName.toLowerCase();
+      const text = element.textContent || '';
+      
+      if (!text.trim()) return null;
+      
+      console.log(`  ✂️ Dividiendo <${tagName}> con ${text.length} caracteres`);
+      
+      // Búsqueda binaria por caracteres
+      let low = 0;
+      let high = text.length;
+      let bestLength = 0;
+      
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        
+        // Crear elemento de prueba
+        const testElement = document.createElement(tagName);
+        testElement.textContent = text.substring(0, mid);
+        
+        const testDiv = document.createElement('div');
+        testDiv.style.width = referenceContainer.style.width;
+        testDiv.style.fontFamily = referenceContainer.style.fontFamily;
+        testDiv.style.fontSize = referenceContainer.style.fontSize;
+        testDiv.style.lineHeight = referenceContainer.style.lineHeight;
+        testDiv.style.position = 'absolute';
+        testDiv.style.visibility = 'hidden';
+        testDiv.appendChild(testElement);
+        
+        document.body.appendChild(testDiv);
+        const height = testDiv.offsetHeight;
+        document.body.removeChild(testDiv);
+        
+        if (height <= maxHeight) {
+          bestLength = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+      
+      if (bestLength === 0) return null;
+      
+      // Ajustar para no cortar palabras
+      let splitIndex = bestLength;
+      while (splitIndex > 0 && text[splitIndex] !== ' ' && text[splitIndex] !== '\n') {
+        splitIndex--;
+      }
+      
+      if (splitIndex === 0) splitIndex = bestLength;
+      
+      const firstPart = text.substring(0, splitIndex).trim();
+      const secondPart = text.substring(splitIndex).trim();
+      
+      console.log(`  ✅ Dividido: ${firstPart.length} → ${secondPart.length} chars`);
+      
+      return {
+        pageContent: `<${tagName}>${firstPart}</${tagName}>`,
+        remainingContent: secondPart
+      };
+    };
+    
+    // Helper: Encuentra punto de división usando búsqueda binaria
+    const findSplitPoint = (
+      container: HTMLElement,
+      maxHeight: number
+    ): { pageContent: string; remainingContent: string; heightUsed: number } | null => {
+      const allChildren = Array.from(container.children);
+      if (allChildren.length === 0) return null;
+      
+      // Búsqueda binaria: cuántos elementos completos caben
+      let low = 0;
+      let high = allChildren.length;
+      let bestFit = 0;
+      
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        
+        const testDiv = document.createElement('div');
+        testDiv.style.width = container.style.width;
+        testDiv.style.fontFamily = container.style.fontFamily;
+        testDiv.style.fontSize = container.style.fontSize;
+        testDiv.style.lineHeight = container.style.lineHeight;
+        testDiv.style.position = 'absolute';
+        testDiv.style.visibility = 'hidden';
+        
+        for (let i = 0; i < mid; i++) {
+          testDiv.appendChild(allChildren[i].cloneNode(true));
+        }
+        
+        document.body.appendChild(testDiv);
+        const height = testDiv.offsetHeight;
+        document.body.removeChild(testDiv);
+        
+        if (height <= maxHeight) {
+          bestFit = mid;
+          low = mid + 1;
+        } else {
+          high = mid - 1;
+        }
+      }
+      
+      console.log(`  🔍 ${bestFit} elementos completos caben`);
+      
+      // Si ningún elemento cabe, dividir el primero
+      if (bestFit === 0) {
+        const splitResult = splitFirstElement(allChildren[0] as HTMLElement, container, maxHeight);
+        if (!splitResult) return null;
+        
+        return {
+          pageContent: splitResult.pageContent,
+          remainingContent: splitResult.remainingContent,
+          heightUsed: maxHeight // Asumimos que usó todo el espacio
+        };
+      }
+      
+      // Construir página con elementos que caben
+      const pageElements = allChildren.slice(0, bestFit);
+      const pageContent = pageElements.map(el => el.outerHTML).join('');
+      
+      // Medir altura real usada
+      const measureDiv = document.createElement('div');
+      measureDiv.style.width = container.style.width;
+      measureDiv.style.fontFamily = container.style.fontFamily;
+      measureDiv.style.fontSize = container.style.fontSize;
+      measureDiv.style.lineHeight = container.style.lineHeight;
+      measureDiv.style.position = 'absolute';
+      measureDiv.style.visibility = 'hidden';
+      measureDiv.innerHTML = pageContent;
+      document.body.appendChild(measureDiv);
+      const heightUsed = measureDiv.offsetHeight;
+      document.body.removeChild(measureDiv);
+      
+      const spaceLeft = maxHeight - heightUsed;
+      console.log(`  📏 Espacio restante: ${spaceLeft}px`);
+      
+      let finalPageContent = pageContent;
+      let startIndex = bestFit;
+      
+      // Intentar agregar parte del siguiente elemento si hay espacio
+      if (spaceLeft > 50 && bestFit < allChildren.length) {
+        const nextElement = allChildren[bestFit] as HTMLElement;
+        const partialResult = splitFirstElement(nextElement, container, spaceLeft);
+        
+        if (partialResult && partialResult.pageContent.trim()) {
+          finalPageContent += partialResult.pageContent;
+          
+          // Actualizar elemento con contenido restante
+          allChildren[bestFit].innerHTML = partialResult.remainingContent || '';
+          
+          if (!partialResult.remainingContent.trim()) {
+            startIndex = bestFit + 1;
+          }
+        }
+      }
+      
+      // Contenido restante
+      const remainingElements = allChildren.slice(startIndex);
+      const remainingContent = remainingElements.map(el => el.outerHTML).join('');
+      
+      return {
+        pageContent: finalPageContent,
+        remainingContent,
+        heightUsed
+      };
+    };
+    
+    // Crear contenedor temporal
     const tempContainer = document.createElement('div');
     tempContainer.style.width = `${PAGE_WIDTH - leftMargin - rightMargin}px`;
     tempContainer.style.fontFamily = 'Arial, sans-serif';
@@ -48,169 +220,48 @@ const SimpleWordEditor = () => {
     tempContainer.style.position = 'absolute';
     tempContainer.style.visibility = 'hidden';
     tempContainer.style.top = '-9999px';
+    
     tempContainer.innerHTML = html;
     document.body.appendChild(tempContainer);
     
     const pages: string[] = [];
-    const allChildren = Array.from(tempContainer.children);
+    let attempts = 0;
+    const MAX_ATTEMPTS = 100;
     
-    let currentPageHtml = '';
-    let currentPageHeight = 0;
-    
-    for (let i = 0; i < allChildren.length; i++) {
-      const element = allChildren[i] as HTMLElement;
+    while (tempContainer.innerHTML.trim() && attempts < MAX_ATTEMPTS) {
+      attempts++;
       
-      // Crear div de prueba para medir este elemento
-      const testDiv = document.createElement('div');
-      testDiv.style.width = `${PAGE_WIDTH - leftMargin - rightMargin}px`;
-      testDiv.style.fontFamily = 'Arial, sans-serif';
-      testDiv.style.fontSize = '11pt';
-      testDiv.style.lineHeight = '1.5';
-      testDiv.style.position = 'absolute';
-      testDiv.style.visibility = 'hidden';
-      testDiv.style.top = '-9999px';
-      testDiv.innerHTML = currentPageHtml + element.outerHTML;
-      document.body.appendChild(testDiv);
+      const currentHeight = tempContainer.offsetHeight;
+      console.log(`\n📄 Página ${pages.length + 1}: altura ${currentHeight}px`);
       
-      const testHeight = testDiv.offsetHeight;
-      document.body.removeChild(testDiv);
-      
-      console.log(`  Elemento ${i} (${element.tagName}): altura acumulada ${testHeight}px / ${MAX_CONTENT_HEIGHT}px`);
-      
-      if (testHeight <= MAX_CONTENT_HEIGHT) {
-        // Cabe completo
-        currentPageHtml += element.outerHTML;
-        currentPageHeight = testHeight;
-      } else {
-        // NO cabe
-        
-        // Guardar página actual si tiene contenido
-        if (currentPageHtml.trim()) {
-          pages.push(currentPageHtml);
-          console.log(`  ✅ Página ${pages.length} completada con ${currentPageHeight}px`);
-          currentPageHtml = '';
-          currentPageHeight = 0;
-        }
-        
-        // Verificar si el elemento solo es muy grande
-        const soloDiv = document.createElement('div');
-        soloDiv.style.width = `${PAGE_WIDTH - leftMargin - rightMargin}px`;
-        soloDiv.style.fontFamily = 'Arial, sans-serif';
-        soloDiv.style.fontSize = '11pt';
-        soloDiv.style.lineHeight = '1.5';
-        soloDiv.style.position = 'absolute';
-        soloDiv.style.visibility = 'hidden';
-        soloDiv.style.top = '-9999px';
-        soloDiv.innerHTML = element.outerHTML;
-        document.body.appendChild(soloDiv);
-        const soloHeight = soloDiv.offsetHeight;
-        document.body.removeChild(soloDiv);
-        
-        if (soloHeight > MAX_CONTENT_HEIGHT) {
-          // Elemento MUY GRANDE - dividir
-          console.log(`  ⚠️ Elemento muy grande (${soloHeight}px) - dividiendo...`);
-          const divided = divideOversizedElement(element);
-          divided.forEach(part => {
-            currentPageHtml += part;
-            
-            // Medir si esta parte llena la página
-            const measureDiv = document.createElement('div');
-            measureDiv.style.width = `${PAGE_WIDTH - leftMargin - rightMargin}px`;
-            measureDiv.style.fontFamily = 'Arial, sans-serif';
-            measureDiv.style.fontSize = '11pt';
-            measureDiv.style.lineHeight = '1.5';
-            measureDiv.style.position = 'absolute';
-            measureDiv.style.visibility = 'hidden';
-            measureDiv.style.top = '-9999px';
-            measureDiv.innerHTML = currentPageHtml;
-            document.body.appendChild(measureDiv);
-            const partHeight = measureDiv.offsetHeight;
-            document.body.removeChild(measureDiv);
-            
-            if (partHeight > MAX_CONTENT_HEIGHT * 0.95) {
-              pages.push(currentPageHtml);
-              console.log(`  ✅ Página ${pages.length} completada (elemento dividido)`);
-              currentPageHtml = '';
-            }
-          });
-        } else {
-          // Elemento cabe solo en página nueva
-          currentPageHtml = element.outerHTML;
-          currentPageHeight = soloHeight;
-        }
+      if (currentHeight <= MAX_CONTENT_HEIGHT) {
+        // Todo cabe en una página
+        pages.push(tempContainer.innerHTML);
+        console.log(`  ✅ TODO cabe en una página`);
+        break;
       }
-    }
-    
-    // Última página
-    if (currentPageHtml.trim()) {
-      pages.push(currentPageHtml);
-      console.log(`  ✅ Última página ${pages.length} completada`);
+      
+      // Necesita dividir
+      const splitPoint = findSplitPoint(tempContainer, MAX_CONTENT_HEIGHT);
+      
+      if (!splitPoint) {
+        console.error('  ❌ No se pudo dividir');
+        pages.push(tempContainer.innerHTML);
+        break;
+      }
+      
+      pages.push(splitPoint.pageContent);
+      console.log(`  ✅ Página ${pages.length} creada (${splitPoint.heightUsed}px usados)`);
+      
+      tempContainer.innerHTML = splitPoint.remainingContent;
     }
     
     document.body.removeChild(tempContainer);
+    console.log(`\n✅ ${pages.length} páginas creadas sin espacios vacíos`);
     
-    console.log(`✅ Paginación completa: ${pages.length} páginas creadas`);
-    return pages;
-  }, [leftMargin, rightMargin, MAX_CONTENT_HEIGHT]);
+    return pages.length > 0 ? pages : [''];
+  }, [leftMargin, rightMargin, MAX_CONTENT_HEIGHT, PAGE_WIDTH]);
 
-  // Función para dividir elementos muy grandes
-  const divideOversizedElement = (element: HTMLElement): string[] => {
-    const parts: string[] = [];
-    const tagName = element.tagName.toLowerCase();
-    
-    if (tagName === 'ul' || tagName === 'ol') {
-      // Dividir lista por items
-      const items = Array.from(element.children);
-      let currentList = `<${tagName}>`;
-      
-      items.forEach((item, idx) => {
-        currentList += item.outerHTML;
-        
-        if (idx < items.length - 1 && (idx + 1) % 10 === 0) {
-          // Cada 10 items, cerrar y crear nueva lista
-          currentList += `</${tagName}>`;
-          parts.push(currentList);
-          currentList = `<${tagName}>`;
-        }
-      });
-      
-      currentList += `</${tagName}>`;
-      parts.push(currentList);
-      
-    } else if (tagName === 'table') {
-      // Dividir tabla por filas
-      const thead = element.querySelector('thead');
-      const rows = Array.from(element.querySelectorAll('tbody tr'));
-      
-      let currentTable = `<table>${thead?.outerHTML || ''}<tbody>`;
-      
-      rows.forEach((row, idx) => {
-        currentTable += row.outerHTML;
-        
-        if (idx < rows.length - 1 && (idx + 1) % 15 === 0) {
-          // Cada 15 filas, nueva tabla
-          currentTable += '</tbody></table>';
-          parts.push(currentTable);
-          currentTable = `<table>${thead?.outerHTML || ''}<tbody>`;
-        }
-      });
-      
-      currentTable += '</tbody></table>';
-      parts.push(currentTable);
-      
-    } else {
-      // Dividir texto por caracteres
-      const text = element.textContent || '';
-      const chunkSize = 2000;
-      
-      for (let i = 0; i < text.length; i += chunkSize) {
-        const chunk = text.substring(i, i + chunkSize);
-        parts.push(`<${tagName}>${chunk}</${tagName}>`);
-      }
-    }
-    
-    return parts.length > 0 ? parts : [element.outerHTML];
-  };
 
   // Load initial content from Supabase
   useEffect(() => {
