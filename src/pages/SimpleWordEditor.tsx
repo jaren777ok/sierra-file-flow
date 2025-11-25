@@ -7,6 +7,7 @@ import { SimpleRuler } from '@/components/editors/SimpleRuler';
 import { useSimpleAutoSave } from '@/hooks/useSimpleAutoSave';
 import { SimplePdfService } from '@/services/simplePdfService';
 import { HtmlCleaner } from '@/utils/htmlCleaner';
+import { useRealTimePageOverflow } from '@/hooks/useRealTimePageOverflow';
 
 const SimpleWordEditor = () => {
   const { jobId } = useParams();
@@ -23,7 +24,15 @@ const SimpleWordEditor = () => {
   const PAGE_HEIGHT = 1123; // 29.7cm en px
   const TOP_MARGIN = 96; // 2.54cm margen superior
   const BOTTOM_MARGIN = 120; // 3.17cm margen inferior (más espacio)
-  const CHARS_PER_PAGE = 2400; // ~30-35 líneas de texto por página (conservador para respetar márgenes)
+  const CHARS_PER_PAGE = 2200; // ~30-35 líneas de texto por página (conservador para respetar márgenes)
+  const MAX_CONTENT_HEIGHT = PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN; // 907px
+
+  // Hook para monitoreo en tiempo real de overflow de páginas
+  const { registerPageRef } = useRealTimePageOverflow({
+    pages,
+    onPagesChange: setPages,
+    maxContentHeight: MAX_CONTENT_HEIGHT
+  });
 
   // Divide content into pages - unified algorithm that splits everything naturally
   const divideContentIntoPages = useCallback((html: string): string[] => {
@@ -220,11 +229,22 @@ const SimpleWordEditor = () => {
           break;
         
         default:
-          if (currentPageHtml.trim()) {
-            startNewPage();
+          // Si es UL u OL no detectado en el switch, procesarlo como lista
+          if (tagName === 'UL' || tagName === 'OL') {
+            splitList(element);
+          } else {
+            // Para otros elementos (H1, DIV, etc.)
+            if (currentCharCount + elementTextLength <= CHARS_PER_PAGE) {
+              currentPageHtml += element.outerHTML;
+              currentCharCount += elementTextLength;
+            } else {
+              if (currentPageHtml.trim()) {
+                startNewPage();
+              }
+              currentPageHtml = element.outerHTML;
+              currentCharCount = elementTextLength;
+            }
           }
-          currentPageHtml = element.outerHTML;
-          currentCharCount = elementTextLength;
           break;
       }
     };
@@ -372,6 +392,7 @@ const SimpleWordEditor = () => {
             }}
           >
             <div
+              ref={(el) => registerPageRef(index, el)}
               contentEditable
               suppressContentEditableWarning
               className="outline-none
@@ -389,9 +410,9 @@ const SimpleWordEditor = () => {
                          [&_strong]:font-bold [&_em]:italic [&_u]:underline
                          text-[11pt] leading-[1.5] font-['Arial',sans-serif]"
               style={{
-                height: `${PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN}px`,
-                maxHeight: `${PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN}px`,
-                overflow: 'auto'
+                minHeight: `${MAX_CONTENT_HEIGHT}px`,
+                maxHeight: `${MAX_CONTENT_HEIGHT}px`,
+                overflow: 'hidden'
               }}
               dangerouslySetInnerHTML={{ __html: pageContent }}
               onInput={(e) => handlePageContentChange(index, e.currentTarget.innerHTML)}
