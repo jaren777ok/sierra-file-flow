@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -33,186 +33,7 @@ const SimpleWordEditor = () => {
     maxContentHeight: MAX_CONTENT_HEIGHT
   });
 
-  // Función helper para dividir elementos que son muy grandes
-  const divideOversizedElement = useCallback((element: Element): string[] => {
-    const parts: string[] = [];
-    const tagName = element.tagName.toLowerCase();
-    
-    // Crear div temporal para medir
-    const measureDiv = document.createElement('div');
-    measureDiv.style.width = `${PAGE_WIDTH - leftMargin - rightMargin}px`;
-    measureDiv.style.fontFamily = 'Arial, sans-serif';
-    measureDiv.style.fontSize = '11pt';
-    measureDiv.style.lineHeight = '1.5';
-    measureDiv.style.position = 'absolute';
-    measureDiv.style.visibility = 'hidden';
-    measureDiv.style.top = '-9999px';
-    document.body.appendChild(measureDiv);
-    
-    if (tagName === 'ul' || tagName === 'ol') {
-      // Dividir lista por items
-      const items = Array.from(element.children);
-      let currentList = `<${tagName}>`;
-      
-      items.forEach((item) => {
-        const testList = currentList + item.outerHTML + `</${tagName}>`;
-        measureDiv.innerHTML = testList;
-        
-        if (measureDiv.offsetHeight <= MAX_CONTENT_HEIGHT * 0.95) {
-          currentList += item.outerHTML;
-        } else {
-          // Cerrar lista actual
-          currentList += `</${tagName}>`;
-          parts.push(currentList);
-          // Empezar nueva lista
-          currentList = `<${tagName}>${item.outerHTML}`;
-        }
-      });
-      
-      currentList += `</${tagName}>`;
-      parts.push(currentList);
-      
-    } else if (tagName === 'table') {
-      // Dividir tabla por filas
-      const thead = element.querySelector('thead');
-      const tbody = element.querySelector('tbody');
-      const rows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
-      
-      let currentTable = `<table>${thead ? thead.outerHTML : ''}<tbody>`;
-      
-      rows.forEach((row) => {
-        const testTable = currentTable + row.outerHTML + '</tbody></table>';
-        measureDiv.innerHTML = testTable;
-        
-        if (measureDiv.offsetHeight <= MAX_CONTENT_HEIGHT * 0.95) {
-          currentTable += row.outerHTML;
-        } else {
-          currentTable += '</tbody></table>';
-          parts.push(currentTable);
-          // Nueva tabla con header repetido
-          currentTable = `<table>${thead ? thead.outerHTML : ''}<tbody>${row.outerHTML}`;
-        }
-      });
-      
-      currentTable += '</tbody></table>';
-      parts.push(currentTable);
-      
-    } else if (tagName === 'p' || tagName === 'h1' || tagName === 'h2' || tagName === 'h3' || tagName === 'h4') {
-      // Dividir párrafo/encabezado por oraciones
-      const text = element.textContent || '';
-      const sentences = text.split(/(?<=[.!?:;])\s+/);
-      let currentText = '';
-      const openTag = `<${tagName}>`;
-      const closeTag = `</${tagName}>`;
-      
-      sentences.forEach((sentence) => {
-        const testElement = `${openTag}${currentText + sentence}${closeTag}`;
-        measureDiv.innerHTML = testElement;
-        
-        if (measureDiv.offsetHeight <= MAX_CONTENT_HEIGHT * 0.95) {
-          currentText += (currentText ? ' ' : '') + sentence;
-        } else {
-          if (currentText) {
-            parts.push(`${openTag}${currentText}${closeTag}`);
-          }
-          currentText = sentence;
-        }
-      });
-      
-      if (currentText) {
-        parts.push(`${openTag}${currentText}${closeTag}`);
-      }
-    } else {
-      // Para otros elementos, agregar completo
-      parts.push(element.outerHTML);
-    }
-    
-    document.body.removeChild(measureDiv);
-    return parts;
-  }, [leftMargin, rightMargin]);
-
-  // Divide content into pages - NUEVO algoritmo basado en medición de altura real
-  const divideContentIntoPages = useCallback((html: string): string[] => {
-    if (!html) return [''];
-    
-    // Crear contenedor temporal EXACTO al tamaño de página real
-    const tempDiv = document.createElement('div');
-    tempDiv.style.width = `${PAGE_WIDTH - leftMargin - rightMargin}px`; // ancho real disponible
-    tempDiv.style.fontFamily = 'Arial, sans-serif';
-    tempDiv.style.fontSize = '11pt';
-    tempDiv.style.lineHeight = '1.5';
-    tempDiv.style.position = 'absolute';
-    tempDiv.style.visibility = 'hidden';
-    tempDiv.style.top = '-9999px';
-    document.body.appendChild(tempDiv);
-    
-    // Parsear HTML original
-    const sourceDiv = document.createElement('div');
-    sourceDiv.innerHTML = html;
-    
-    const pages: string[] = [];
-    let currentPageHtml = '';
-    
-    // Función para medir altura actual
-    const getCurrentHeight = (): number => {
-      tempDiv.innerHTML = currentPageHtml;
-      return tempDiv.offsetHeight;
-    };
-    
-    // Procesar cada elemento hijo
-    Array.from(sourceDiv.children).forEach((element) => {
-      const elementHtml = element.outerHTML;
-      
-      // Intentar agregar elemento completo
-      const testHtml = currentPageHtml + elementHtml;
-      tempDiv.innerHTML = testHtml;
-      const testHeight = tempDiv.offsetHeight;
-      
-      if (testHeight <= MAX_CONTENT_HEIGHT) {
-        // Cabe completo - agregar
-        currentPageHtml += elementHtml;
-      } else {
-        // NO cabe completo
-        
-        // Si la página actual tiene contenido, guardarla
-        if (currentPageHtml.trim()) {
-          pages.push(currentPageHtml);
-          currentPageHtml = '';
-        }
-        
-        // Verificar si el elemento solo es muy grande
-        tempDiv.innerHTML = elementHtml;
-        const soloElementHeight = tempDiv.offsetHeight;
-        
-        if (soloElementHeight > MAX_CONTENT_HEIGHT) {
-          // Elemento individual es MUY GRANDE - dividir por contenido interno
-          const divided = divideOversizedElement(element);
-          divided.forEach(part => {
-            currentPageHtml += part;
-            if (getCurrentHeight() > MAX_CONTENT_HEIGHT * 0.95) {
-              pages.push(currentPageHtml);
-              currentPageHtml = '';
-            }
-          });
-        } else {
-          // Elemento cabe solo - ponerlo en nueva página
-          currentPageHtml = elementHtml;
-        }
-      }
-    });
-    
-    // Guardar última página
-    if (currentPageHtml.trim()) {
-      pages.push(currentPageHtml);
-    }
-    
-    // Cleanup
-    document.body.removeChild(tempDiv);
-    
-    return pages.length > 0 ? pages : [''];
-  }, [leftMargin, rightMargin, divideOversizedElement]);
-
-  // Load initial content from Supabase
+  // Load initial content from Supabase - CARGAR TODO EN UNA PÁGINA
   useEffect(() => {
     const loadJobContent = async () => {
       if (!jobId) return;
@@ -230,6 +51,11 @@ const SimpleWordEditor = () => {
           // Limpiar HTML antes de renderizar
           const cleanedHtml = HtmlCleaner.cleanHtmlFromWebhook(data.result_html || '');
           setContent(cleanedHtml);
+          
+          // Cargar TODO el contenido en una sola página inicial
+          // useRealTimePageOverflow lo dividirá automáticamente
+          setPages([cleanedHtml]);
+          
           setProjectTitle(data.project_title || 'Documento');
         }
       } catch (error) {
@@ -246,14 +72,6 @@ const SimpleWordEditor = () => {
 
     loadJobContent();
   }, [jobId, toast]);
-
-  // Divide content into pages ONLY on initial load
-  useEffect(() => {
-    if (content && pages.length === 0) {
-      const dividedPages = divideContentIntoPages(content);
-      setPages(dividedPages);
-    }
-  }, [content, divideContentIntoPages, pages.length]);
 
   // Function to get current content from all pages
   const getCurrentContent = useCallback(() => {
