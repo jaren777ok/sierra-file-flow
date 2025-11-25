@@ -73,12 +73,12 @@ export const useRealTimePageOverflow = ({
     if (percentage > 85) element.classList.add('near-limit');
     if (percentage > 95) element.classList.add('at-limit');
     
-    // Solo dividir si REALMENTE excede el 98% (más conservador)
-    if (percentage > 98) {
+    // Dividir más agresivamente al 95% para evitar overflow
+    if (percentage > 95) {
       console.log(`⚠️ EXCEDIÓ LÍMITE - Dividiendo página ${pageIndex}`);
       setIsProcessing(true);
       splitPage(pageIndex);
-      setTimeout(() => setIsProcessing(false), 200);
+      setTimeout(() => setIsProcessing(false), 100);
     }
   }, [maxContentHeight, isProcessing]);
 
@@ -115,8 +115,8 @@ export const useRealTimePageOverflow = ({
       
       console.log(`   Elemento ${i}: ${child.tagName} - ${childHeight}px`);
       
-      // Si agregar este elemento excede el 95% del límite
-      if (accumulatedHeight + childHeight > maxContentHeight * 0.95) {
+      // Si agregar este elemento excede el 90% del límite (más agresivo)
+      if (accumulatedHeight + childHeight > maxContentHeight * 0.90) {
         splitIndex = i;
         console.log(`   ⚠️ Punto de división encontrado en elemento ${i}`);
         break;
