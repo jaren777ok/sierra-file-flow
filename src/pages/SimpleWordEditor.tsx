@@ -24,7 +24,6 @@ const SimpleWordEditor = () => {
   const PAGE_HEIGHT = 1123; // 29.7cm en px
   const TOP_MARGIN = 96; // 2.54cm margen superior
   const BOTTOM_MARGIN = 120; // 3.17cm margen inferior (más espacio)
-  const CHARS_PER_PAGE = 2200; // ~30-35 líneas de texto por página (conservador para respetar márgenes)
   const MAX_CONTENT_HEIGHT = PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN; // 907px
 
   // Hook para monitoreo en tiempo real de overflow de páginas
@@ -34,231 +33,184 @@ const SimpleWordEditor = () => {
     maxContentHeight: MAX_CONTENT_HEIGHT
   });
 
-  // Divide content into pages - unified algorithm that splits everything naturally
+  // Función helper para dividir elementos que son muy grandes
+  const divideOversizedElement = useCallback((element: Element): string[] => {
+    const parts: string[] = [];
+    const tagName = element.tagName.toLowerCase();
+    
+    // Crear div temporal para medir
+    const measureDiv = document.createElement('div');
+    measureDiv.style.width = `${PAGE_WIDTH - leftMargin - rightMargin}px`;
+    measureDiv.style.fontFamily = 'Arial, sans-serif';
+    measureDiv.style.fontSize = '11pt';
+    measureDiv.style.lineHeight = '1.5';
+    measureDiv.style.position = 'absolute';
+    measureDiv.style.visibility = 'hidden';
+    measureDiv.style.top = '-9999px';
+    document.body.appendChild(measureDiv);
+    
+    if (tagName === 'ul' || tagName === 'ol') {
+      // Dividir lista por items
+      const items = Array.from(element.children);
+      let currentList = `<${tagName}>`;
+      
+      items.forEach((item) => {
+        const testList = currentList + item.outerHTML + `</${tagName}>`;
+        measureDiv.innerHTML = testList;
+        
+        if (measureDiv.offsetHeight <= MAX_CONTENT_HEIGHT * 0.95) {
+          currentList += item.outerHTML;
+        } else {
+          // Cerrar lista actual
+          currentList += `</${tagName}>`;
+          parts.push(currentList);
+          // Empezar nueva lista
+          currentList = `<${tagName}>${item.outerHTML}`;
+        }
+      });
+      
+      currentList += `</${tagName}>`;
+      parts.push(currentList);
+      
+    } else if (tagName === 'table') {
+      // Dividir tabla por filas
+      const thead = element.querySelector('thead');
+      const tbody = element.querySelector('tbody');
+      const rows = tbody ? Array.from(tbody.querySelectorAll('tr')) : [];
+      
+      let currentTable = `<table>${thead ? thead.outerHTML : ''}<tbody>`;
+      
+      rows.forEach((row) => {
+        const testTable = currentTable + row.outerHTML + '</tbody></table>';
+        measureDiv.innerHTML = testTable;
+        
+        if (measureDiv.offsetHeight <= MAX_CONTENT_HEIGHT * 0.95) {
+          currentTable += row.outerHTML;
+        } else {
+          currentTable += '</tbody></table>';
+          parts.push(currentTable);
+          // Nueva tabla con header repetido
+          currentTable = `<table>${thead ? thead.outerHTML : ''}<tbody>${row.outerHTML}`;
+        }
+      });
+      
+      currentTable += '</tbody></table>';
+      parts.push(currentTable);
+      
+    } else if (tagName === 'p' || tagName === 'h1' || tagName === 'h2' || tagName === 'h3' || tagName === 'h4') {
+      // Dividir párrafo/encabezado por oraciones
+      const text = element.textContent || '';
+      const sentences = text.split(/(?<=[.!?:;])\s+/);
+      let currentText = '';
+      const openTag = `<${tagName}>`;
+      const closeTag = `</${tagName}>`;
+      
+      sentences.forEach((sentence) => {
+        const testElement = `${openTag}${currentText + sentence}${closeTag}`;
+        measureDiv.innerHTML = testElement;
+        
+        if (measureDiv.offsetHeight <= MAX_CONTENT_HEIGHT * 0.95) {
+          currentText += (currentText ? ' ' : '') + sentence;
+        } else {
+          if (currentText) {
+            parts.push(`${openTag}${currentText}${closeTag}`);
+          }
+          currentText = sentence;
+        }
+      });
+      
+      if (currentText) {
+        parts.push(`${openTag}${currentText}${closeTag}`);
+      }
+    } else {
+      // Para otros elementos, agregar completo
+      parts.push(element.outerHTML);
+    }
+    
+    document.body.removeChild(measureDiv);
+    return parts;
+  }, [leftMargin, rightMargin]);
+
+  // Divide content into pages - NUEVO algoritmo basado en medición de altura real
   const divideContentIntoPages = useCallback((html: string): string[] => {
     if (!html) return [''];
     
+    // Crear contenedor temporal EXACTO al tamaño de página real
     const tempDiv = document.createElement('div');
-    tempDiv.innerHTML = html;
+    tempDiv.style.width = `${PAGE_WIDTH - leftMargin - rightMargin}px`; // ancho real disponible
+    tempDiv.style.fontFamily = 'Arial, sans-serif';
+    tempDiv.style.fontSize = '11pt';
+    tempDiv.style.lineHeight = '1.5';
+    tempDiv.style.position = 'absolute';
+    tempDiv.style.visibility = 'hidden';
+    tempDiv.style.top = '-9999px';
+    document.body.appendChild(tempDiv);
+    
+    // Parsear HTML original
+    const sourceDiv = document.createElement('div');
+    sourceDiv.innerHTML = html;
     
     const pages: string[] = [];
     let currentPageHtml = '';
-    let currentCharCount = 0;
     
-    // Helper to start new page
-    const startNewPage = () => {
-      if (currentPageHtml.trim()) {
-        pages.push(currentPageHtml);
-      }
-      currentPageHtml = '';
-      currentCharCount = 0;
+    // Función para medir altura actual
+    const getCurrentHeight = (): number => {
+      tempDiv.innerHTML = currentPageHtml;
+      return tempDiv.offsetHeight;
     };
     
-    // Split paragraph by sentences
-    const splitParagraph = (element: Element) => {
-      const text = element.textContent || '';
-      const sentences = text.split(/(?<=[.!?:;])\s+/);
-      let currentSentences = '';
+    // Procesar cada elemento hijo
+    Array.from(sourceDiv.children).forEach((element) => {
+      const elementHtml = element.outerHTML;
       
-      sentences.forEach((sentence) => {
-        const testLength = currentCharCount + currentSentences.length + sentence.length;
+      // Intentar agregar elemento completo
+      const testHtml = currentPageHtml + elementHtml;
+      tempDiv.innerHTML = testHtml;
+      const testHeight = tempDiv.offsetHeight;
+      
+      if (testHeight <= MAX_CONTENT_HEIGHT) {
+        // Cabe completo - agregar
+        currentPageHtml += elementHtml;
+      } else {
+        // NO cabe completo
         
-        if (testLength <= CHARS_PER_PAGE) {
-          currentSentences += (currentSentences ? ' ' : '') + sentence;
-        } else {
-          // Save what we have so far
-          if (currentSentences.trim()) {
-            currentPageHtml += `<p>${currentSentences.trim()}</p>`;
-          }
-          startNewPage();
-          currentSentences = sentence;
-        }
-      });
-      
-      // Add remaining sentences
-      if (currentSentences.trim()) {
-        currentPageHtml += `<p>${currentSentences.trim()}</p>`;
-        currentCharCount += currentSentences.length;
-      }
-    };
-    
-    // Split list by items (handles nested lists)
-    const splitList = (element: Element) => {
-      const tagName = element.tagName.toLowerCase();
-      const items = Array.from(element.children);
-      let currentListHtml = `<${tagName}>`;
-      let currentListChars = 0;
-      
-      items.forEach((item) => {
-        const hasNestedList = item.querySelector('ul, ol') !== null;
-        const itemTextLength = item.textContent?.length || 0;
-        
-        if (hasNestedList) {
-          const itemClone = item.cloneNode(true) as Element;
-          const nestedLists = itemClone.querySelectorAll('ul, ol');
-          nestedLists.forEach(list => list.remove());
-          
-          if (currentCharCount + currentListChars + itemTextLength <= CHARS_PER_PAGE) {
-            currentListHtml += item.outerHTML;
-            currentListChars += itemTextLength;
-          } else {
-            currentListHtml += `</${tagName}>`;
-            currentPageHtml += currentListHtml;
-            startNewPage();
-            currentListHtml = `<${tagName}>${item.outerHTML}`;
-            currentListChars = itemTextLength;
-          }
-        } else {
-          const testLength = currentCharCount + currentListChars + itemTextLength;
-          
-          if (testLength <= CHARS_PER_PAGE) {
-            currentListHtml += item.outerHTML;
-            currentListChars += itemTextLength;
-          } else {
-            currentListHtml += `</${tagName}>`;
-            currentPageHtml += currentListHtml;
-            startNewPage();
-            currentListHtml = `<${tagName}>${item.outerHTML}`;
-            currentListChars = itemTextLength;
-          }
-        }
-      });
-      
-      currentListHtml += `</${tagName}>`;
-      currentPageHtml += currentListHtml;
-      currentCharCount += currentListChars;
-    };
-    
-    // Split individual list item by sentences
-    const splitListItem = (element: Element) => {
-      const itemText = element.textContent || '';
-      const itemLength = itemText.length;
-      
-      if (currentCharCount + itemLength <= CHARS_PER_PAGE) {
-        currentPageHtml += element.outerHTML;
-        currentCharCount += itemLength;
-        return;
-      }
-      
-      const sentences = itemText.split(/(?<=[.!?:;])\s+/);
-      let currentSentences = '';
-      
-      sentences.forEach((sentence) => {
-        if (currentCharCount + currentSentences.length + sentence.length <= CHARS_PER_PAGE) {
-          currentSentences += (currentSentences ? ' ' : '') + sentence;
-        } else {
-          if (currentSentences.trim()) {
-            currentPageHtml += `<li>${currentSentences.trim()}</li>`;
-          }
-          startNewPage();
-          currentSentences = sentence;
-        }
-      });
-      
-      if (currentSentences.trim()) {
-        currentPageHtml += `<li>${currentSentences.trim()}</li>`;
-        currentCharCount += currentSentences.length;
-      }
-    };
-    
-    // Split table by rows
-    const splitTable = (element: Element) => {
-      const rows = Array.from(element.querySelectorAll('tr'));
-      let currentTableHtml = '<table>';
-      let currentTableChars = 0;
-      let headerRow = '';
-      
-      rows.forEach((row, index) => {
-        const rowLength = row.textContent?.length || 0;
-        const isHeader = row.querySelector('th') !== null;
-        
-        // Save header to repeat on each page
-        if (isHeader && index === 0) {
-          headerRow = row.outerHTML;
+        // Si la página actual tiene contenido, guardarla
+        if (currentPageHtml.trim()) {
+          pages.push(currentPageHtml);
+          currentPageHtml = '';
         }
         
-        const testLength = currentCharCount + currentTableChars + rowLength;
+        // Verificar si el elemento solo es muy grande
+        tempDiv.innerHTML = elementHtml;
+        const soloElementHeight = tempDiv.offsetHeight;
         
-        if (testLength <= CHARS_PER_PAGE) {
-          currentTableHtml += row.outerHTML;
-          currentTableChars += rowLength;
-        } else {
-          // Close current table and save page
-          currentTableHtml += '</table>';
-          currentPageHtml += currentTableHtml;
-          startNewPage();
-          // Start new table (with header if exists and this isn't the header)
-          currentTableHtml = '<table>' + (headerRow && !isHeader ? headerRow : '') + row.outerHTML;
-          currentTableChars = rowLength + (headerRow && !isHeader ? rows[0].textContent?.length || 0 : 0);
-        }
-      });
-      
-      // Add remaining table
-      currentTableHtml += '</table>';
-      currentPageHtml += currentTableHtml;
-      currentCharCount += currentTableChars;
-    };
-    
-    // Process element recursively
-    const processElement = (element: Element) => {
-      const tagName = element.tagName.toUpperCase();
-      const elementTextLength = element.textContent?.length || 0;
-
-      if (currentCharCount + elementTextLength <= CHARS_PER_PAGE) {
-        currentPageHtml += element.outerHTML;
-        currentCharCount += elementTextLength;
-        return;
-      }
-
-      switch (tagName) {
-        case 'P':
-          splitParagraph(element);
-          break;
-        
-        case 'UL':
-        case 'OL':
-          splitList(element);
-          break;
-        
-        case 'TABLE':
-          splitTable(element);
-          break;
-        
-        case 'LI':
-          splitListItem(element);
-          break;
-        
-        default:
-          // Si es UL u OL no detectado en el switch, procesarlo como lista
-          if (tagName === 'UL' || tagName === 'OL') {
-            splitList(element);
-          } else {
-            // Para otros elementos (H1, DIV, etc.)
-            if (currentCharCount + elementTextLength <= CHARS_PER_PAGE) {
-              currentPageHtml += element.outerHTML;
-              currentCharCount += elementTextLength;
-            } else {
-              if (currentPageHtml.trim()) {
-                startNewPage();
-              }
-              currentPageHtml = element.outerHTML;
-              currentCharCount = elementTextLength;
+        if (soloElementHeight > MAX_CONTENT_HEIGHT) {
+          // Elemento individual es MUY GRANDE - dividir por contenido interno
+          const divided = divideOversizedElement(element);
+          divided.forEach(part => {
+            currentPageHtml += part;
+            if (getCurrentHeight() > MAX_CONTENT_HEIGHT * 0.95) {
+              pages.push(currentPageHtml);
+              currentPageHtml = '';
             }
-          }
-          break;
+          });
+        } else {
+          // Elemento cabe solo - ponerlo en nueva página
+          currentPageHtml = elementHtml;
+        }
       }
-    };
+    });
     
-    // Process each element
-    Array.from(tempDiv.children).forEach(processElement);
-    
-    // Add last page
+    // Guardar última página
     if (currentPageHtml.trim()) {
       pages.push(currentPageHtml);
     }
     
+    // Cleanup
+    document.body.removeChild(tempDiv);
+    
     return pages.length > 0 ? pages : [''];
-  }, []);
+  }, [leftMargin, rightMargin, divideOversizedElement]);
 
   // Load initial content from Supabase
   useEffect(() => {
