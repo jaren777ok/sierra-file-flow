@@ -26,18 +26,163 @@ const SimpleWordEditor = () => {
   const BOTTOM_MARGIN = 120; // 3.17cm margen inferior (más espacio)
   const MAX_CONTENT_HEIGHT = PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN; // 907px
 
-  // Hook para monitoreo en tiempo real de overflow de páginas (solo para edición)
-  const { registerPageRef } = useRealTimePageOverflow({
-    pages,
-    onPagesChange: setPages,
-    maxContentHeight: MAX_CONTENT_HEIGHT
-  });
+  // Hook para monitoreo en tiempo real de overflow de páginas (TEMPORALMENTE DESACTIVADO)
+  // const { registerPageRef } = useRealTimePageOverflow({
+  //   pages,
+  //   onPagesChange: setPages,
+  //   maxContentHeight: MAX_CONTENT_HEIGHT
+  // });
 
-  // ALGORITMO DE BÚSQUEDA BINARIA: Llena páginas al 100% sin espacios
+  // Helper: Medir altura real de un elemento
+  const measureHeight = useCallback((element: Element, container: HTMLElement): number => {
+    const testDiv = document.createElement('div');
+    testDiv.id = 'temp-measure-container';
+    testDiv.style.width = `${PAGE_WIDTH - leftMargin - rightMargin}px`;
+    testDiv.style.position = 'absolute';
+    testDiv.style.visibility = 'hidden';
+    testDiv.style.top = '-9999px';
+    testDiv.appendChild(element.cloneNode(true));
+    document.body.appendChild(testDiv);
+    const height = testDiv.offsetHeight;
+    document.body.removeChild(testDiv);
+    return height;
+  }, [PAGE_WIDTH, leftMargin, rightMargin]);
+
+  // Helper: Dividir elementos grandes (tablas, listas, párrafos)
+  const divideElement = useCallback((
+    element: Element,
+    availableHeight: number
+  ): { fitsPart: string; remainderPart: string } | null => {
+    const tagName = element.tagName.toLowerCase();
+    
+    // TABLAS: dividir por filas
+    if (tagName === 'table') {
+      const thead = element.querySelector('thead');
+      const tbody = element.querySelector('tbody') || element;
+      const rows = Array.from(tbody.querySelectorAll('tr'));
+      
+      if (rows.length === 0) return null;
+      
+      let fitCount = 0;
+      for (let i = 1; i <= rows.length; i++) {
+        const testTable = document.createElement('table');
+        testTable.className = element.className;
+        if (thead) testTable.appendChild(thead.cloneNode(true));
+        const testBody = document.createElement('tbody');
+        rows.slice(0, i).forEach(row => testBody.appendChild(row.cloneNode(true)));
+        testTable.appendChild(testBody);
+        
+        const height = measureHeight(testTable, document.body);
+        if (height <= availableHeight) {
+          fitCount = i;
+        } else {
+          break;
+        }
+      }
+      
+      if (fitCount === 0) return null;
+      
+      const fitsTable = document.createElement('table');
+      fitsTable.className = element.className;
+      if (thead) fitsTable.appendChild(thead.cloneNode(true));
+      const fitsBody = document.createElement('tbody');
+      rows.slice(0, fitCount).forEach(row => fitsBody.appendChild(row.cloneNode(true)));
+      fitsTable.appendChild(fitsBody);
+      
+      const remainderTable = document.createElement('table');
+      remainderTable.className = element.className;
+      if (thead) remainderTable.appendChild(thead.cloneNode(true));
+      const remainderBody = document.createElement('tbody');
+      rows.slice(fitCount).forEach(row => remainderBody.appendChild(row.cloneNode(true)));
+      remainderTable.appendChild(remainderBody);
+      
+      return {
+        fitsPart: fitsTable.outerHTML,
+        remainderPart: remainderTable.outerHTML
+      };
+    }
+    
+    // LISTAS: dividir por items
+    if (tagName === 'ul' || tagName === 'ol') {
+      const items = Array.from(element.querySelectorAll('li'));
+      if (items.length === 0) return null;
+      
+      let fitCount = 0;
+      for (let i = 1; i <= items.length; i++) {
+        const testList = document.createElement(tagName);
+        testList.className = element.className;
+        items.slice(0, i).forEach(item => testList.appendChild(item.cloneNode(true)));
+        
+        const height = measureHeight(testList, document.body);
+        if (height <= availableHeight) {
+          fitCount = i;
+        } else {
+          break;
+        }
+      }
+      
+      if (fitCount === 0) return null;
+      
+      const fitsList = document.createElement(tagName);
+      fitsList.className = element.className;
+      items.slice(0, fitCount).forEach(item => fitsList.appendChild(item.cloneNode(true)));
+      
+      const remainderList = document.createElement(tagName);
+      remainderList.className = element.className;
+      items.slice(fitCount).forEach(item => remainderList.appendChild(item.cloneNode(true)));
+      
+      return {
+        fitsPart: fitsList.outerHTML,
+        remainderPart: remainderList.outerHTML
+      };
+    }
+    
+    // PÁRRAFOS/TÍTULOS: dividir por oraciones
+    if (['p', 'h1', 'h2', 'h3', 'h4'].includes(tagName)) {
+      const text = element.textContent || '';
+      const sentences = text.split(/(?<=[.!?])\s+/);
+      
+      if (sentences.length <= 1) return null;
+      
+      let fitCount = 0;
+      for (let i = 1; i <= sentences.length; i++) {
+        const testElement = document.createElement(tagName);
+        testElement.className = element.className;
+        testElement.innerHTML = element.innerHTML; // Preserve inner HTML
+        testElement.textContent = sentences.slice(0, i).join(' ');
+        
+        const height = measureHeight(testElement, document.body);
+        if (height <= availableHeight) {
+          fitCount = i;
+        } else {
+          break;
+        }
+      }
+      
+      if (fitCount === 0) return null;
+      
+      const fitsElement = document.createElement(tagName);
+      fitsElement.className = element.className;
+      fitsElement.textContent = sentences.slice(0, fitCount).join(' ');
+      
+      const remainderElement = document.createElement(tagName);
+      remainderElement.className = element.className;
+      remainderElement.textContent = sentences.slice(fitCount).join(' ');
+      
+      return {
+        fitsPart: fitsElement.outerHTML,
+        remainderPart: remainderElement.outerHTML
+      };
+    }
+    
+    return null;
+  }, [measureHeight]);
+
+  // ALGORITMO DE LLENADO MÁXIMO: Llena páginas al 95-98% sin espacios en blanco
   const divideContentIntoPages = useCallback((html: string): string[] => {
     if (!html) return [''];
     
-    console.log('🎯 Iniciando paginación SIMPLIFICADA (sin dividir elementos)...');
+    console.log('🎯 Iniciando paginación INTELIGENTE con división de elementos grandes...');
     
     // Crear contenedor temporal con estilos CSS completos
     const tempContainer = document.createElement('div');
@@ -49,7 +194,7 @@ const SimpleWordEditor = () => {
     tempContainer.style.visibility = 'hidden';
     tempContainer.style.top = '-9999px';
     
-    // Aplicar TODOS los estilos CSS del editor para mediciones precisas
+    // Aplicar TODOS los estilos CSS del editor
     const styleSheet = document.createElement('style');
     styleSheet.textContent = `
       #temp-measure-container h1 { font-size: 18pt; font-weight: bold; margin-bottom: 12pt; }
@@ -73,59 +218,94 @@ const SimpleWordEditor = () => {
     document.body.appendChild(tempContainer);
     
     const pages: string[] = [];
-    const allElements = Array.from(tempContainer.children);
+    const allElements = Array.from(tempContainer.children).map(el => el.outerHTML);
     
     let currentPageHtml = '';
     let currentPageHeight = 0;
+    let i = 0;
     
     console.log(`📋 Total elementos a procesar: ${allElements.length}`);
     
-    for (let i = 0; i < allElements.length; i++) {
-      const element = allElements[i].cloneNode(true) as HTMLElement;
+    while (i < allElements.length) {
+      // Crear elemento temporal desde HTML string
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = allElements[i];
+      const element = tempDiv.firstElementChild!;
       
-      // Crear div de prueba para medir altura del elemento
-      const testDiv = document.createElement('div');
-      testDiv.id = 'temp-measure-container';
-      testDiv.style.width = tempContainer.style.width;
-      testDiv.style.position = 'absolute';
-      testDiv.style.visibility = 'hidden';
-      testDiv.appendChild(element.cloneNode(true));
-      document.body.appendChild(testDiv);
-      const elementHeight = testDiv.offsetHeight;
-      document.body.removeChild(testDiv);
+      const elementHeight = measureHeight(element, tempContainer);
+      const spaceLeft = MAX_CONTENT_HEIGHT - currentPageHeight;
       
-      // Verificar si cabe en la página actual
-      if (currentPageHeight + elementHeight <= MAX_CONTENT_HEIGHT) {
-        // Cabe - agregarlo a la página actual
-        currentPageHtml += allElements[i].outerHTML;
+      // CASO 1: Elemento cabe completo
+      if (elementHeight <= spaceLeft) {
+        currentPageHtml += allElements[i];
         currentPageHeight += elementHeight;
-        console.log(`  ✅ Elemento ${i + 1}/${allElements.length} agregado (altura acumulada: ${currentPageHeight}px)`);
-      } else {
-        // NO cabe - finalizar página actual y empezar nueva
-        if (currentPageHtml.trim()) {
-          pages.push(currentPageHtml);
-          console.log(`  📄 Página ${pages.length} completa con ${currentPageHeight}px de contenido`);
+        i++;
+        console.log(`  ✅ Elemento ${i} agregado (${currentPageHeight}px / ${MAX_CONTENT_HEIGHT}px)`);
+      }
+      // CASO 2: Elemento NO cabe completo
+      else {
+        // Si hay espacio disponible (>100px), intentar dividir
+        if (currentPageHtml.trim() && spaceLeft > 100) {
+          const divided = divideElement(element, spaceLeft);
+          
+          if (divided && divided.fitsPart.trim()) {
+            currentPageHtml += divided.fitsPart;
+            console.log(`  ✂️ Elemento ${i + 1} DIVIDIDO - parte agregada a página ${pages.length + 1}`);
+            
+            // Reemplazar con la parte restante para siguiente iteración
+            allElements[i] = divided.remainderPart;
+            
+            // Finalizar página actual
+            pages.push(currentPageHtml);
+            console.log(`  📄 Página ${pages.length} completa: ${currentPageHeight}px`);
+            currentPageHtml = '';
+            currentPageHeight = 0;
+          } else {
+            // No se pudo dividir - finalizar página y mover elemento completo
+            pages.push(currentPageHtml);
+            console.log(`  📄 Página ${pages.length} completa: ${currentPageHeight}px`);
+            currentPageHtml = allElements[i];
+            currentPageHeight = elementHeight;
+            i++;
+          }
         }
-        
-        // Empezar nueva página con este elemento
-        currentPageHtml = allElements[i].outerHTML;
-        currentPageHeight = elementHeight;
-        console.log(`  📄 Nueva página iniciada con elemento ${i + 1} (${elementHeight}px)`);
+        // Si página vacía, agregar elemento completo (aunque sea grande)
+        else {
+          currentPageHtml = allElements[i];
+          currentPageHeight = elementHeight;
+          i++;
+          
+          if (elementHeight > MAX_CONTENT_HEIGHT) {
+            console.log(`  ⚠️ Elemento ${i} muy grande (${elementHeight}px) - página propia`);
+            pages.push(currentPageHtml);
+            console.log(`  📄 Página ${pages.length} (overflow): ${elementHeight}px`);
+            currentPageHtml = '';
+            currentPageHeight = 0;
+          } else {
+            console.log(`  📄 Nueva página iniciada con elemento ${i}`);
+          }
+        }
+      }
+      
+      // Límite de seguridad
+      if (pages.length > 200) {
+        console.warn('⚠️ Límite de 200 páginas alcanzado');
+        break;
       }
     }
     
     // Agregar última página
     if (currentPageHtml.trim()) {
       pages.push(currentPageHtml);
-      console.log(`  📄 Última página completa con ${currentPageHeight}px de contenido`);
+      console.log(`  📄 Última página: ${currentPageHeight}px`);
     }
     
     document.body.removeChild(tempContainer);
     document.head.removeChild(styleSheet);
-    console.log(`\n✅ ${pages.length} páginas creadas - TODO el contenido preservado sin dividir elementos`);
+    console.log(`\n✅ ${pages.length} páginas creadas - páginas llenas al máximo sin espacios grandes`);
     
     return pages.length > 0 ? pages : [''];
-  }, [leftMargin, rightMargin, MAX_CONTENT_HEIGHT, PAGE_WIDTH]);
+  }, [leftMargin, rightMargin, MAX_CONTENT_HEIGHT, PAGE_WIDTH, measureHeight, divideElement]);
 
 
   // Load initial content from Supabase
@@ -262,7 +442,7 @@ const SimpleWordEditor = () => {
             }}
           >
             <div
-              ref={(el) => registerPageRef(index, el)}
+              // ref={(el) => registerPageRef(index, el)}  // TEMPORALMENTE DESACTIVADO
               contentEditable
               suppressContentEditableWarning
               className="outline-none
@@ -282,7 +462,7 @@ const SimpleWordEditor = () => {
               style={{
                 minHeight: `${MAX_CONTENT_HEIGHT}px`,
                 maxHeight: `${MAX_CONTENT_HEIGHT}px`,
-                overflow: 'auto'
+                overflow: 'hidden'
               }}
               dangerouslySetInnerHTML={{ __html: pageContent }}
               onInput={(e) => handlePageContentChange(index, e.currentTarget.innerHTML)}
