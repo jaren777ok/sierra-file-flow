@@ -12,20 +12,29 @@ const PAGE_HEIGHT = 1123; // A4 height in pixels (29.7cm at 96 DPI)
 const TOP_MARGIN = 96; // 2.54cm
 const BOTTOM_MARGIN = 120; // Extra margin for footer
 
-// Function to clean HTML - extract only body content
+// Function to clean HTML - extract only body content and remove \n literals
 const cleanHtml = (rawHtml: string): string => {
-  // Extract content between <body> and </body>
-  const bodyMatch = rawHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  // 1. Convert \n literals (backslash + n) to actual newlines
+  let cleaned = rawHtml.replace(/\\n/g, '\n');
+  
+  // 2. Extract content between <body> and </body>
+  const bodyMatch = cleaned.match(/<body[^>]*>([\s\S]*)<\/body>/i);
   if (bodyMatch) {
-    return bodyMatch[1].trim();
+    cleaned = bodyMatch[1].trim();
+  } else {
+    // If no body structure, clean DOCTYPE, html, head tags
+    cleaned = cleaned
+      .replace(/<!DOCTYPE[^>]*>/gi, '')
+      .replace(/<html[^>]*>|<\/html>/gi, '')
+      .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '')
+      .replace(/<body[^>]*>|<\/body>/gi, '')
+      .trim();
   }
-  // If no body structure, clean DOCTYPE, html, head tags
-  return rawHtml
-    .replace(/<!DOCTYPE[^>]*>/gi, '')
-    .replace(/<html[^>]*>|<\/html>/gi, '')
-    .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '')
-    .replace(/<body[^>]*>|<\/body>/gi, '')
-    .trim();
+  
+  // 3. Remove remaining newlines between tags (not needed in HTML)
+  cleaned = cleaned.replace(/>\s*\n\s*</g, '><');
+  
+  return cleaned;
 };
 
 export default function SimpleWordEditor() {
@@ -97,46 +106,68 @@ export default function SimpleWordEditor() {
     console.log('📐 Ajustando saltos de página...');
 
     const container = contentRef.current;
-    const elements = Array.from(container.children) as HTMLElement[];
+    
+    // Get ALL block elements recursively
+    const getAllBlockElements = (element: HTMLElement): HTMLElement[] => {
+      const blocks: HTMLElement[] = [];
+      const blockTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'TABLE', 'HR', 'BLOCKQUOTE', 'DIV'];
+      
+      Array.from(element.children).forEach(child => {
+        if (blockTags.includes(child.tagName)) {
+          blocks.push(child as HTMLElement);
+        }
+        // Recursively search in children for nested elements
+        if (child.children.length > 0) {
+          blocks.push(...getAllBlockElements(child as HTMLElement));
+        }
+      });
+      
+      return blocks;
+    };
+
+    const elements = getAllBlockElements(container);
+    console.log(`  📋 Encontrados ${elements.length} elementos de bloque`);
     
     // Reset all margins first
     elements.forEach(el => {
-      el.style.marginTop = '0px';
+      el.style.marginTop = '';
     });
 
-    let maxPageReached = 1;
+    // Wait for DOM to update
+    requestAnimationFrame(() => {
+      let maxPage = 1;
+      const CONTENT_HEIGHT = PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN; // 907px
 
-    elements.forEach((element, index) => {
-      // Skip if element has no content
-      if (!element.textContent?.trim()) return;
+      elements.forEach((element, index) => {
+        if (!element.textContent?.trim()) return;
 
-      // Get element's position relative to container
-      const elementTop = element.offsetTop;
-      const elementHeight = element.offsetHeight;
-      const elementBottom = elementTop + elementHeight;
+        const elementTop = element.offsetTop;
+        const elementHeight = element.offsetHeight;
+        const elementBottom = elementTop + elementHeight;
 
-      // Calculate which page line this element would cross
-      const pageNumber = Math.floor(elementTop / PAGE_HEIGHT);
-      const nextPageStart = (pageNumber + 1) * PAGE_HEIGHT;
-      const currentPageEnd = nextPageStart - BOTTOM_MARGIN;
+        // Calculate which page the element starts on
+        const startPage = Math.floor((elementTop - TOP_MARGIN) / CONTENT_HEIGHT);
+        // Calculate where the safe zone of this page ends
+        const pageEndPosition = TOP_MARGIN + ((startPage + 1) * CONTENT_HEIGHT) - 20; // 20px safety margin
 
-      // Check if element crosses into bottom margin area
-      if (elementBottom > currentPageEnd && elementTop < nextPageStart) {
-        // Element is cut by page boundary - push it to next page
-        const pushDistance = nextPageStart - elementTop + TOP_MARGIN;
-        element.style.marginTop = `${pushDistance}px`;
-        console.log(`  ↓ Elemento ${index} (${element.tagName}) empujado ${pushDistance}px a página ${pageNumber + 2}`);
-      }
+        // If element crosses the page boundary
+        if (elementBottom > pageEndPosition && elementTop < pageEndPosition) {
+          // Calculate distance to push to next page
+          const nextPageStart = TOP_MARGIN + ((startPage + 1) * CONTENT_HEIGHT) + 16; // 16px for separator
+          const pushDistance = nextPageStart - elementTop;
+          
+          element.style.marginTop = `${pushDistance}px`;
+          console.log(`  ↓ Elemento ${index} (${element.tagName}) empujado ${pushDistance}px`);
+        }
 
-      // Track maximum page reached
-      const elementPageEnd = Math.ceil((element.offsetTop + element.offsetHeight) / PAGE_HEIGHT);
-      if (elementPageEnd > maxPageReached) {
-        maxPageReached = elementPageEnd;
-      }
+        // Calculate max page
+        const elementPage = Math.ceil((element.offsetTop + element.offsetHeight) / PAGE_HEIGHT);
+        if (elementPage > maxPage) maxPage = elementPage;
+      });
+
+      setPageCount(maxPage);
+      console.log(`✅ Total de páginas: ${maxPage}`);
     });
-
-    setPageCount(maxPageReached);
-    console.log(`✅ Total de páginas: ${maxPageReached}`);
   };
 
   // Adjust page breaks after content loads and renders
@@ -238,21 +269,28 @@ export default function SimpleWordEditor() {
       <div className="py-8 overflow-auto">
         <div className="mx-auto" style={{ width: `${PAGE_WIDTH}px` }}>
           <div className="relative">
-            {/* Visual page separator lines */}
+            {/* Visual page separator lines - more prominent */}
             {Array.from({ length: pageCount }).map((_, i) => (
               i > 0 && (
                 <div
                   key={i}
-                  className="absolute left-0 right-0 pointer-events-none z-10"
+                  className="absolute left-0 right-0 pointer-events-none"
                   style={{ 
-                    top: `${i * PAGE_HEIGHT - 4}px`,
-                    height: '16px',
-                    background: '#f5f5f5',
-                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1), inset 0 -2px 4px rgba(0,0,0,0.1)',
-                    borderTop: '1px dashed #ccc',
-                    borderBottom: '1px dashed #ccc',
+                    top: `${i * PAGE_HEIGHT}px`,
+                    height: '20px',
+                    background: 'linear-gradient(to bottom, #e0e0e0, #f5f5f5, #e0e0e0)',
+                    boxShadow: '0 0 10px rgba(0,0,0,0.15)',
+                    zIndex: 20,
                   }}
-                />
+                >
+                  <div 
+                    className="absolute inset-x-0 border-t border-dashed"
+                    style={{ 
+                      top: '50%',
+                      borderColor: '#999'
+                    }} 
+                  />
+                </div>
               )
             ))}
 
@@ -393,6 +431,24 @@ export default function SimpleWordEditor() {
         #pdf-content pre code {
           background-color: transparent;
           padding: 0;
+        }
+
+        /* Prevent page breaks inside elements */
+        #pdf-content table {
+          page-break-inside: avoid;
+          break-inside: avoid;
+        }
+        
+        #pdf-content h1,
+        #pdf-content h2,
+        #pdf-content h3 {
+          page-break-after: avoid;
+          break-after: avoid;
+        }
+        
+        #pdf-content li {
+          page-break-inside: avoid;
+          break-inside: avoid;
         }
       `}</style>
     </div>
