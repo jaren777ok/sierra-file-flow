@@ -99,94 +99,33 @@ export default function SimpleWordEditor() {
     loadJobContent();
   }, [jobId, navigate, toast]);
 
-  // Function to adjust page breaks based on actual DOM element positions
-  const adjustPageBreaks = () => {
+  // Simple page count calculation based on total content height
+  const calculatePageCount = () => {
     if (!contentRef.current) return;
-
-    console.log('📐 Ajustando saltos de página...');
-
-    const container = contentRef.current;
     
-    // Get ALL block elements recursively
-    const getAllBlockElements = (element: HTMLElement): HTMLElement[] => {
-      const blocks: HTMLElement[] = [];
-      const blockTags = ['P', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'TABLE', 'HR', 'BLOCKQUOTE', 'DIV'];
-      
-      Array.from(element.children).forEach(child => {
-        if (blockTags.includes(child.tagName)) {
-          blocks.push(child as HTMLElement);
-        }
-        // Recursively search in children for nested elements
-        if (child.children.length > 0) {
-          blocks.push(...getAllBlockElements(child as HTMLElement));
-        }
-      });
-      
-      return blocks;
-    };
-
-    const elements = getAllBlockElements(container);
-    console.log(`  📋 Encontrados ${elements.length} elementos de bloque`);
+    const totalHeight = contentRef.current.scrollHeight;
+    const pagesNeeded = Math.ceil(totalHeight / PAGE_HEIGHT);
     
-    // Reset all margins first
-    elements.forEach(el => {
-      el.style.marginTop = '';
-    });
-
-    // Wait for DOM to update
-    requestAnimationFrame(() => {
-      let maxPage = 1;
-      const CONTENT_HEIGHT = PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN; // 907px
-
-      elements.forEach((element, index) => {
-        if (!element.textContent?.trim()) return;
-
-        const elementTop = element.offsetTop;
-        const elementHeight = element.offsetHeight;
-        const elementBottom = elementTop + elementHeight;
-
-        // Calculate which page the element starts on
-        const startPage = Math.floor((elementTop - TOP_MARGIN) / CONTENT_HEIGHT);
-        // Calculate where the safe zone of this page ends
-        const pageEndPosition = TOP_MARGIN + ((startPage + 1) * CONTENT_HEIGHT) - 20; // 20px safety margin
-
-        // If element crosses the page boundary
-        if (elementBottom > pageEndPosition && elementTop < pageEndPosition) {
-          // Calculate distance to push to next page
-          const nextPageStart = TOP_MARGIN + ((startPage + 1) * CONTENT_HEIGHT) + 16; // 16px for separator
-          const pushDistance = nextPageStart - elementTop;
-          
-          element.style.marginTop = `${pushDistance}px`;
-          console.log(`  ↓ Elemento ${index} (${element.tagName}) empujado ${pushDistance}px`);
-        }
-
-        // Calculate max page
-        const elementPage = Math.ceil((element.offsetTop + element.offsetHeight) / PAGE_HEIGHT);
-        if (elementPage > maxPage) maxPage = elementPage;
-      });
-
-      setPageCount(maxPage);
-      console.log(`✅ Total de páginas: ${maxPage}`);
-    });
+    setPageCount(pagesNeeded);
+    console.log(`📄 Total de páginas calculadas: ${pagesNeeded} (altura: ${totalHeight}px)`);
   };
 
-  // Adjust page breaks after content loads and renders
+  // Calculate page count after content loads
   useEffect(() => {
     if (htmlContent && contentRef.current) {
-      // Wait for DOM to settle, then adjust
       const timer = setTimeout(() => {
-        adjustPageBreaks();
-      }, 100);
+        calculatePageCount();
+      }, 300);
 
       return () => clearTimeout(timer);
     }
   }, [htmlContent]);
 
-  // Re-adjust when margins change
+  // Recalculate when margins change
   useEffect(() => {
     if (htmlContent && contentRef.current) {
       const timer = setTimeout(() => {
-        adjustPageBreaks();
+        calculatePageCount();
       }, 100);
 
       return () => clearTimeout(timer);
@@ -269,7 +208,7 @@ export default function SimpleWordEditor() {
       <div className="py-8 overflow-auto">
         <div className="mx-auto" style={{ width: `${PAGE_WIDTH}px` }}>
           <div className="relative">
-            {/* Visual page separator lines - more prominent */}
+            {/* Simple visual page separators */}
             {Array.from({ length: pageCount }).map((_, i) => (
               i > 0 && (
                 <div
@@ -277,19 +216,17 @@ export default function SimpleWordEditor() {
                   className="absolute left-0 right-0 pointer-events-none"
                   style={{ 
                     top: `${i * PAGE_HEIGHT}px`,
-                    height: '20px',
-                    background: 'linear-gradient(to bottom, #e0e0e0, #f5f5f5, #e0e0e0)',
-                    boxShadow: '0 0 10px rgba(0,0,0,0.15)',
-                    zIndex: 20,
+                    height: '2px',
+                    background: '#ccc',
+                    zIndex: 10,
                   }}
                 >
-                  <div 
-                    className="absolute inset-x-0 border-t border-dashed"
-                    style={{ 
-                      top: '50%',
-                      borderColor: '#999'
-                    }} 
-                  />
+                  <span 
+                    className="absolute right-4 -top-5 text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded"
+                    style={{ fontFamily: 'Arial, sans-serif' }}
+                  >
+                    Página {i + 1}
+                  </span>
                 </div>
               )
             ))}
@@ -315,9 +252,9 @@ export default function SimpleWordEditor() {
               }}
               dangerouslySetInnerHTML={{ __html: htmlContent }}
               onInput={() => {
-                // Re-adjust page breaks when user edits
+                // Recalculate page count when user edits
                 const timer = setTimeout(() => {
-                  adjustPageBreaks();
+                  calculatePageCount();
                 }, 500);
                 return () => clearTimeout(timer);
               }}
@@ -326,84 +263,126 @@ export default function SimpleWordEditor() {
         </div>
       </div>
 
-      {/* Global styles for HTML elements */}
+      {/* Global styles for professional HTML rendering */}
       <style>{`
+        /* Base styles */
+        #pdf-content {
+          font-family: Arial, sans-serif;
+          font-size: 11pt;
+          line-height: 1.6;
+          color: #000;
+        }
+
+        /* Títulos profesionales en negro */
         #pdf-content h1 {
           font-size: 18pt;
           font-weight: bold;
-          margin-bottom: 12pt;
-          color: #205059;
-          margin-top: 16pt;
+          margin: 16pt 0 8pt 0;
+          color: #000;
         }
-        
+
         #pdf-content h2 {
           font-size: 14pt;
           font-weight: bold;
-          margin-bottom: 10pt;
-          color: #2A656F;
-          margin-top: 14pt;
+          margin: 14pt 0 7pt 0;
+          color: #000;
         }
-        
+
         #pdf-content h3 {
-          font-size: 12pt;
+          font-size: 13pt;
           font-weight: bold;
+          margin-top: 16pt;
           margin-bottom: 8pt;
-          color: #2A656F;
-          margin-top: 12pt;
+          color: #000;
+          text-transform: uppercase;
         }
-        
+
+        /* Párrafos */
         #pdf-content p {
           margin-bottom: 8pt;
           text-align: justify;
         }
-        
-        #pdf-content ul, #pdf-content ol {
-          margin-left: 20pt;
+
+        /* Listas con viñetas correctas - tres niveles */
+        #pdf-content ul {
+          list-style-type: disc;
+          padding-left: 24pt;
           margin-bottom: 8pt;
         }
-        
-        #pdf-content li {
+
+        #pdf-content ul ul {
+          list-style-type: circle;  /* Segundo nivel: círculos vacíos */
+          margin-top: 4pt;
           margin-bottom: 4pt;
         }
-        
+
+        #pdf-content ul ul ul {
+          list-style-type: square;  /* Tercer nivel: cuadrados */
+        }
+
+        /* Listas ordenadas */
+        #pdf-content ol {
+          list-style-type: decimal;
+          padding-left: 24pt;
+          margin-bottom: 8pt;
+        }
+
+        #pdf-content ol ol {
+          list-style-type: lower-alpha;  /* Segundo nivel: a, b, c */
+          margin-top: 4pt;
+        }
+
+        #pdf-content ol ol ol {
+          list-style-type: lower-roman;  /* Tercer nivel: i, ii, iii */
+        }
+
+        /* Items de lista */
+        #pdf-content li {
+          margin-bottom: 4pt;
+          line-height: 1.5;
+        }
+
+        /* Strong/Bold - negro intenso */
+        #pdf-content strong {
+          font-weight: 700;
+          color: #000;  /* Negro puro, no color de marca */
+        }
+
+        /* Emphasis/Italic - subrayado */
+        #pdf-content em {
+          font-style: italic;
+          text-decoration: underline;
+        }
+
+        /* Tablas profesionales con bordes */
         #pdf-content table {
           width: 100%;
           border-collapse: collapse;
-          margin-bottom: 12pt;
-          border: 1px solid #ddd;
-        }
-        
-        #pdf-content thead {
-          background-color: #f5f5f5;
-        }
-        
-        #pdf-content th {
-          border: 1px solid #ddd;
-          padding: 8pt;
-          text-align: left;
-          font-weight: bold;
-        }
-        
-        #pdf-content td {
-          border: 1px solid #ddd;
-          padding: 8pt;
-        }
-        
-        #pdf-content strong {
-          font-weight: bold;
-          color: #205059;
-        }
-        
-        #pdf-content em {
-          font-style: italic;
-        }
-        
-        #pdf-content hr {
-          border: none;
-          border-top: 1px solid #ddd;
-          margin: 16pt 0;
+          margin: 12pt 0;
+          font-size: 10pt;
         }
 
+        #pdf-content th {
+          background-color: #f0f0f0;
+          font-weight: bold;
+          border: 1px solid #333;
+          padding: 6pt 8pt;
+          text-align: left;
+        }
+
+        #pdf-content td {
+          border: 1px solid #666;
+          padding: 6pt 8pt;
+        }
+
+        /* Líneas horizontales */
+        #pdf-content hr {
+          border: none;
+          border-top: 1px solid #333;
+          margin: 12pt 0;
+        }
+
+        /* Blockquotes */
         #pdf-content blockquote {
           border-left: 3px solid #2A656F;
           padding-left: 12pt;
@@ -412,6 +391,7 @@ export default function SimpleWordEditor() {
           color: #666;
         }
 
+        /* Code blocks */
         #pdf-content code {
           background-color: #f5f5f5;
           padding: 2pt 4pt;
@@ -431,24 +411,6 @@ export default function SimpleWordEditor() {
         #pdf-content pre code {
           background-color: transparent;
           padding: 0;
-        }
-
-        /* Prevent page breaks inside elements */
-        #pdf-content table {
-          page-break-inside: avoid;
-          break-inside: avoid;
-        }
-        
-        #pdf-content h1,
-        #pdf-content h2,
-        #pdf-content h3 {
-          page-break-after: avoid;
-          break-after: avoid;
-        }
-        
-        #pdf-content li {
-          page-break-inside: avoid;
-          break-inside: avoid;
         }
       `}</style>
     </div>
