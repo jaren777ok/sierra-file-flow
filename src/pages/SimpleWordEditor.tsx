@@ -101,11 +101,11 @@ export default function SimpleWordEditor() {
     loadJobContent();
   }, [jobId, navigate, toast]);
 
-  // Distribute content across pages with real measurements
+  // Distribute content across pages with intelligent splitting
   const distributeContentToPages = () => {
     if (!htmlContent) return;
     
-    console.log('📐 Distribuyendo contenido en páginas...');
+    console.log('📐 Distribuyendo contenido en páginas (división inteligente)...');
     
     // Create temporary container to measure content
     const measureContainer = document.createElement('div');
@@ -121,29 +121,191 @@ export default function SimpleWordEditor() {
     measureContainer.innerHTML = htmlContent;
     document.body.appendChild(measureContainer);
     
-    // Get all block-level elements
-    const elements = Array.from(measureContainer.querySelectorAll('h1, h2, h3, h4, p, ul, ol, table, hr, blockquote, pre'));
-    
     const pages: string[] = [];
     let currentPageContent = '';
     let currentPageHeight = 0;
     
-    elements.forEach((element) => {
+    // Helper to start a new page
+    const startNewPage = () => {
+      if (currentPageContent) {
+        pages.push(currentPageContent);
+      }
+      currentPageContent = '';
+      currentPageHeight = 0;
+    };
+    
+    // Get all top-level block elements
+    const topLevelElements = Array.from(measureContainer.children);
+    
+    topLevelElements.forEach((element) => {
       const el = element as HTMLElement;
       const elementHeight = el.offsetHeight;
+      const tagName = el.tagName.toLowerCase();
       
-      // Check if element fits in current page
+      // If element fits completely in current page
       if (currentPageHeight + elementHeight <= CONTENT_HEIGHT) {
         currentPageContent += el.outerHTML;
         currentPageHeight += elementHeight;
-      } else {
-        // Element doesn't fit - save current page and start new one
-        if (currentPageContent) {
-          pages.push(currentPageContent);
+        return;
+      }
+      
+      // Element doesn't fit - decide whether to split or move
+      const spaceRemaining = CONTENT_HEIGHT - currentPageHeight;
+      
+      // INTELLIGENT SPLITTING LOGIC
+      
+      // 1. LISTS (ul, ol) - Split by <li> items
+      if (tagName === 'ul' || tagName === 'ol') {
+        const listItems = Array.from(el.querySelectorAll(':scope > li'));
+        
+        if (listItems.length > 0 && spaceRemaining > 50) {
+          // Create partial list for current page
+          let partialList = `<${tagName}>`;
+          let partialHeight = 0;
+          let itemsAdded = 0;
+          
+          for (const li of listItems) {
+            const liEl = li as HTMLElement;
+            const liHeight = liEl.offsetHeight;
+            
+            if (currentPageHeight + partialHeight + liHeight <= CONTENT_HEIGHT) {
+              partialList += liEl.outerHTML;
+              partialHeight += liHeight;
+              itemsAdded++;
+            } else {
+              break;
+            }
+          }
+          
+          // If at least one item fits, add partial list
+          if (itemsAdded > 0) {
+            partialList += `</${tagName}>`;
+            currentPageContent += partialList;
+            currentPageHeight += partialHeight;
+            
+            // Start new page with remaining items
+            startNewPage();
+            
+            const remainingItems = listItems.slice(itemsAdded);
+            if (remainingItems.length > 0) {
+              let remainingList = `<${tagName}>`;
+              remainingItems.forEach(li => {
+                remainingList += (li as HTMLElement).outerHTML;
+              });
+              remainingList += `</${tagName}>`;
+              
+              currentPageContent = remainingList;
+              // Measure remaining height
+              const tempDiv = document.createElement('div');
+              tempDiv.style.cssText = measureContainer.style.cssText;
+              tempDiv.innerHTML = remainingList;
+              document.body.appendChild(tempDiv);
+              currentPageHeight = tempDiv.offsetHeight;
+              document.body.removeChild(tempDiv);
+            }
+          } else {
+            // No items fit - move entire list to new page
+            startNewPage();
+            currentPageContent = el.outerHTML;
+            currentPageHeight = elementHeight;
+          }
+        } else {
+          // List too short or no space - move complete
+          startNewPage();
+          currentPageContent = el.outerHTML;
+          currentPageHeight = elementHeight;
         }
+        return;
+      }
+      
+      // 2. TABLES - Split by <tr> rows
+      if (tagName === 'table') {
+        const tbody = el.querySelector('tbody');
+        const rows = Array.from(el.querySelectorAll('tbody tr, tr'));
+        const thead = el.querySelector('thead');
+        const theadHtml = thead ? thead.outerHTML : '';
+        
+        if (rows.length > 1 && spaceRemaining > 80) {
+          // Measure header height
+          let headerHeight = 0;
+          if (thead) {
+            const tempHeader = document.createElement('table');
+            tempHeader.innerHTML = theadHtml;
+            measureContainer.appendChild(tempHeader);
+            headerHeight = tempHeader.offsetHeight;
+            measureContainer.removeChild(tempHeader);
+          }
+          
+          let partialTable = '<table>' + theadHtml + '<tbody>';
+          let partialHeight = headerHeight;
+          let rowsAdded = 0;
+          
+          // Get only body rows
+          const bodyRows = tbody ? Array.from(tbody.querySelectorAll('tr')) : rows;
+          
+          for (const row of bodyRows) {
+            const rowEl = row as HTMLElement;
+            const rowHeight = rowEl.offsetHeight;
+            
+            if (currentPageHeight + partialHeight + rowHeight <= CONTENT_HEIGHT) {
+              partialTable += rowEl.outerHTML;
+              partialHeight += rowHeight;
+              rowsAdded++;
+            } else {
+              break;
+            }
+          }
+          
+          if (rowsAdded > 0) {
+            partialTable += '</tbody></table>';
+            currentPageContent += partialTable;
+            currentPageHeight += partialHeight;
+            
+            // Start new page with remaining rows
+            startNewPage();
+            
+            const remainingRows = bodyRows.slice(rowsAdded);
+            if (remainingRows.length > 0) {
+              let remainingTable = '<table>' + theadHtml + '<tbody>';
+              remainingRows.forEach(row => {
+                remainingTable += (row as HTMLElement).outerHTML;
+              });
+              remainingTable += '</tbody></table>';
+              
+              currentPageContent = remainingTable;
+              // Measure remaining height
+              const tempTable = document.createElement('div');
+              tempTable.style.cssText = measureContainer.style.cssText;
+              tempTable.innerHTML = remainingTable;
+              document.body.appendChild(tempTable);
+              currentPageHeight = tempTable.offsetHeight;
+              document.body.removeChild(tempTable);
+            }
+          } else {
+            startNewPage();
+            currentPageContent = el.outerHTML;
+            currentPageHeight = elementHeight;
+          }
+        } else {
+          startNewPage();
+          currentPageContent = el.outerHTML;
+          currentPageHeight = elementHeight;
+        }
+        return;
+      }
+      
+      // 3. HEADINGS (h1-h4) - NEVER split, always move complete
+      if (['h1', 'h2', 'h3', 'h4'].includes(tagName)) {
+        startNewPage();
         currentPageContent = el.outerHTML;
         currentPageHeight = elementHeight;
+        return;
       }
+      
+      // 4. OTHER ELEMENTS (p, blockquote, hr, etc.) - Move complete
+      startNewPage();
+      currentPageContent = el.outerHTML;
+      currentPageHeight = elementHeight;
     });
     
     // Add last page
@@ -157,7 +319,7 @@ export default function SimpleWordEditor() {
     // Update state
     setPagesContent(pages);
     setPageCount(pages.length);
-    console.log(`✅ Contenido distribuido en ${pages.length} páginas`);
+    console.log(`✅ Contenido distribuido en ${pages.length} páginas (división inteligente)`);
   };
 
   // Distribute content after loading
@@ -280,17 +442,7 @@ export default function SimpleWordEditor() {
                 Página {pageIndex + 1}
               </span>
               
-              {/* Top margin - white space (not editable) */}
-              <div
-                className="absolute left-0 right-0 bg-white pointer-events-none"
-                style={{
-                  top: 0,
-                  height: `${TOP_MARGIN}px`,
-                  borderBottom: '1px solid #f0f0f0',
-                }}
-              />
-              
-              {/* Content area with real margins */}
+              {/* Content area with real margins (no visual strips) */}
               <div
                 className="page-content-area absolute"
                 style={{
@@ -316,16 +468,6 @@ export default function SimpleWordEditor() {
                   onBlur={(e) => handlePageContentChange(pageIndex, e.currentTarget.innerHTML)}
                 />
               </div>
-              
-              {/* Bottom margin - white space (not editable) */}
-              <div
-                className="absolute left-0 right-0 bg-white pointer-events-none"
-                style={{
-                  bottom: 0,
-                  height: `${BOTTOM_MARGIN}px`,
-                  borderTop: '1px solid #f0f0f0',
-                }}
-              />
             </div>
           ))}
         </div>
