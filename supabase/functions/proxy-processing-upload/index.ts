@@ -96,27 +96,27 @@ Deno.serve(async (req) => {
         );
       }
       
-      // Parse Markdown response from webhook
+      // Parse HTML response from webhook
       const webhookResult = await response.json();
       console.log('🎉 [proxy-processing-upload] Webhook completó procesamiento');
       
-      // Extract Markdown from format: [{"EXITO": "### Markdown content..."}]
-      let resultMarkdown = '';
+      // Extract HTML from format: [{"EXITO": "<!DOCTYPE HTML>..."}]
+      let resultHtml = '';
       if (Array.isArray(webhookResult) && webhookResult.length > 0 && webhookResult[0]?.EXITO) {
-        resultMarkdown = webhookResult[0].EXITO;
-        console.log(`✅ [proxy-processing-upload] Markdown extraído: ${resultMarkdown.length} caracteres`);
+        resultHtml = webhookResult[0].EXITO;
+        console.log(`✅ [proxy-processing-upload] HTML extraído: ${resultHtml.length} caracteres`);
       } else if (typeof webhookResult === 'string') {
-        resultMarkdown = webhookResult;
+        resultHtml = webhookResult;
       }
       
-      if (!resultMarkdown) {
-        console.error('⚠️ [proxy-processing-upload] No se pudo extraer Markdown de la respuesta');
+      if (!resultHtml) {
+        console.error('⚠️ [proxy-processing-upload] No se pudo extraer HTML de la respuesta');
         
         await supabase
           .from('processing_jobs')
           .update({
             status: 'error',
-            error_message: 'Respuesta del webhook sin Markdown',
+            error_message: 'Respuesta del webhook sin HTML',
             progress: 0,
             completed_at: new Date().toISOString(),
           })
@@ -124,7 +124,7 @@ Deno.serve(async (req) => {
           
         return new Response(
           JSON.stringify({ 
-            error: 'Respuesta del webhook sin Markdown',
+            error: 'Respuesta del webhook sin HTML',
             requestId
           }),
           { 
@@ -134,13 +134,13 @@ Deno.serve(async (req) => {
         );
       }
       
-      // Save completed job with Markdown to database (result_html field stores Markdown now)
+      // Save completed job with HTML to database
       const { error: updateError } = await supabase
         .from('processing_jobs')
         .update({
           status: 'completed',
           progress: 100,
-          result_html: resultMarkdown,
+          result_html: resultHtml,
           completed_at: new Date().toISOString(),
         })
         .eq('request_id', requestId);
@@ -150,15 +150,15 @@ Deno.serve(async (req) => {
         throw new Error('Error guardando resultado en base de datos');
       }
       
-      console.log('✅ [proxy-processing-upload] Job completado y Markdown guardado en BD');
+      console.log('✅ [proxy-processing-upload] Job completado y HTML guardado en BD');
       
-      // Return success with Markdown preview
+      // Return success with HTML preview
       return new Response(
         JSON.stringify({ 
           requestId,
           status: 'completed',
           message: 'Procesamiento completado',
-          resultMarkdown: resultMarkdown.substring(0, 500) + '...' // Preview only
+          resultHtml: resultHtml.substring(0, 500) + '...' // Preview only
         }),
         { 
           status: 200,

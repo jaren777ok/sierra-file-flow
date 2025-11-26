@@ -6,12 +6,27 @@ import { useSimpleAutoSave } from '@/hooks/useSimpleAutoSave';
 import { SimplePdfService } from '@/services/simplePdfService';
 import { SimpleToolbar } from '@/components/editors/SimpleToolbar';
 import { SimpleRuler } from '@/components/editors/SimpleRuler';
-import { marked } from 'marked';
 
 const PAGE_WIDTH = 793; // A4 width in pixels (21cm at 96 DPI)
 const PAGE_HEIGHT = 1123; // A4 height in pixels (29.7cm at 96 DPI)
 const TOP_MARGIN = 96; // 2.54cm
 const BOTTOM_MARGIN = 120; // Extra margin for footer
+
+// Function to clean HTML - extract only body content
+const cleanHtml = (rawHtml: string): string => {
+  // Extract content between <body> and </body>
+  const bodyMatch = rawHtml.match(/<body[^>]*>([\s\S]*)<\/body>/i);
+  if (bodyMatch) {
+    return bodyMatch[1].trim();
+  }
+  // If no body structure, clean DOCTYPE, html, head tags
+  return rawHtml
+    .replace(/<!DOCTYPE[^>]*>/gi, '')
+    .replace(/<html[^>]*>|<\/html>/gi, '')
+    .replace(/<head[^>]*>[\s\S]*?<\/head>/gi, '')
+    .replace(/<body[^>]*>|<\/body>/gi, '')
+    .trim();
+};
 
 export default function SimpleWordEditor() {
   const { jobId } = useParams();
@@ -19,20 +34,12 @@ export default function SimpleWordEditor() {
   const { toast } = useToast();
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const [htmlContent, setHtmlContent] = useState<string>(''); // HTML converted from Markdown
+  const [htmlContent, setHtmlContent] = useState<string>('');
   const [projectTitle, setProjectTitle] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [leftMargin, setLeftMargin] = useState(96); // 2.54cm default
   const [rightMargin, setRightMargin] = useState(96);
   const [pageCount, setPageCount] = useState(1);
-
-  // Configure marked options
-  useEffect(() => {
-    marked.setOptions({
-      gfm: true, // GitHub Flavored Markdown
-      breaks: true, // Line breaks
-    });
-  }, []);
 
   // Load job content from Supabase on mount
   useEffect(() => {
@@ -60,11 +67,11 @@ export default function SimpleWordEditor() {
         if (error) throw error;
 
         if (data?.result_html) {
-          // Convert Markdown to HTML
-          const html = await marked(data.result_html);
-          setHtmlContent(html);
+          // Clean HTML - extract only body content
+          const cleanedHtml = cleanHtml(data.result_html);
+          setHtmlContent(cleanedHtml);
           setProjectTitle(data.project_title || 'Documento Sin Título');
-          console.log('✅ HTML convertido desde Markdown:', html.length, 'caracteres');
+          console.log('✅ HTML limpio cargado:', cleanedHtml.length, 'caracteres');
         } else {
           throw new Error('No se encontró contenido en el job');
         }
@@ -92,50 +99,44 @@ export default function SimpleWordEditor() {
     const container = contentRef.current;
     const elements = Array.from(container.children) as HTMLElement[];
     
-    let currentPageTop = 0;
-    let pagesCount = 1;
+    // Reset all margins first
+    elements.forEach(el => {
+      el.style.marginTop = '0px';
+    });
+
+    let maxPageReached = 1;
 
     elements.forEach((element, index) => {
-      // Get element's actual position and height
-      const rect = element.getBoundingClientRect();
-      const containerRect = container.getBoundingClientRect();
-      const elementTop = rect.top - containerRect.top + container.scrollTop;
+      // Skip if element has no content
+      if (!element.textContent?.trim()) return;
+
+      // Get element's position relative to container
+      const elementTop = element.offsetTop;
       const elementHeight = element.offsetHeight;
       const elementBottom = elementTop + elementHeight;
 
-      // Calculate which page this element starts on
-      const pageNumber = Math.floor(elementTop / PAGE_HEIGHT) + 1;
-      const pageStartPosition = (pageNumber - 1) * PAGE_HEIGHT + TOP_MARGIN;
-      const pageEndPosition = pageNumber * PAGE_HEIGHT - BOTTOM_MARGIN;
+      // Calculate which page line this element would cross
+      const pageNumber = Math.floor(elementTop / PAGE_HEIGHT);
+      const nextPageStart = (pageNumber + 1) * PAGE_HEIGHT;
+      const currentPageEnd = nextPageStart - BOTTOM_MARGIN;
 
-      // Check if element crosses page boundary
-      if (elementBottom > pageEndPosition) {
-        // Element is cut by page break
-        const distanceFromPageStart = elementTop - pageStartPosition;
-        
-        // If element started on this page but doesn't fit, push it to next page
-        if (distanceFromPageStart >= 0 && distanceFromPageStart < (PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN)) {
-          const pushDistance = pageEndPosition - elementTop + TOP_MARGIN;
-          element.style.marginTop = `${pushDistance}px`;
-          console.log(`  ↓ Elemento ${index} empujado ${pushDistance}px a siguiente página`);
-          pagesCount++;
-        }
-      } else {
-        // Element fits completely, reset any previous margin
-        if (element.style.marginTop && element.style.marginTop !== '0px') {
-          element.style.marginTop = '0px';
-        }
+      // Check if element crosses into bottom margin area
+      if (elementBottom > currentPageEnd && elementTop < nextPageStart) {
+        // Element is cut by page boundary - push it to next page
+        const pushDistance = nextPageStart - elementTop + TOP_MARGIN;
+        element.style.marginTop = `${pushDistance}px`;
+        console.log(`  ↓ Elemento ${index} (${element.tagName}) empujado ${pushDistance}px a página ${pageNumber + 2}`);
       }
 
-      // Track maximum page count
-      const elementPageEnd = Math.ceil(elementBottom / PAGE_HEIGHT);
-      if (elementPageEnd > pagesCount) {
-        pagesCount = elementPageEnd;
+      // Track maximum page reached
+      const elementPageEnd = Math.ceil((element.offsetTop + element.offsetHeight) / PAGE_HEIGHT);
+      if (elementPageEnd > maxPageReached) {
+        maxPageReached = elementPageEnd;
       }
     });
 
-    setPageCount(pagesCount);
-    console.log(`✅ Total de páginas: ${pagesCount}`);
+    setPageCount(maxPageReached);
+    console.log(`✅ Total de páginas: ${maxPageReached}`);
   };
 
   // Adjust page breaks after content loads and renders
@@ -242,11 +243,14 @@ export default function SimpleWordEditor() {
               i > 0 && (
                 <div
                   key={i}
-                  className="absolute left-0 right-0 pointer-events-none"
+                  className="absolute left-0 right-0 pointer-events-none z-10"
                   style={{ 
-                    top: `${i * PAGE_HEIGHT}px`,
-                    height: '8px',
-                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.1) 0%, transparent 100%)',
+                    top: `${i * PAGE_HEIGHT - 4}px`,
+                    height: '16px',
+                    background: '#f5f5f5',
+                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.1), inset 0 -2px 4px rgba(0,0,0,0.1)',
+                    borderTop: '1px dashed #ccc',
+                    borderBottom: '1px dashed #ccc',
                   }}
                 />
               )
