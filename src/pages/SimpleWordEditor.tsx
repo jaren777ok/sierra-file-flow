@@ -110,11 +110,67 @@ export default function SimpleWordEditor() {
     console.log(`📄 Total de páginas calculadas: ${pagesNeeded} (altura: ${totalHeight}px)`);
   };
 
-  // Calculate page count after content loads
+  // Intelligent pagination - detect elements crossing page boundaries
+  const adjustContentFlow = () => {
+    if (!contentRef.current) return;
+    
+    const container = contentRef.current;
+    const SAFE_ZONE = 100; // Safe zone before page boundary
+    
+    // Get all block-level elements
+    const blockElements = container.querySelectorAll('h1, h2, h3, h4, p, ul, ol, table, hr');
+    
+    // Reset all margins first
+    blockElements.forEach(el => {
+      (el as HTMLElement).style.marginTop = '';
+    });
+    
+    // Wait for next frame to measure real positions
+    requestAnimationFrame(() => {
+      let currentPage = 0;
+      
+      blockElements.forEach((element) => {
+        const el = element as HTMLElement;
+        const elementTop = el.offsetTop;
+        const elementHeight = el.offsetHeight;
+        const elementBottom = elementTop + elementHeight;
+        
+        // Calculate current page boundaries
+        const pageStart = currentPage * PAGE_HEIGHT;
+        const pageEnd = (currentPage + 1) * PAGE_HEIGHT - SAFE_ZONE;
+        
+        // If element starts in safe zone but ends after boundary
+        if (elementTop < pageEnd && elementBottom > pageEnd) {
+          // Can this element be split? (large tables and lists)
+          const isTable = el.tagName === 'TABLE';
+          const isLongList = (el.tagName === 'UL' || el.tagName === 'OL') && elementHeight > 300;
+          
+          if (isTable || isLongList) {
+            // Allow natural division - do nothing
+            console.log(`✂️ Permitiendo división natural de ${el.tagName}`);
+          } else {
+            // Push entire element to next page
+            const pushDistance = (currentPage + 1) * PAGE_HEIGHT - elementTop + 16;
+            el.style.marginTop = `${pushDistance}px`;
+            currentPage++;
+            console.log(`↓ Empujando ${el.tagName} completo a página ${currentPage + 1}`);
+          }
+        }
+        
+        // Update current page based on element position
+        currentPage = Math.floor((el.offsetTop + el.offsetHeight) / PAGE_HEIGHT);
+      });
+      
+      // Recalculate total pages
+      calculatePageCount();
+    });
+  };
+
+  // Calculate page count and adjust flow after content loads
   useEffect(() => {
     if (htmlContent && contentRef.current) {
       const timer = setTimeout(() => {
-        calculatePageCount();
+        adjustContentFlow();
       }, 300);
 
       return () => clearTimeout(timer);
@@ -125,7 +181,7 @@ export default function SimpleWordEditor() {
   useEffect(() => {
     if (htmlContent && contentRef.current) {
       const timer = setTimeout(() => {
-        calculatePageCount();
+        adjustContentFlow();
       }, 100);
 
       return () => clearTimeout(timer);
@@ -208,7 +264,7 @@ export default function SimpleWordEditor() {
       <div className="py-8 overflow-auto">
         <div className="mx-auto" style={{ width: `${PAGE_WIDTH}px` }}>
           <div className="relative">
-            {/* Simple visual page separators */}
+            {/* Enhanced visual page separators */}
             {Array.from({ length: pageCount }).map((_, i) => (
               i > 0 && (
                 <div
@@ -216,13 +272,14 @@ export default function SimpleWordEditor() {
                   className="absolute left-0 right-0 pointer-events-none"
                   style={{ 
                     top: `${i * PAGE_HEIGHT}px`,
-                    height: '2px',
-                    background: '#ccc',
-                    zIndex: 10,
+                    height: '8px',
+                    background: 'linear-gradient(to bottom, rgba(0,0,0,0.1), transparent, rgba(0,0,0,0.1))',
+                    zIndex: 15,
                   }}
                 >
+                  <div className="absolute w-full top-1/2 border-t border-dashed border-gray-300" />
                   <span 
-                    className="absolute right-4 -top-5 text-xs text-gray-400 bg-gray-50 px-2 py-1 rounded"
+                    className="absolute right-4 -top-5 text-xs text-gray-500 bg-white px-2 py-1 rounded shadow-sm"
                     style={{ fontFamily: 'Arial, sans-serif' }}
                   >
                     Página {i + 1}
@@ -252,9 +309,9 @@ export default function SimpleWordEditor() {
               }}
               dangerouslySetInnerHTML={{ __html: htmlContent }}
               onInput={() => {
-                // Recalculate page count when user edits
+                // Recalculate and adjust flow when user edits
                 const timer = setTimeout(() => {
-                  calculatePageCount();
+                  adjustContentFlow();
                 }, 500);
                 return () => clearTimeout(timer);
               }}
@@ -273,34 +330,58 @@ export default function SimpleWordEditor() {
           color: #000;
         }
 
-        /* Títulos profesionales en negro */
+        /* H1 - Título Principal del Documento */
         #pdf-content h1 {
-          font-size: 18pt;
-          font-weight: bold;
-          margin: 16pt 0 8pt 0;
+          font-size: 24pt;
+          font-weight: 800;
+          margin: 24pt 0 16pt 0;
           color: #000;
+          text-align: center;
+          border-bottom: 2px solid #333;
+          padding-bottom: 8pt;
+          break-after: avoid;
+          page-break-after: avoid;
         }
 
+        /* H2 - Secciones Principales */
         #pdf-content h2 {
-          font-size: 14pt;
-          font-weight: bold;
-          margin: 14pt 0 7pt 0;
-          color: #000;
-        }
-
-        #pdf-content h3 {
-          font-size: 13pt;
-          font-weight: bold;
-          margin-top: 16pt;
-          margin-bottom: 8pt;
+          font-size: 16pt;
+          font-weight: 700;
+          margin: 20pt 0 10pt 0;
           color: #000;
           text-transform: uppercase;
+          letter-spacing: 0.5pt;
+          break-after: avoid;
+          page-break-after: avoid;
         }
 
-        /* Párrafos */
+        /* H3 - Subsecciones */
+        #pdf-content h3 {
+          font-size: 13pt;
+          font-weight: 700;
+          margin: 14pt 0 8pt 0;
+          color: #000;
+          text-transform: uppercase;
+          break-after: avoid;
+          page-break-after: avoid;
+        }
+
+        /* H4 - Sub-subsecciones */
+        #pdf-content h4 {
+          font-size: 12pt;
+          font-weight: 600;
+          margin: 12pt 0 6pt 0;
+          color: #333;
+          break-after: avoid;
+          page-break-after: avoid;
+        }
+
+        /* Párrafos con control de huérfanos */
         #pdf-content p {
           margin-bottom: 8pt;
           text-align: justify;
+          orphans: 3;
+          widows: 3;
         }
 
         /* Listas con viñetas correctas - tres niveles */
@@ -354,12 +435,13 @@ export default function SimpleWordEditor() {
           text-decoration: underline;
         }
 
-        /* Tablas profesionales con bordes */
+        /* Tablas profesionales con bordes - pueden fluir entre páginas */
         #pdf-content table {
           width: 100%;
           border-collapse: collapse;
           margin: 12pt 0;
           font-size: 10pt;
+          break-inside: auto;
         }
 
         #pdf-content th {
@@ -375,11 +457,19 @@ export default function SimpleWordEditor() {
           padding: 6pt 8pt;
         }
 
-        /* Líneas horizontales */
+        /* Evitar que filas de tabla se dividan */
+        #pdf-content tr {
+          break-inside: avoid;
+          page-break-inside: avoid;
+        }
+
+        /* Líneas horizontales - no dividir */
         #pdf-content hr {
           border: none;
           border-top: 1px solid #333;
           margin: 12pt 0;
+          break-before: avoid;
+          break-after: avoid;
         }
 
         /* Blockquotes */
