@@ -11,65 +11,36 @@ export class SimplePdfService {
     try {
       console.log('🔄 Iniciando generación de PDF...');
       
-      // Get the entire content container
-      const container = document.getElementById('pdf-content');
+      // Get all page containers
+      const pageContainers = document.querySelectorAll('.page-container');
       
-      if (!container) {
-        throw new Error('No se encontró el contenedor del documento');
+      if (!pageContainers || pageContainers.length === 0) {
+        throw new Error('No se encontraron páginas del documento');
       }
 
-      console.log(`📸 Capturando contenedor completo (altura: ${container.scrollHeight}px)...`);
-      
-      // Capture the entire container with html2canvas
-      const canvas = await html2canvas(container, {
-        scale: 2, // Higher resolution
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-        height: container.scrollHeight, // Capture full height
-        windowHeight: container.scrollHeight,
-      });
-
-      console.log(`✅ Contenedor capturado: ${canvas.width}x${canvas.height}px`);
+      console.log(`📄 Generando PDF con ${pageContainers.length} páginas...`);
 
       // Create PDF in A4 portrait format
       const pdf = new jsPDF('portrait', 'mm', 'a4');
       const pdfWidth = 210;  // A4 width in mm
       const pdfHeight = 297; // A4 height in mm
       
-      // Calculate how many pages we need based on captured height
-      const pageHeightInPixels = 1123 * 2; // A4 height in pixels at scale 2
-      const totalPages = Math.ceil(canvas.height / pageHeightInPixels);
-      
-      console.log(`📄 Dividiendo en ${totalPages} páginas...`);
-
-      // Extract and add each page
-      for (let i = 0; i < totalPages; i++) {
-        console.log(`📝 Procesando página ${i + 1}/${totalPages}...`);
+      // Capture each page individually
+      for (let i = 0; i < pageContainers.length; i++) {
+        console.log(`📸 Capturando página ${i + 1}/${pageContainers.length}...`);
         
-        // Create a temporary canvas for this page
-        const pageCanvas = document.createElement('canvas');
-        pageCanvas.width = canvas.width;
+        const pageElement = pageContainers[i] as HTMLElement;
         
-        // Calculate the height for this page (last page might be shorter)
-        const remainingHeight = canvas.height - (i * pageHeightInPixels);
-        pageCanvas.height = Math.min(pageHeightInPixels, remainingHeight);
+        // Capture this page with html2canvas
+        const canvas = await html2canvas(pageElement, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          logging: false,
+          backgroundColor: '#ffffff',
+        });
         
-        // Draw the section of the main canvas onto this page canvas
-        const ctx = pageCanvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(
-            canvas,
-            0, i * pageHeightInPixels, // Source X, Y
-            canvas.width, pageCanvas.height, // Source width, height
-            0, 0, // Destination X, Y
-            canvas.width, pageCanvas.height // Destination width, height
-          );
-        }
-        
-        // Convert this page to image
-        const imgData = pageCanvas.toDataURL('image/jpeg', 0.95);
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
         
         // Add new page if not the first one
         if (i > 0) {

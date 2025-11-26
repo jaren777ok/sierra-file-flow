@@ -9,8 +9,9 @@ import { SimpleRuler } from '@/components/editors/SimpleRuler';
 
 const PAGE_WIDTH = 793; // A4 width in pixels (21cm at 96 DPI)
 const PAGE_HEIGHT = 1123; // A4 height in pixels (29.7cm at 96 DPI)
-const TOP_MARGIN = 96; // 2.54cm
-const BOTTOM_MARGIN = 120; // Extra margin for footer
+const TOP_MARGIN = 60; // ~1.6cm white space at top
+const BOTTOM_MARGIN = 60; // ~1.6cm white space at bottom
+const CONTENT_HEIGHT = PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN; // 1003px usable area per page
 
 // Function to clean HTML - extract only body content and remove \n literals
 const cleanHtml = (rawHtml: string): string => {
@@ -49,6 +50,7 @@ export default function SimpleWordEditor() {
   const [leftMargin, setLeftMargin] = useState(96); // 2.54cm default
   const [rightMargin, setRightMargin] = useState(96);
   const [pageCount, setPageCount] = useState(1);
+  const [pagesContent, setPagesContent] = useState<string[]>([]);
 
   // Load job content from Supabase on mount
   useEffect(() => {
@@ -99,45 +101,100 @@ export default function SimpleWordEditor() {
     loadJobContent();
   }, [jobId, navigate, toast]);
 
-  // Simple page count calculation based on content height - no artificial pagination
-  const calculatePageCount = () => {
-    if (!contentRef.current) return;
+  // Distribute content across pages with real measurements
+  const distributeContentToPages = () => {
+    if (!htmlContent) return;
     
-    const totalHeight = contentRef.current.scrollHeight;
-    const pagesNeeded = Math.ceil(totalHeight / PAGE_HEIGHT);
+    console.log('📐 Distribuyendo contenido en páginas...');
     
-    setPageCount(pagesNeeded);
-    console.log(`📄 Total de páginas: ${pagesNeeded} (altura: ${totalHeight}px)`);
+    // Create temporary container to measure content
+    const measureContainer = document.createElement('div');
+    measureContainer.style.cssText = `
+      position: absolute;
+      visibility: hidden;
+      width: ${PAGE_WIDTH - leftMargin - rightMargin}px;
+      font-family: Arial, sans-serif;
+      font-size: 11pt;
+      line-height: 1.6;
+      left: -9999px;
+    `;
+    measureContainer.innerHTML = htmlContent;
+    document.body.appendChild(measureContainer);
+    
+    // Get all block-level elements
+    const elements = Array.from(measureContainer.querySelectorAll('h1, h2, h3, h4, p, ul, ol, table, hr, blockquote, pre'));
+    
+    const pages: string[] = [];
+    let currentPageContent = '';
+    let currentPageHeight = 0;
+    
+    elements.forEach((element) => {
+      const el = element as HTMLElement;
+      const elementHeight = el.offsetHeight;
+      
+      // Check if element fits in current page
+      if (currentPageHeight + elementHeight <= CONTENT_HEIGHT) {
+        currentPageContent += el.outerHTML;
+        currentPageHeight += elementHeight;
+      } else {
+        // Element doesn't fit - save current page and start new one
+        if (currentPageContent) {
+          pages.push(currentPageContent);
+        }
+        currentPageContent = el.outerHTML;
+        currentPageHeight = elementHeight;
+      }
+    });
+    
+    // Add last page
+    if (currentPageContent) {
+      pages.push(currentPageContent);
+    }
+    
+    // Clean up
+    document.body.removeChild(measureContainer);
+    
+    // Update state
+    setPagesContent(pages);
+    setPageCount(pages.length);
+    console.log(`✅ Contenido distribuido en ${pages.length} páginas`);
   };
 
-  // Calculate page count after content loads
+  // Distribute content after loading
   useEffect(() => {
-    if (htmlContent && contentRef.current) {
+    if (htmlContent) {
       const timer = setTimeout(() => {
-        calculatePageCount();
+        distributeContentToPages();
       }, 200);
-
       return () => clearTimeout(timer);
     }
   }, [htmlContent]);
 
-  // Recalculate when margins change (narrower margins = more vertical text)
+  // Redistribute when margins change
   useEffect(() => {
-    if (htmlContent && contentRef.current) {
+    if (htmlContent) {
       const timer = setTimeout(() => {
-        calculatePageCount();
+        distributeContentToPages();
       }, 100);
-
       return () => clearTimeout(timer);
     }
   }, [leftMargin, rightMargin]);
 
-  // Get current content from contentEditable div
+  // Get current content from all pages combined
   const getCurrentContent = () => {
-    if (contentRef.current) {
-      return contentRef.current.innerHTML;
-    }
-    return '';
+    // Combine all pages content
+    return pagesContent.join('');
+  };
+
+  // Handle content change in a specific page
+  const handlePageContentChange = (pageIndex: number, newContent: string) => {
+    const newPages = [...pagesContent];
+    newPages[pageIndex] = newContent;
+    setPagesContent(newPages);
+    
+    // Update full HTML content
+    const fullContent = newPages.join('');
+    setHtmlContent(fullContent);
   };
 
   // Manual save hook
@@ -204,83 +261,80 @@ export default function SimpleWordEditor() {
         />
       </div>
 
-      {/* Main content area with natural flow */}
+      {/* Main content area with real pages */}
       <div className="py-8 bg-gray-50 min-h-screen">
-        <div className="mx-auto relative" style={{ width: `${PAGE_WIDTH}px` }}>
-          {/* Visual margin zones and page separators */}
-          {Array.from({ length: pageCount }).map((_, i) => (
-            <div key={i}>
-              {/* Top margin zone - gray gradient overlay */}
+        <div className="mx-auto" style={{ width: `${PAGE_WIDTH}px` }}>
+          {/* Render each page as a real container */}
+          {pagesContent.map((pageContent, pageIndex) => (
+            <div 
+              key={pageIndex}
+              className="page-container bg-white shadow-lg mb-6 relative"
+              style={{
+                width: `${PAGE_WIDTH}px`,
+                height: `${PAGE_HEIGHT}px`,
+                overflow: 'hidden',
+              }}
+            >
+              {/* Page number indicator */}
+              <span className="absolute top-2 right-4 text-xs text-gray-400 z-30" style={{ fontFamily: 'Arial, sans-serif' }}>
+                Página {pageIndex + 1}
+              </span>
+              
+              {/* Top margin - white space (not editable) */}
               <div
-                className="absolute left-0 right-0 pointer-events-none"
+                className="absolute left-0 right-0 bg-white pointer-events-none"
                 style={{
-                  top: `${i * PAGE_HEIGHT}px`,
+                  top: 0,
                   height: `${TOP_MARGIN}px`,
-                  background: 'linear-gradient(to bottom, #f8f8f8, #fff)',
-                  zIndex: 5,
+                  borderBottom: '1px solid #f0f0f0',
                 }}
               />
               
-              {/* Bottom margin zone - gray gradient overlay */}
+              {/* Content area with real margins */}
               <div
-                className="absolute left-0 right-0 pointer-events-none"
+                className="page-content-area absolute"
                 style={{
-                  top: `${(i + 1) * PAGE_HEIGHT - BOTTOM_MARGIN}px`,
+                  top: `${TOP_MARGIN}px`,
+                  left: `${leftMargin}px`,
+                  right: `${rightMargin}px`,
+                  height: `${CONTENT_HEIGHT}px`,
+                  overflow: 'hidden',
+                }}
+              >
+                <div
+                  ref={pageIndex === 0 ? contentRef : null}
+                  contentEditable
+                  suppressContentEditableWarning
+                  className="focus:outline-none h-full"
+                  style={{
+                    fontFamily: 'Arial, sans-serif',
+                    fontSize: '11pt',
+                    lineHeight: '1.6',
+                    color: '#000',
+                  }}
+                  dangerouslySetInnerHTML={{ __html: pageContent }}
+                  onBlur={(e) => handlePageContentChange(pageIndex, e.currentTarget.innerHTML)}
+                />
+              </div>
+              
+              {/* Bottom margin - white space (not editable) */}
+              <div
+                className="absolute left-0 right-0 bg-white pointer-events-none"
+                style={{
+                  bottom: 0,
                   height: `${BOTTOM_MARGIN}px`,
-                  background: 'linear-gradient(to top, #f8f8f8, #fff)',
-                  zIndex: 5,
+                  borderTop: '1px solid #f0f0f0',
                 }}
               />
-              
-              {/* Page separator between pages */}
-              {i > 0 && (
-                <div
-                  className="absolute left-0 right-0 pointer-events-none"
-                  style={{
-                    top: `${i * PAGE_HEIGHT - 4}px`,
-                    height: '8px',
-                    background: '#e0e0e0',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                    zIndex: 20,
-                  }}
-                >
-                  <span 
-                    className="absolute right-2 -top-5 text-xs text-gray-500 bg-white px-2 rounded shadow-sm"
-                    style={{ fontFamily: 'Arial, sans-serif' }}
-                  >
-                    Página {i + 1}
-                  </span>
-                </div>
-              )}
             </div>
           ))}
-
-          {/* Content editable area - flows naturally */}
-          <div
-            id="pdf-content"
-            ref={contentRef}
-            contentEditable
-            suppressContentEditableWarning
-            className="bg-white shadow-lg relative focus:outline-none focus:ring-2 focus:ring-sierra-teal/20 transition-all"
-            style={{
-              width: `${PAGE_WIDTH}px`,
-              minHeight: `${pageCount * PAGE_HEIGHT}px`,
-              paddingTop: `${TOP_MARGIN}px`,
-              paddingBottom: `${BOTTOM_MARGIN}px`,
-              paddingLeft: `${leftMargin}px`,
-              paddingRight: `${rightMargin}px`,
-              zIndex: 10,
-            }}
-            dangerouslySetInnerHTML={{ __html: htmlContent }}
-            onInput={calculatePageCount}
-          />
         </div>
       </div>
 
-      {/* Global styles for professional HTML rendering with natural flow */}
+      {/* Global styles for professional HTML rendering */}
       <style>{`
-        /* Base styles - allow natural content breaking */
-        #pdf-content {
+        /* Base styles for content within pages */
+        .page-content-area {
           font-family: Arial, sans-serif;
           font-size: 11pt;
           line-height: 1.6;
@@ -290,7 +344,7 @@ export default function SimpleWordEditor() {
         }
 
         /* H1 - Main Document Title */
-        #pdf-content h1 {
+        .page-content-area h1 {
           font-size: 24pt;
           font-weight: 800;
           margin: 24pt 0 16pt 0;
@@ -298,112 +352,101 @@ export default function SimpleWordEditor() {
           text-align: center;
           border-bottom: 2px solid #333;
           padding-bottom: 8pt;
-          break-after: avoid;
-          page-break-after: avoid;
         }
 
         /* H2 - Main Sections */
-        #pdf-content h2 {
+        .page-content-area h2 {
           font-size: 16pt;
           font-weight: 700;
           margin: 20pt 0 10pt 0;
           color: #000;
           text-transform: uppercase;
           letter-spacing: 0.5pt;
-          break-after: avoid;
-          page-break-after: avoid;
         }
 
         /* H3 - Subsections */
-        #pdf-content h3 {
+        .page-content-area h3 {
           font-size: 13pt;
           font-weight: 700;
           margin: 14pt 0 8pt 0;
           color: #000;
           text-transform: uppercase;
-          break-after: avoid;
-          page-break-after: avoid;
         }
 
         /* H4 - Sub-subsections */
-        #pdf-content h4 {
+        .page-content-area h4 {
           font-size: 12pt;
           font-weight: 600;
           margin: 12pt 0 6pt 0;
           color: #333;
-          break-after: avoid;
-          page-break-after: avoid;
         }
 
-        /* Paragraphs - minimum 2 lines for natural flow */
-        #pdf-content p {
+        /* Paragraphs */
+        .page-content-area p {
           margin-bottom: 8pt;
           text-align: justify;
-          orphans: 2;
-          widows: 2;
         }
 
-        /* Listas con viñetas correctas - tres niveles */
-        #pdf-content ul {
+        /* Lists with bullets - three levels */
+        .page-content-area ul {
           list-style-type: disc;
           padding-left: 24pt;
           margin-bottom: 8pt;
         }
 
-        #pdf-content ul ul {
-          list-style-type: circle;  /* Segundo nivel: círculos vacíos */
+        .page-content-area ul ul {
+          list-style-type: circle;
           margin-top: 4pt;
           margin-bottom: 4pt;
         }
 
-        #pdf-content ul ul ul {
-          list-style-type: square;  /* Tercer nivel: cuadrados */
+        .page-content-area ul ul ul {
+          list-style-type: square;
         }
 
-        /* Listas ordenadas */
-        #pdf-content ol {
+        /* Ordered lists */
+        .page-content-area ol {
           list-style-type: decimal;
           padding-left: 24pt;
           margin-bottom: 8pt;
         }
 
-        #pdf-content ol ol {
-          list-style-type: lower-alpha;  /* Segundo nivel: a, b, c */
+        .page-content-area ol ol {
+          list-style-type: lower-alpha;
           margin-top: 4pt;
         }
 
-        #pdf-content ol ol ol {
-          list-style-type: lower-roman;  /* Tercer nivel: i, ii, iii */
+        .page-content-area ol ol ol {
+          list-style-type: lower-roman;
         }
 
-        /* Items de lista */
-        #pdf-content li {
+        /* List items */
+        .page-content-area li {
           margin-bottom: 4pt;
           line-height: 1.5;
         }
 
-        /* Strong/Bold - negro intenso */
-        #pdf-content strong {
+        /* Strong/Bold */
+        .page-content-area strong {
           font-weight: 700;
-          color: #000;  /* Negro puro, no color de marca */
+          color: #000;
         }
 
-        /* Emphasis/Italic - subrayado */
-        #pdf-content em {
+        /* Emphasis/Italic */
+        .page-content-area em {
           font-style: italic;
           text-decoration: underline;
         }
 
-        /* Professional tables - can split across pages naturally */
-        #pdf-content table {
+        /* Professional tables */
+        .page-content-area table {
           width: 100%;
           border-collapse: collapse;
           margin: 12pt 0;
           font-size: 10pt;
-          break-inside: auto;  /* Allow table to split between pages */
         }
 
-        #pdf-content th {
+        .page-content-area th {
           background-color: #f0f0f0;
           font-weight: bold;
           border: 1px solid #333;
@@ -411,28 +454,20 @@ export default function SimpleWordEditor() {
           text-align: left;
         }
 
-        #pdf-content td {
+        .page-content-area td {
           border: 1px solid #666;
           padding: 6pt 8pt;
         }
 
-        /* Prevent table rows from breaking */
-        #pdf-content tr {
-          break-inside: avoid;
-          page-break-inside: avoid;
-        }
-
-        /* Horizontal rules - don't break */
-        #pdf-content hr {
+        /* Horizontal rules */
+        .page-content-area hr {
           border: none;
           border-top: 1px solid #333;
           margin: 12pt 0;
-          break-before: avoid;
-          break-after: avoid;
         }
 
         /* Blockquotes */
-        #pdf-content blockquote {
+        .page-content-area blockquote {
           border-left: 3px solid #2A656F;
           padding-left: 12pt;
           margin-left: 0;
@@ -441,7 +476,7 @@ export default function SimpleWordEditor() {
         }
 
         /* Code blocks */
-        #pdf-content code {
+        .page-content-area code {
           background-color: #f5f5f5;
           padding: 2pt 4pt;
           border-radius: 3px;
@@ -449,7 +484,7 @@ export default function SimpleWordEditor() {
           font-size: 10pt;
         }
 
-        #pdf-content pre {
+        .page-content-area pre {
           background-color: #f5f5f5;
           padding: 12pt;
           border-radius: 4px;
@@ -457,7 +492,7 @@ export default function SimpleWordEditor() {
           margin-bottom: 12pt;
         }
 
-        #pdf-content pre code {
+        .page-content-area pre code {
           background-color: transparent;
           padding: 0;
         }
