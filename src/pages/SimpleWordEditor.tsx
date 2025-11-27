@@ -52,6 +52,7 @@ export default function SimpleWordEditor() {
   const [rightMargin, setRightMargin] = useState(96);
   const [pageCount, setPageCount] = useState(1);
   const [pagesContent, setPagesContent] = useState<string[]>([]);
+  const [isRulerDragging, setIsRulerDragging] = useState(false);
 
   // Load job content from Supabase on mount
   useEffect(() => {
@@ -103,7 +104,7 @@ export default function SimpleWordEditor() {
   }, [jobId, navigate, toast]);
 
   // Distribute content across pages with intelligent splitting
-  const distributeContentToPages = () => {
+  const distributeContentToPages = (currentLeftMargin: number, currentRightMargin: number) => {
     if (!htmlContent) return;
     
     console.log('📐 Distribuyendo contenido en páginas (división inteligente)...');
@@ -114,7 +115,7 @@ export default function SimpleWordEditor() {
     measureContainer.style.cssText = `
       position: absolute;
       visibility: hidden;
-      width: ${PAGE_WIDTH - leftMargin - rightMargin}px;
+      width: ${PAGE_WIDTH - currentLeftMargin - currentRightMargin}px;
       left: -9999px;
       top: 0;
     `;
@@ -201,7 +202,7 @@ export default function SimpleWordEditor() {
               tempDiv.style.cssText = `
                 position: absolute;
                 visibility: hidden;
-                width: ${PAGE_WIDTH - leftMargin - rightMargin}px;
+                width: ${PAGE_WIDTH - currentLeftMargin - currentRightMargin}px;
                 left: -9999px;
               `;
               tempDiv.innerHTML = remainingList;
@@ -285,7 +286,7 @@ export default function SimpleWordEditor() {
               tempTable.style.cssText = `
                 position: absolute;
                 visibility: hidden;
-                width: ${PAGE_WIDTH - leftMargin - rightMargin}px;
+                width: ${PAGE_WIDTH - currentLeftMargin - currentRightMargin}px;
                 left: -9999px;
               `;
               tempTable.innerHTML = remainingTable;
@@ -334,25 +335,34 @@ export default function SimpleWordEditor() {
     console.log(`✅ Contenido distribuido en ${pages.length} páginas (división inteligente)`);
   };
 
-  // Distribute content after loading
+  // Distribute content only on initial load
   useEffect(() => {
-    if (htmlContent) {
+    if (htmlContent && !isRulerDragging) {
       const timer = setTimeout(() => {
-        distributeContentToPages();
+        distributeContentToPages(leftMargin, rightMargin);
       }, 200);
       return () => clearTimeout(timer);
     }
   }, [htmlContent]);
 
-  // Redistribute when margins change
-  useEffect(() => {
-    if (htmlContent) {
-      const timer = setTimeout(() => {
-        distributeContentToPages();
-      }, 100);
-      return () => clearTimeout(timer);
-    }
-  }, [leftMargin, rightMargin]);
+  // Handlers for ruler changes
+  const handleLeftMarginChange = (margin: number) => {
+    setLeftMargin(margin);
+  };
+
+  const handleRightMarginChange = (margin: number) => {
+    setRightMargin(margin);
+  };
+
+  const handleDragStart = () => {
+    setIsRulerDragging(true);
+  };
+
+  const handleDragEnd = () => {
+    setIsRulerDragging(false);
+    // Redistribute with final margin values
+    distributeContentToPages(leftMargin, rightMargin);
+  };
 
   // Get current content from all pages combined
   const getCurrentContent = () => {
@@ -430,8 +440,10 @@ export default function SimpleWordEditor() {
           pageWidth={PAGE_WIDTH}
           leftMargin={leftMargin}
           rightMargin={rightMargin}
-          onLeftMarginChange={setLeftMargin}
-          onRightMarginChange={setRightMargin}
+          onLeftMarginChange={handleLeftMarginChange}
+          onRightMarginChange={handleRightMarginChange}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
         />
       </div>
 

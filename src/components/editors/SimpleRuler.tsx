@@ -5,6 +5,8 @@ interface SimpleRulerProps {
   rightMargin: number; // en píxeles
   onLeftMarginChange: (margin: number) => void;
   onRightMarginChange: (margin: number) => void;
+  onDragStart?: () => void;
+  onDragEnd?: () => void;
   pageWidth?: number; // ancho de página en px (default 793px = 21cm)
 }
 
@@ -13,6 +15,8 @@ export const SimpleRuler = ({
   rightMargin,
   onLeftMarginChange,
   onRightMarginChange,
+  onDragStart,
+  onDragEnd,
   pageWidth = 793 // 21cm en px aprox
 }: SimpleRulerProps) => {
   const [isDragging, setIsDragging] = useState<'left' | 'right' | null>(null);
@@ -47,6 +51,7 @@ export const SimpleRuler = ({
     
     const handleMouseUp = () => {
       setIsDragging(null);
+      onDragEnd?.();
     };
     
     document.addEventListener('mousemove', handleMouseMove);
@@ -120,6 +125,7 @@ export const SimpleRuler = ({
           onMouseDown={(e) => {
             e.preventDefault();
             setIsDragging('left');
+            onDragStart?.();
           }}
         >
           <svg width="12" height="14" viewBox="0 0 12 14">
@@ -140,6 +146,7 @@ export const SimpleRuler = ({
           onMouseDown={(e) => {
             e.preventDefault();
             setIsDragging('right');
+            onDragStart?.();
           }}
         >
           <svg width="12" height="14" viewBox="0 0 12 14">
