@@ -12,7 +12,7 @@ const PAGE_HEIGHT = 1123; // A4 height in pixels (29.7cm at 96 DPI)
 const TOP_MARGIN = 60; // ~1.6cm white space at top
 const BOTTOM_MARGIN = 60; // ~1.6cm white space at bottom
 const CONTENT_HEIGHT = PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN; // 1003px usable area per page
-const SAFETY_MARGIN = 20; // Buffer for measurement precision
+const SAFETY_MARGIN = 100; // ~10% buffer to prevent hidden content overflow
 
 // Function to clean HTML - extract only body content and remove \n literals
 const cleanHtml = (rawHtml: string): string => {
