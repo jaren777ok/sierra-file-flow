@@ -12,6 +12,7 @@ const PAGE_HEIGHT = 1123; // A4 height in pixels (29.7cm at 96 DPI)
 const TOP_MARGIN = 60; // ~1.6cm white space at top
 const BOTTOM_MARGIN = 60; // ~1.6cm white space at bottom
 const CONTENT_HEIGHT = PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN; // 1003px usable area per page
+const SAFETY_MARGIN = 20; // Buffer for measurement precision
 
 // Function to clean HTML - extract only body content and remove \n literals
 const cleanHtml = (rawHtml: string): string => {
@@ -107,16 +108,15 @@ export default function SimpleWordEditor() {
     
     console.log('📐 Distribuyendo contenido en páginas (división inteligente)...');
     
-    // Create temporary container to measure content
+    // Create temporary container to measure content WITH CLASS for styles
     const measureContainer = document.createElement('div');
+    measureContainer.className = 'page-content-area';
     measureContainer.style.cssText = `
       position: absolute;
       visibility: hidden;
       width: ${PAGE_WIDTH - leftMargin - rightMargin}px;
-      font-family: Arial, sans-serif;
-      font-size: 11pt;
-      line-height: 1.6;
       left: -9999px;
+      top: 0;
     `;
     measureContainer.innerHTML = htmlContent;
     document.body.appendChild(measureContainer);
@@ -143,14 +143,14 @@ export default function SimpleWordEditor() {
       const tagName = el.tagName.toLowerCase();
       
       // If element fits completely in current page
-      if (currentPageHeight + elementHeight <= CONTENT_HEIGHT) {
+      if (currentPageHeight + elementHeight <= CONTENT_HEIGHT - SAFETY_MARGIN) {
         currentPageContent += el.outerHTML;
         currentPageHeight += elementHeight;
         return;
       }
       
       // Element doesn't fit - decide whether to split or move
-      const spaceRemaining = CONTENT_HEIGHT - currentPageHeight;
+      const spaceRemaining = CONTENT_HEIGHT - SAFETY_MARGIN - currentPageHeight;
       
       // INTELLIGENT SPLITTING LOGIC
       
@@ -168,7 +168,7 @@ export default function SimpleWordEditor() {
             const liEl = li as HTMLElement;
             const liHeight = liEl.offsetHeight;
             
-            if (currentPageHeight + partialHeight + liHeight <= CONTENT_HEIGHT) {
+            if (currentPageHeight + partialHeight + liHeight <= CONTENT_HEIGHT - SAFETY_MARGIN) {
               partialList += liEl.outerHTML;
               partialHeight += liHeight;
               itemsAdded++;
@@ -195,9 +195,15 @@ export default function SimpleWordEditor() {
               remainingList += `</${tagName}>`;
               
               currentPageContent = remainingList;
-              // Measure remaining height
+              // Measure remaining height with styles applied
               const tempDiv = document.createElement('div');
-              tempDiv.style.cssText = measureContainer.style.cssText;
+              tempDiv.className = 'page-content-area';
+              tempDiv.style.cssText = `
+                position: absolute;
+                visibility: hidden;
+                width: ${PAGE_WIDTH - leftMargin - rightMargin}px;
+                left: -9999px;
+              `;
               tempDiv.innerHTML = remainingList;
               document.body.appendChild(tempDiv);
               currentPageHeight = tempDiv.offsetHeight;
@@ -244,16 +250,16 @@ export default function SimpleWordEditor() {
           const bodyRows = tbody ? Array.from(tbody.querySelectorAll('tr')) : rows;
           
           for (const row of bodyRows) {
-            const rowEl = row as HTMLElement;
-            const rowHeight = rowEl.offsetHeight;
-            
-            if (currentPageHeight + partialHeight + rowHeight <= CONTENT_HEIGHT) {
-              partialTable += rowEl.outerHTML;
-              partialHeight += rowHeight;
-              rowsAdded++;
-            } else {
-              break;
-            }
+          const rowEl = row as HTMLElement;
+          const rowHeight = rowEl.offsetHeight;
+          
+          if (currentPageHeight + partialHeight + rowHeight <= CONTENT_HEIGHT - SAFETY_MARGIN) {
+            partialTable += rowEl.outerHTML;
+            partialHeight += rowHeight;
+            rowsAdded++;
+          } else {
+            break;
+          }
           }
           
           if (rowsAdded > 0) {
@@ -273,9 +279,15 @@ export default function SimpleWordEditor() {
               remainingTable += '</tbody></table>';
               
               currentPageContent = remainingTable;
-              // Measure remaining height
+              // Measure remaining height with styles applied
               const tempTable = document.createElement('div');
-              tempTable.style.cssText = measureContainer.style.cssText;
+              tempTable.className = 'page-content-area';
+              tempTable.style.cssText = `
+                position: absolute;
+                visibility: hidden;
+                width: ${PAGE_WIDTH - leftMargin - rightMargin}px;
+                left: -9999px;
+              `;
               tempTable.innerHTML = remainingTable;
               document.body.appendChild(tempTable);
               currentPageHeight = tempTable.offsetHeight;
@@ -473,172 +485,6 @@ export default function SimpleWordEditor() {
         </div>
       </div>
 
-      {/* Global styles for professional HTML rendering */}
-      <style>{`
-        /* Base styles for content within pages */
-        .page-content-area {
-          font-family: Arial, sans-serif;
-          font-size: 11pt;
-          line-height: 1.6;
-          color: #000;
-          overflow-wrap: break-word;
-          word-wrap: break-word;
-        }
-
-        /* H1 - Main Document Title */
-        .page-content-area h1 {
-          font-size: 24pt;
-          font-weight: 800;
-          margin: 24pt 0 16pt 0;
-          color: #000;
-          text-align: center;
-          border-bottom: 2px solid #333;
-          padding-bottom: 8pt;
-        }
-
-        /* H2 - Main Sections */
-        .page-content-area h2 {
-          font-size: 16pt;
-          font-weight: 700;
-          margin: 20pt 0 10pt 0;
-          color: #000;
-          text-transform: uppercase;
-          letter-spacing: 0.5pt;
-        }
-
-        /* H3 - Subsections */
-        .page-content-area h3 {
-          font-size: 13pt;
-          font-weight: 700;
-          margin: 14pt 0 8pt 0;
-          color: #000;
-          text-transform: uppercase;
-        }
-
-        /* H4 - Sub-subsections */
-        .page-content-area h4 {
-          font-size: 12pt;
-          font-weight: 600;
-          margin: 12pt 0 6pt 0;
-          color: #333;
-        }
-
-        /* Paragraphs */
-        .page-content-area p {
-          margin-bottom: 8pt;
-          text-align: justify;
-        }
-
-        /* Lists with bullets - three levels */
-        .page-content-area ul {
-          list-style-type: disc;
-          padding-left: 24pt;
-          margin-bottom: 8pt;
-        }
-
-        .page-content-area ul ul {
-          list-style-type: circle;
-          margin-top: 4pt;
-          margin-bottom: 4pt;
-        }
-
-        .page-content-area ul ul ul {
-          list-style-type: square;
-        }
-
-        /* Ordered lists */
-        .page-content-area ol {
-          list-style-type: decimal;
-          padding-left: 24pt;
-          margin-bottom: 8pt;
-        }
-
-        .page-content-area ol ol {
-          list-style-type: lower-alpha;
-          margin-top: 4pt;
-        }
-
-        .page-content-area ol ol ol {
-          list-style-type: lower-roman;
-        }
-
-        /* List items */
-        .page-content-area li {
-          margin-bottom: 4pt;
-          line-height: 1.5;
-        }
-
-        /* Strong/Bold */
-        .page-content-area strong {
-          font-weight: 700;
-          color: #000;
-        }
-
-        /* Emphasis/Italic */
-        .page-content-area em {
-          font-style: italic;
-          text-decoration: underline;
-        }
-
-        /* Professional tables */
-        .page-content-area table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 12pt 0;
-          font-size: 10pt;
-        }
-
-        .page-content-area th {
-          background-color: #f0f0f0;
-          font-weight: bold;
-          border: 1px solid #333;
-          padding: 6pt 8pt;
-          text-align: left;
-        }
-
-        .page-content-area td {
-          border: 1px solid #666;
-          padding: 6pt 8pt;
-        }
-
-        /* Horizontal rules */
-        .page-content-area hr {
-          border: none;
-          border-top: 1px solid #333;
-          margin: 12pt 0;
-        }
-
-        /* Blockquotes */
-        .page-content-area blockquote {
-          border-left: 3px solid #2A656F;
-          padding-left: 12pt;
-          margin-left: 0;
-          margin-bottom: 8pt;
-          color: #666;
-        }
-
-        /* Code blocks */
-        .page-content-area code {
-          background-color: #f5f5f5;
-          padding: 2pt 4pt;
-          border-radius: 3px;
-          font-family: 'Courier New', monospace;
-          font-size: 10pt;
-        }
-
-        .page-content-area pre {
-          background-color: #f5f5f5;
-          padding: 12pt;
-          border-radius: 4px;
-          overflow-x: auto;
-          margin-bottom: 12pt;
-        }
-
-        .page-content-area pre code {
-          background-color: transparent;
-          padding: 0;
-        }
-      `}</style>
     </div>
   );
 }

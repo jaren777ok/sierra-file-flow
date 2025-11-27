@@ -181,4 +181,160 @@
   .animate-pulse-glow {
     animation: pulse-glow 2s ease-in-out infinite;
   }
+
+  /* Simple Word Editor - Page Content Styles */
+  .page-content-area {
+    font-family: Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    color: #000;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
+
+  .page-content-area h1 {
+    font-size: 24pt;
+    font-weight: 800;
+    color: #000;
+    text-align: center;
+    margin: 24pt 0 16pt 0;
+    border-bottom: 2px solid #000;
+    padding-bottom: 8pt;
+  }
+
+  .page-content-area h2 {
+    font-size: 16pt;
+    font-weight: 700;
+    color: #000;
+    margin: 20pt 0 10pt 0;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .page-content-area h3 {
+    font-size: 13pt;
+    font-weight: 700;
+    color: #000;
+    margin: 14pt 0 8pt 0;
+    text-transform: uppercase;
+  }
+
+  .page-content-area h4 {
+    font-size: 12pt;
+    font-weight: 600;
+    color: #000;
+    margin: 12pt 0 6pt 0;
+  }
+
+  .page-content-area p {
+    margin-bottom: 8pt;
+    text-align: justify;
+  }
+
+  .page-content-area ul,
+  .page-content-area ol {
+    margin: 8pt 0;
+    padding-left: 24pt;
+  }
+
+  .page-content-area ul {
+    list-style-type: disc;
+  }
+
+  .page-content-area ul ul {
+    list-style-type: circle;
+    margin-top: 4pt;
+    margin-bottom: 4pt;
+  }
+
+  .page-content-area ul ul ul {
+    list-style-type: square;
+  }
+
+  .page-content-area ol {
+    list-style-type: decimal;
+  }
+
+  .page-content-area ol ol {
+    list-style-type: lower-alpha;
+    margin-top: 4pt;
+  }
+
+  .page-content-area ol ol ol {
+    list-style-type: lower-roman;
+  }
+
+  .page-content-area li {
+    margin-bottom: 4pt;
+    line-height: 1.5;
+  }
+
+  .page-content-area table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12pt 0;
+    font-size: 10pt;
+  }
+
+  .page-content-area th,
+  .page-content-area td {
+    border: 1px solid #000;
+    padding: 6pt 8pt;
+    text-align: left;
+  }
+
+  .page-content-area th {
+    background-color: #f0f0f0;
+    font-weight: 700;
+  }
+
+  .page-content-area strong,
+  .page-content-area b {
+    font-weight: 700;
+    color: #000;
+  }
+
+  .page-content-area em,
+  .page-content-area i {
+    font-style: italic;
+  }
+
+  .page-content-area u {
+    text-decoration: underline;
+  }
+
+  .page-content-area hr {
+    border: none;
+    border-top: 1px solid #333;
+    margin: 12pt 0;
+  }
+
+  .page-content-area blockquote {
+    border-left: 3px solid #2A656F;
+    padding-left: 12pt;
+    margin-left: 0;
+    margin-bottom: 8pt;
+    color: #666;
+  }
+
+  .page-content-area code {
+    background-color: #f5f5f5;
+    padding: 2pt 4pt;
+    border-radius: 3px;
+    font-family: 'Courier New', monospace;
+    font-size: 10pt;
+  }
+
+  .page-content-area pre {
+    background-color: #f5f5f5;
+    padding: 12pt;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin-bottom: 12pt;
+  }
+
+  .page-content-area pre code {
+    background-color: transparent;
+    padding: 0;
+  }
 }
