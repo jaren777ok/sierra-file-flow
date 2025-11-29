@@ -11,9 +11,9 @@ import html2canvas from 'html2canvas';
 const SLIDE_WIDTH = 1123; // 297mm
 const SLIDE_HEIGHT = 794; // 210mm
 const PADDING = 40;
-const SAFETY_MARGIN = 30; // Buffer de seguridad
+const SAFETY_MARGIN = 150; // Buffer de seguridad aumentado para evitar texto oculto
 const CONTENT_HEIGHT = SLIDE_HEIGHT - (PADDING * 2); // 714px
-const EFFECTIVE_HEIGHT = CONTENT_HEIGHT - SAFETY_MARGIN; // 684px
+const EFFECTIVE_HEIGHT = CONTENT_HEIGHT - SAFETY_MARGIN; // 564px - más conservador
 
 // Clean HTML from webhook response
 const cleanHtml = (rawHtml: string): string => {
@@ -449,7 +449,7 @@ export default function SimplePptEditor() {
         {slidesContent.map((slideHtml, index) => (
           <div
             key={index}
-            className="ppt-slide bg-white shadow-2xl"
+            className="ppt-slide bg-white shadow-2xl overflow-hidden"
             style={{
               width: `${SLIDE_WIDTH}px`,
               height: `${SLIDE_HEIGHT}px`,
@@ -463,10 +463,9 @@ export default function SimplePptEditor() {
               {index + 1} / {slidesContent.length}
             </div>
             
-            {/* Slide content - sin overflow:hidden para no cortar texto */}
+            {/* Slide content - sin maxHeight, el padre tiene overflow:hidden */}
             <div 
               className="slide-content"
-              style={{ maxHeight: `${CONTENT_HEIGHT}px` }}
               dangerouslySetInnerHTML={{ __html: slideHtml }}
             />
           </div>
