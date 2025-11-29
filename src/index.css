@@ -338,3 +338,107 @@
     padding: 0;
   }
 }
+
+/* Simple PPT Editor - Slide Content Styles */
+.slide-content {
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #1a1a1a;
+}
+
+.slide-content h1 {
+  font-size: 28px;
+  font-weight: 800;
+  text-align: center;
+  margin: 0 0 20px 0;
+  color: #000;
+  border-bottom: 3px solid hsl(var(--sierra-teal));
+  padding-bottom: 12px;
+}
+
+.slide-content h2 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 16px 0 12px 0;
+  color: #1a1a1a;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.slide-content h3 {
+  font-size: 16px;
+  font-weight: 700;
+  margin: 12px 0 8px 0;
+  color: #333;
+}
+
+.slide-content h4 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 10px 0 6px 0;
+  color: #444;
+}
+
+.slide-content p {
+  margin-bottom: 10px;
+  text-align: justify;
+  line-height: 1.5;
+}
+
+.slide-content ul,
+.slide-content ol {
+  margin: 10px 0;
+  padding-left: 24px;
+}
+
+.slide-content ul {
+  list-style-type: disc;
+}
+
+.slide-content ol {
+  list-style-type: decimal;
+}
+
+.slide-content li {
+  margin-bottom: 6px;
+  line-height: 1.4;
+}
+
+.slide-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0;
+  font-size: 12px;
+}
+
+.slide-content th,
+.slide-content td {
+  border: 1px solid #333;
+  padding: 8px 10px;
+  text-align: left;
+}
+
+.slide-content th {
+  background-color: hsl(var(--sierra-teal));
+  color: white;
+  font-weight: 700;
+}
+
+.slide-content tr:nth-child(even) {
+  background-color: #f8f8f8;
+}
+
+.slide-content strong,
+.slide-content b {
+  font-weight: 700;
+}
+
+.slide-content em,
+.slide-content i {
+  font-style: italic;
+}
+
+.slide-content u {
+  text-decoration: underline;
+}
