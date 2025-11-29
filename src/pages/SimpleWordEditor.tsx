@@ -13,7 +13,10 @@ const cleanHtml = (rawHtml: string): string => {
   // 1. Convert \n literals (backslash + n) to actual newlines
   let cleaned = rawHtml.replace(/\\n/g, '\n');
   
-  // 2. Extract content between <body> and </body>
+  // 2. Convert escaped quotes \" to normal quotes "
+  cleaned = cleaned.replace(/\\"/g, '"');
+  
+  // 3. Extract content between <body> and </body>
   const bodyMatch = cleaned.match(/<body[^>]*>([\s\S]*)<\/body>/i);
   if (bodyMatch) {
     cleaned = bodyMatch[1].trim();
@@ -27,10 +30,68 @@ const cleanHtml = (rawHtml: string): string => {
       .trim();
   }
   
-  // 3. Remove remaining newlines between tags (not needed in HTML)
+  // 4. Remove remaining newlines between tags (not needed in HTML)
   cleaned = cleaned.replace(/>\s*\n\s*</g, '><');
   
   return cleaned;
+};
+
+// Function to apply inline styles for copying to Word/Google Docs
+const applyInlineStylesForCopy = (element: HTMLElement): HTMLElement => {
+  const clone = element.cloneNode(true) as HTMLElement;
+  
+  // Apply styles to tables
+  clone.querySelectorAll('table').forEach(table => {
+    table.setAttribute('style', 'width: 100%; border-collapse: collapse; margin: 12pt 0; font-size: 10pt;');
+  });
+  
+  // Apply styles to th
+  clone.querySelectorAll('th').forEach(th => {
+    th.setAttribute('style', 'border: 1px solid #000; padding: 6pt 8pt; text-align: left; background-color: #f0f0f0; font-weight: 700;');
+  });
+  
+  // Apply styles to td
+  clone.querySelectorAll('td').forEach(td => {
+    td.setAttribute('style', 'border: 1px solid #000; padding: 6pt 8pt; text-align: left;');
+  });
+  
+  // Apply styles to headings
+  clone.querySelectorAll('h1').forEach(h1 => {
+    h1.setAttribute('style', 'font-size: 24pt; font-weight: 800; text-align: center; margin: 24pt 0 16pt 0; border-bottom: 2px solid #000;');
+  });
+  
+  clone.querySelectorAll('h2').forEach(h2 => {
+    h2.setAttribute('style', 'font-size: 16pt; font-weight: 700; margin: 20pt 0 10pt 0; text-transform: uppercase;');
+  });
+  
+  clone.querySelectorAll('h3').forEach(h3 => {
+    h3.setAttribute('style', 'font-size: 13pt; font-weight: 700; margin: 14pt 0 8pt 0; text-transform: uppercase;');
+  });
+  
+  // Apply styles to paragraphs
+  clone.querySelectorAll('p').forEach(p => {
+    p.setAttribute('style', 'margin-bottom: 8pt; text-align: justify; line-height: 1.5;');
+  });
+  
+  // Apply styles to lists
+  clone.querySelectorAll('ul').forEach(ul => {
+    ul.setAttribute('style', 'margin: 8pt 0; padding-left: 24pt; list-style-type: disc;');
+  });
+  
+  clone.querySelectorAll('ol').forEach(ol => {
+    ol.setAttribute('style', 'margin: 8pt 0; padding-left: 24pt; list-style-type: decimal;');
+  });
+  
+  clone.querySelectorAll('li').forEach(li => {
+    li.setAttribute('style', 'margin-bottom: 4pt; line-height: 1.5;');
+  });
+  
+  // Apply styles to strong/bold
+  clone.querySelectorAll('strong, b').forEach(el => {
+    el.setAttribute('style', 'font-weight: 700;');
+  });
+  
+  return clone;
 };
 
 export default function SimpleWordEditor() {
@@ -111,8 +172,11 @@ export default function SimpleWordEditor() {
       const content = contentRef.current;
       if (!content) return;
 
-      // Get HTML content (preserves formatting)
-      const htmlContent = content.innerHTML;
+      // Apply inline styles for proper formatting in Word/Docs
+      const styledContent = applyInlineStylesForCopy(content);
+      
+      // Get HTML content WITH inline styles
+      const htmlContent = styledContent.innerHTML;
       // Get plain text as fallback
       const plainText = content.innerText || content.textContent || '';
       
@@ -130,7 +194,7 @@ export default function SimpleWordEditor() {
       
       toast({
         title: "¡Copiado con formato!",
-        description: "Pega en Word o Google Docs para mantener el formato",
+        description: "Pega en Word o Google Docs para mantener tablas y formato",
       });
     } catch (error) {
       console.error('❌ Error copiando con formato:', error);
