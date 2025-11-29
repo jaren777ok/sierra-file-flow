@@ -184,7 +184,7 @@ const SavedFiles = () => {
                       </Button>
                       
                       <Button
-                        onClick={() => navigate(`/presentation-editor/${file.id}`)}
+                        onClick={() => navigate(`/simple-ppt/${file.id}`)}
                         size="lg"
                         variant="outline"
                         className="w-full border-2 border-sierra-teal/30 text-[hsl(var(--sierra-teal))] hover:bg-[hsl(var(--sierra-teal))] hover:text-white hover:border-sierra-teal transition-all duration-300 group/btn"
