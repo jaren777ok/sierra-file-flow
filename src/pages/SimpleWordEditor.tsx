@@ -5,14 +5,8 @@ import { useToast } from '@/hooks/use-toast';
 import { useSimpleAutoSave } from '@/hooks/useSimpleAutoSave';
 import { SimplePdfService } from '@/services/simplePdfService';
 import { SimpleToolbar } from '@/components/editors/SimpleToolbar';
-import { SimpleRuler } from '@/components/editors/SimpleRuler';
 
 const PAGE_WIDTH = 793; // A4 width in pixels (21cm at 96 DPI)
-const PAGE_HEIGHT = 1123; // A4 height in pixels (29.7cm at 96 DPI)
-const TOP_MARGIN = 60; // ~1.6cm white space at top
-const BOTTOM_MARGIN = 60; // ~1.6cm white space at bottom
-const CONTENT_HEIGHT = PAGE_HEIGHT - TOP_MARGIN - BOTTOM_MARGIN; // 1003px usable area per page
-const SAFETY_MARGIN = 100; // ~10% buffer to prevent hidden content overflow
 
 // Function to clean HTML - extract only body content and remove \n literals
 const cleanHtml = (rawHtml: string): string => {
@@ -48,11 +42,6 @@ export default function SimpleWordEditor() {
   const [htmlContent, setHtmlContent] = useState<string>('');
   const [projectTitle, setProjectTitle] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
-  const [leftMargin, setLeftMargin] = useState(96); // 2.54cm default
-  const [rightMargin, setRightMargin] = useState(96);
-  const [pageCount, setPageCount] = useState(1);
-  const [pagesContent, setPagesContent] = useState<string[]>([]);
-  const [isRulerDragging, setIsRulerDragging] = useState(false);
 
   // Load job content from Supabase on mount
   useEffect(() => {
@@ -103,282 +92,9 @@ export default function SimpleWordEditor() {
     loadJobContent();
   }, [jobId, navigate, toast]);
 
-  // Distribute content across pages with intelligent splitting
-  const distributeContentToPages = (currentLeftMargin: number, currentRightMargin: number) => {
-    if (!htmlContent) return;
-    
-    console.log('📐 Distribuyendo contenido en páginas (división inteligente)...');
-    
-    // Create temporary container to measure content WITH CLASS for styles
-    const measureContainer = document.createElement('div');
-    measureContainer.className = 'page-content-area';
-    measureContainer.style.cssText = `
-      position: absolute;
-      visibility: hidden;
-      width: ${PAGE_WIDTH - currentLeftMargin - currentRightMargin}px;
-      left: -9999px;
-      top: 0;
-    `;
-    measureContainer.innerHTML = htmlContent;
-    document.body.appendChild(measureContainer);
-    
-    const pages: string[] = [];
-    let currentPageContent = '';
-    let currentPageHeight = 0;
-    
-    // Helper to start a new page
-    const startNewPage = () => {
-      if (currentPageContent) {
-        pages.push(currentPageContent);
-      }
-      currentPageContent = '';
-      currentPageHeight = 0;
-    };
-    
-    // Get all top-level block elements
-    const topLevelElements = Array.from(measureContainer.children);
-    
-    topLevelElements.forEach((element) => {
-      const el = element as HTMLElement;
-      const elementHeight = el.offsetHeight;
-      const tagName = el.tagName.toLowerCase();
-      
-      // If element fits completely in current page
-      if (currentPageHeight + elementHeight <= CONTENT_HEIGHT - SAFETY_MARGIN) {
-        currentPageContent += el.outerHTML;
-        currentPageHeight += elementHeight;
-        return;
-      }
-      
-      // Element doesn't fit - decide whether to split or move
-      const spaceRemaining = CONTENT_HEIGHT - SAFETY_MARGIN - currentPageHeight;
-      
-      // INTELLIGENT SPLITTING LOGIC
-      
-      // 1. LISTS (ul, ol) - Split by <li> items
-      if (tagName === 'ul' || tagName === 'ol') {
-        const listItems = Array.from(el.querySelectorAll(':scope > li'));
-        
-        if (listItems.length > 0 && spaceRemaining > 50) {
-          // Create partial list for current page
-          let partialList = `<${tagName}>`;
-          let partialHeight = 0;
-          let itemsAdded = 0;
-          
-          for (const li of listItems) {
-            const liEl = li as HTMLElement;
-            const liHeight = liEl.offsetHeight;
-            
-            if (currentPageHeight + partialHeight + liHeight <= CONTENT_HEIGHT - SAFETY_MARGIN) {
-              partialList += liEl.outerHTML;
-              partialHeight += liHeight;
-              itemsAdded++;
-            } else {
-              break;
-            }
-          }
-          
-          // If at least one item fits, add partial list
-          if (itemsAdded > 0) {
-            partialList += `</${tagName}>`;
-            currentPageContent += partialList;
-            currentPageHeight += partialHeight;
-            
-            // Start new page with remaining items
-            startNewPage();
-            
-            const remainingItems = listItems.slice(itemsAdded);
-            if (remainingItems.length > 0) {
-              let remainingList = `<${tagName}>`;
-              remainingItems.forEach(li => {
-                remainingList += (li as HTMLElement).outerHTML;
-              });
-              remainingList += `</${tagName}>`;
-              
-              currentPageContent = remainingList;
-              // Measure remaining height with styles applied
-              const tempDiv = document.createElement('div');
-              tempDiv.className = 'page-content-area';
-              tempDiv.style.cssText = `
-                position: absolute;
-                visibility: hidden;
-                width: ${PAGE_WIDTH - currentLeftMargin - currentRightMargin}px;
-                left: -9999px;
-              `;
-              tempDiv.innerHTML = remainingList;
-              document.body.appendChild(tempDiv);
-              currentPageHeight = tempDiv.offsetHeight;
-              document.body.removeChild(tempDiv);
-            }
-          } else {
-            // No items fit - move entire list to new page
-            startNewPage();
-            currentPageContent = el.outerHTML;
-            currentPageHeight = elementHeight;
-          }
-        } else {
-          // List too short or no space - move complete
-          startNewPage();
-          currentPageContent = el.outerHTML;
-          currentPageHeight = elementHeight;
-        }
-        return;
-      }
-      
-      // 2. TABLES - Split by <tr> rows
-      if (tagName === 'table') {
-        const tbody = el.querySelector('tbody');
-        const rows = Array.from(el.querySelectorAll('tbody tr, tr'));
-        const thead = el.querySelector('thead');
-        const theadHtml = thead ? thead.outerHTML : '';
-        
-        if (rows.length > 1 && spaceRemaining > 80) {
-          // Measure header height
-          let headerHeight = 0;
-          if (thead) {
-            const tempHeader = document.createElement('table');
-            tempHeader.innerHTML = theadHtml;
-            measureContainer.appendChild(tempHeader);
-            headerHeight = tempHeader.offsetHeight;
-            measureContainer.removeChild(tempHeader);
-          }
-          
-          let partialTable = '<table>' + theadHtml + '<tbody>';
-          let partialHeight = headerHeight;
-          let rowsAdded = 0;
-          
-          // Get only body rows
-          const bodyRows = tbody ? Array.from(tbody.querySelectorAll('tr')) : rows;
-          
-          for (const row of bodyRows) {
-          const rowEl = row as HTMLElement;
-          const rowHeight = rowEl.offsetHeight;
-          
-          if (currentPageHeight + partialHeight + rowHeight <= CONTENT_HEIGHT - SAFETY_MARGIN) {
-            partialTable += rowEl.outerHTML;
-            partialHeight += rowHeight;
-            rowsAdded++;
-          } else {
-            break;
-          }
-          }
-          
-          if (rowsAdded > 0) {
-            partialTable += '</tbody></table>';
-            currentPageContent += partialTable;
-            currentPageHeight += partialHeight;
-            
-            // Start new page with remaining rows
-            startNewPage();
-            
-            const remainingRows = bodyRows.slice(rowsAdded);
-            if (remainingRows.length > 0) {
-              let remainingTable = '<table>' + theadHtml + '<tbody>';
-              remainingRows.forEach(row => {
-                remainingTable += (row as HTMLElement).outerHTML;
-              });
-              remainingTable += '</tbody></table>';
-              
-              currentPageContent = remainingTable;
-              // Measure remaining height with styles applied
-              const tempTable = document.createElement('div');
-              tempTable.className = 'page-content-area';
-              tempTable.style.cssText = `
-                position: absolute;
-                visibility: hidden;
-                width: ${PAGE_WIDTH - currentLeftMargin - currentRightMargin}px;
-                left: -9999px;
-              `;
-              tempTable.innerHTML = remainingTable;
-              document.body.appendChild(tempTable);
-              currentPageHeight = tempTable.offsetHeight;
-              document.body.removeChild(tempTable);
-            }
-          } else {
-            startNewPage();
-            currentPageContent = el.outerHTML;
-            currentPageHeight = elementHeight;
-          }
-        } else {
-          startNewPage();
-          currentPageContent = el.outerHTML;
-          currentPageHeight = elementHeight;
-        }
-        return;
-      }
-      
-      // 3. HEADINGS (h1-h4) - NEVER split, always move complete
-      if (['h1', 'h2', 'h3', 'h4'].includes(tagName)) {
-        startNewPage();
-        currentPageContent = el.outerHTML;
-        currentPageHeight = elementHeight;
-        return;
-      }
-      
-      // 4. OTHER ELEMENTS (p, blockquote, hr, etc.) - Move complete
-      startNewPage();
-      currentPageContent = el.outerHTML;
-      currentPageHeight = elementHeight;
-    });
-    
-    // Add last page
-    if (currentPageContent) {
-      pages.push(currentPageContent);
-    }
-    
-    // Clean up
-    document.body.removeChild(measureContainer);
-    
-    // Update state
-    setPagesContent(pages);
-    setPageCount(pages.length);
-    console.log(`✅ Contenido distribuido en ${pages.length} páginas (división inteligente)`);
-  };
-
-  // Distribute content only on initial load
-  useEffect(() => {
-    if (htmlContent && !isRulerDragging) {
-      const timer = setTimeout(() => {
-        distributeContentToPages(leftMargin, rightMargin);
-      }, 200);
-      return () => clearTimeout(timer);
-    }
-  }, [htmlContent]);
-
-  // Handlers for ruler changes
-  const handleLeftMarginChange = (margin: number) => {
-    setLeftMargin(margin);
-  };
-
-  const handleRightMarginChange = (margin: number) => {
-    setRightMargin(margin);
-  };
-
-  const handleDragStart = () => {
-    setIsRulerDragging(true);
-  };
-
-  const handleDragEnd = () => {
-    setIsRulerDragging(false);
-    // Redistribute with final margin values
-    distributeContentToPages(leftMargin, rightMargin);
-  };
-
-  // Get current content from all pages combined
+  // Get current content from editor
   const getCurrentContent = () => {
-    // Combine all pages content
-    return pagesContent.join('');
-  };
-
-  // Handle content change in a specific page
-  const handlePageContentChange = (pageIndex: number, newContent: string) => {
-    const newPages = [...pagesContent];
-    newPages[pageIndex] = newContent;
-    setPagesContent(newPages);
-    
-    // Update full HTML content
-    const fullContent = newPages.join('');
-    setHtmlContent(fullContent);
+    return contentRef.current?.innerHTML || htmlContent;
   };
 
   // Manual save hook
@@ -387,6 +103,31 @@ export default function SimpleWordEditor() {
   // Handle format commands
   const handleFormat = (command: string, value?: string) => {
     document.execCommand(command, false, value);
+  };
+
+  // Handle copy all text
+  const handleCopyAll = async () => {
+    try {
+      const content = contentRef.current;
+      if (!content) return;
+
+      // Get plain text from content
+      const textContent = content.innerText || content.textContent || '';
+      
+      await navigator.clipboard.writeText(textContent);
+      
+      toast({
+        title: "¡Copiado!",
+        description: "El texto se copió al portapapeles",
+      });
+    } catch (error) {
+      console.error('❌ Error copiando:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo copiar el texto",
+        variant: "destructive",
+      });
+    }
   };
 
   // Handle PDF download
@@ -422,81 +163,47 @@ export default function SimpleWordEditor() {
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
       {/* Toolbar sticky */}
-      <div className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
-        <SimpleToolbar
-          onFormat={handleFormat}
-          onSave={saveNow}
-          onDownloadPdf={handleDownloadPdf}
-          onBack={() => navigate('/')}
-          isSaving={isSaving}
-          lastSaved={lastSaved}
-          title={projectTitle}
-        />
-      </div>
+      <SimpleToolbar
+        onFormat={handleFormat}
+        onSave={saveNow}
+        onDownloadPdf={handleDownloadPdf}
+        onCopyAll={handleCopyAll}
+        onBack={() => navigate('/')}
+        isSaving={isSaving}
+        lastSaved={lastSaved}
+        title={projectTitle}
+      />
 
-      {/* Ruler sticky */}
-      <div className="sticky top-[60px] z-40 bg-white border-b border-gray-200">
-        <SimpleRuler
-          pageWidth={PAGE_WIDTH}
-          leftMargin={leftMargin}
-          rightMargin={rightMargin}
-          onLeftMarginChange={handleLeftMarginChange}
-          onRightMarginChange={handleRightMarginChange}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-        />
-      </div>
-
-      {/* Main content area with real pages */}
+      {/* Main content area - single scrollable page */}
       <div className="py-8 bg-gray-50 min-h-screen">
         <div className="mx-auto" style={{ width: `${PAGE_WIDTH}px` }}>
-          {/* Render each page as a real container */}
-          {pagesContent.map((pageContent, pageIndex) => (
-            <div 
-              key={pageIndex}
-              className="page-container bg-white shadow-lg mb-6 relative"
+          {/* Single page container */}
+          <div 
+            className="page-container bg-white shadow-lg"
+            style={{
+              width: `${PAGE_WIDTH}px`,
+              minHeight: '500px',
+              padding: '60px',
+            }}
+          >
+            {/* Content area */}
+            <div
+              ref={contentRef}
+              contentEditable
+              suppressContentEditableWarning
+              className="page-content-area focus:outline-none"
               style={{
-                width: `${PAGE_WIDTH}px`,
-                height: `${PAGE_HEIGHT}px`,
-                overflow: 'hidden',
+                fontFamily: 'Arial, sans-serif',
+                fontSize: '11pt',
+                lineHeight: '1.6',
+                color: '#000',
+                minHeight: '400px',
               }}
-            >
-              {/* Page number indicator */}
-              <span className="absolute top-2 right-4 text-xs text-gray-400 z-30" style={{ fontFamily: 'Arial, sans-serif' }}>
-                Página {pageIndex + 1}
-              </span>
-              
-              {/* Content area with real margins (no visual strips) */}
-              <div
-                className="page-content-area absolute"
-                style={{
-                  top: `${TOP_MARGIN}px`,
-                  left: `${leftMargin}px`,
-                  right: `${rightMargin}px`,
-                  height: `${CONTENT_HEIGHT}px`,
-                  overflow: 'hidden',
-                }}
-              >
-                <div
-                  ref={pageIndex === 0 ? contentRef : null}
-                  contentEditable
-                  suppressContentEditableWarning
-                  className="focus:outline-none h-full"
-                  style={{
-                    fontFamily: 'Arial, sans-serif',
-                    fontSize: '11pt',
-                    lineHeight: '1.6',
-                    color: '#000',
-                  }}
-                  dangerouslySetInnerHTML={{ __html: pageContent }}
-                  onBlur={(e) => handlePageContentChange(pageIndex, e.currentTarget.innerHTML)}
-                />
-              </div>
-            </div>
-          ))}
+              dangerouslySetInnerHTML={{ __html: htmlContent }}
+            />
+          </div>
         </div>
       </div>
-
     </div>
   );
 }
