@@ -176,13 +176,17 @@ export default function SimplePptEditor() {
           
           // If this item won't fit in available space
           if (listHeight + liHeight > availableHeight) {
-            // Si tenemos título y pocos items, forzar agregar hasta minItemsWithHeading
+            // Si tenemos título y pocos items, verificar si podemos forzar SIN exceder límite absoluto
             if (currentSlideHasHeading && itemsInCurrentSlide < minItemsWithHeading) {
-              // Forzar agregar este item para mantener contenido con título
-              listHtml += liElement.outerHTML;
-              listHeight += liHeight;
-              itemsInCurrentSlide++;
-              continue;
+              const totalHeightWithItem = currentHeight + listHeight + liHeight;
+              // Solo forzar si el TOTAL no excede EFFECTIVE_HEIGHT
+              if (totalHeightWithItem <= EFFECTIVE_HEIGHT) {
+                listHtml += liElement.outerHTML;
+                listHeight += liHeight;
+                itemsInCurrentSlide++;
+                continue;
+              }
+              // Si excede, NO forzar - continuar con división normal
             }
             
             // Si hay items acumulados, cerrar lista y guardar slide
@@ -235,12 +239,17 @@ export default function SimplePptEditor() {
           
           // If this row won't fit in available space
           if (tableHeight + rowHeight > availableHeight) {
-            // Si tenemos título y pocas filas, forzar agregar
+            // Si tenemos título y pocas filas, verificar si podemos forzar SIN exceder límite absoluto
             if (currentSlideHasHeading && rowsInCurrentSlide < minRowsWithHeading) {
-              tableHtml += rowElement.outerHTML;
-              tableHeight += rowHeight;
-              rowsInCurrentSlide++;
-              continue;
+              const totalHeightWithRow = currentHeight + tableHeight + rowHeight;
+              // Solo forzar si el TOTAL no excede EFFECTIVE_HEIGHT
+              if (totalHeightWithRow <= EFFECTIVE_HEIGHT) {
+                tableHtml += rowElement.outerHTML;
+                tableHeight += rowHeight;
+                rowsInCurrentSlide++;
+                continue;
+              }
+              // Si excede, NO forzar - continuar con división normal
             }
             
             // Si hay filas acumuladas, cerrar tabla y guardar slide
