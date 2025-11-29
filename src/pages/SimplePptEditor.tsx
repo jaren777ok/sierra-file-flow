@@ -134,6 +134,9 @@ export default function SimplePptEditor() {
     let currentSlideHtml = '';
     let currentHeight = 0;
     
+    // Espacio mínimo que debe quedar después de un título para contenido
+    const MIN_SPACE_FOR_CONTENT = 150;
+    
     // Helper to save current slide and reset
     const saveCurrentSlide = () => {
       if (currentSlideHtml !== '') {
@@ -153,6 +156,47 @@ export default function SimplePptEditor() {
       
       // CASE 1: Element fits completely in current slide
       if (currentHeight + elementHeight <= EFFECTIVE_HEIGHT) {
+        // Si es un título, verificar que quede espacio suficiente para contenido siguiente
+        if (isHeading(tagName)) {
+          const spaceAfterTitle = EFFECTIVE_HEIGHT - (currentHeight + elementHeight);
+          const nextElement = children[i + 1] as HTMLElement | undefined;
+          
+          // Si hay siguiente elemento y el espacio restante es limitado
+          if (nextElement && spaceAfterTitle < MIN_SPACE_FOR_CONTENT) {
+            const nextTagName = nextElement.tagName.toLowerCase();
+            
+            // Calcular cuánto espacio mínimo necesita el siguiente elemento
+            let minNextSpace = MIN_SPACE_FOR_CONTENT;
+            
+            if (nextTagName === 'ul' || nextTagName === 'ol') {
+              // Para listas, calcular altura del primer item
+              const firstItem = nextElement.querySelector(':scope > li') as HTMLElement;
+              if (firstItem) {
+                minNextSpace = firstItem.getBoundingClientRect().height;
+              }
+            } else if (nextTagName === 'table') {
+              // Para tablas, calcular altura de primera fila
+              const firstRow = nextElement.querySelector('tbody tr, :scope > tr') as HTMLElement;
+              const thead = nextElement.querySelector('thead') as HTMLElement;
+              if (firstRow) {
+                minNextSpace = firstRow.getBoundingClientRect().height + (thead?.getBoundingClientRect().height || 0);
+              }
+            } else if (!isHeading(nextTagName)) {
+              // Para párrafos u otros elementos, usar su altura o mínimo
+              minNextSpace = Math.min(nextElement.getBoundingClientRect().height, MIN_SPACE_FOR_CONTENT);
+            }
+            
+            // Si NO hay espacio suficiente para el mínimo requerido, mover título a nuevo slide
+            if (spaceAfterTitle < minNextSpace) {
+              saveCurrentSlide();
+              currentSlideHtml = element.outerHTML;
+              currentHeight = elementHeight;
+              continue;
+            }
+          }
+        }
+        
+        // Comportamiento normal: agregar elemento
         currentSlideHtml += element.outerHTML;
         currentHeight += elementHeight;
         continue;
