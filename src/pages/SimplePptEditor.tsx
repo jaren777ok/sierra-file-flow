@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Copy, Download, RefreshCw, Presentation } from 'lucide-react';
+import { ArrowLeft, Copy, Download, RefreshCw, Presentation, Save } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
@@ -88,14 +88,24 @@ const applyInlineStylesForCopy = (element: HTMLElement): HTMLElement => {
   return clone;
 };
 
+// Check if HTML content is effectively empty
+const isSlideEmpty = (html: string): boolean => {
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+  const text = temp.textContent || temp.innerText || '';
+  return text.trim().length === 0;
+};
+
 export default function SimplePptEditor() {
   const { jobId } = useParams<{ jobId: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [slidesContent, setSlidesContent] = useState<string[]>([]);
   const [projectTitle, setProjectTitle] = useState('');
   const slidesContainerRef = useRef<HTMLDivElement>(null);
+  const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Divide content into slides based on element heights - with intelligent list/table splitting
   const divideContentIntoSlides = useCallback((html: string): string[] => {
@@ -227,6 +237,67 @@ export default function SimplePptEditor() {
     
     return slides;
   }, []);
+
+  // Handle blur - redistribute content and remove empty slides
+  const handleSlideBlur = useCallback(() => {
+    // Collect HTML from all slide refs
+    const combinedHtml = slideRefs.current
+      .filter(ref => ref !== null)
+      .map(ref => ref!.innerHTML)
+      .join('');
+    
+    if (!combinedHtml.trim()) return;
+    
+    // Re-divide content
+    const newSlides = divideContentIntoSlides(combinedHtml);
+    
+    // Filter out empty slides
+    const filteredSlides = newSlides.filter(slideHtml => !isSlideEmpty(slideHtml));
+    
+    // Only update if there are actual changes to avoid infinite loops
+    if (filteredSlides.length !== slidesContent.length || 
+        filteredSlides.some((slide, i) => slide !== slidesContent[i])) {
+      setSlidesContent(filteredSlides.length > 0 ? filteredSlides : ['<p></p>']);
+    }
+  }, [divideContentIntoSlides, slidesContent]);
+
+  // Save content to Supabase
+  const handleSave = async () => {
+    if (!jobId) return;
+    
+    setIsSaving(true);
+    try {
+      // Collect HTML from all slide refs
+      const combinedHtml = slideRefs.current
+        .filter(ref => ref !== null)
+        .map(ref => ref!.innerHTML)
+        .join('');
+      
+      const { error } = await supabase
+        .from('processing_jobs')
+        .update({ 
+          result_html: combinedHtml,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+
+      if (error) throw error;
+
+      toast({
+        title: "¡Guardado!",
+        description: "Los cambios se guardaron correctamente",
+      });
+    } catch (error) {
+      console.error('Error saving:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron guardar los cambios",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Load content from Supabase
   useEffect(() => {
@@ -421,6 +492,16 @@ export default function SimplePptEditor() {
           {/* Right: Action buttons */}
           <div className="flex items-center gap-2">
             <Button
+              onClick={handleSave}
+              disabled={isSaving}
+              variant="outline"
+              size="sm"
+              className="border-[#404040] text-gray-300 hover:text-white hover:bg-[#404040]"
+            >
+              <Save className="h-4 w-4 mr-2" />
+              {isSaving ? 'Guardando...' : 'Guardar'}
+            </Button>
+            <Button
               onClick={handleCopyAll}
               variant="outline"
               size="sm"
@@ -459,13 +540,17 @@ export default function SimplePptEditor() {
             }}
           >
             {/* Slide number badge */}
-            <div className="absolute bottom-3 right-4 text-xs text-gray-400 font-medium">
+            <div className="absolute bottom-3 right-4 text-xs text-gray-400 font-medium pointer-events-none">
               {index + 1} / {slidesContent.length}
             </div>
             
-            {/* Slide content - sin maxHeight, el padre tiene overflow:hidden */}
+            {/* Slide content - editable */}
             <div 
+              ref={el => slideRefs.current[index] = el}
               className="slide-content"
+              contentEditable
+              suppressContentEditableWarning
+              onBlur={handleSlideBlur}
               dangerouslySetInnerHTML={{ __html: slideHtml }}
             />
           </div>
