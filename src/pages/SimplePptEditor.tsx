@@ -107,7 +107,7 @@ export default function SimplePptEditor() {
   const slidesContainerRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Divide content into slides based on element heights - with intelligent list/table splitting
+  // Divide content into slides based on element heights - OPTIMIZED to fill available space
   const divideContentIntoSlides = useCallback((html: string): string[] => {
     const slides: string[] = [];
     
@@ -128,6 +128,15 @@ export default function SimplePptEditor() {
     let currentSlideHtml = '';
     let currentHeight = 0;
     
+    // Helper to save current slide and reset
+    const saveCurrentSlide = () => {
+      if (currentSlideHtml !== '') {
+        slides.push(currentSlideHtml);
+        currentSlideHtml = '';
+        currentHeight = 0;
+      }
+    };
+    
     // Get all block-level children
     const children = Array.from(tempContainer.children);
     
@@ -136,37 +145,38 @@ export default function SimplePptEditor() {
       const tagName = element.tagName.toLowerCase();
       const elementHeight = element.getBoundingClientRect().height;
       
-      // CASE 1: Element fits in current slide
+      // CASE 1: Element fits completely in current slide
       if (currentHeight + elementHeight <= EFFECTIVE_HEIGHT) {
         currentSlideHtml += element.outerHTML;
         currentHeight += elementHeight;
         continue;
       }
       
-      // CASE 2: Current slide has content, save it and start new
-      if (currentSlideHtml !== '') {
-        slides.push(currentSlideHtml);
-        currentSlideHtml = '';
-        currentHeight = 0;
-      }
-      
-      // CASE 3: Element is a list (ul/ol) - divide by items
+      // CASE 2: Element is a list (ul/ol) - divide by items, filling current space first
       if (tagName === 'ul' || tagName === 'ol') {
         const listItems = Array.from(element.querySelectorAll(':scope > li'));
         let listHtml = `<${tagName}>`;
         let listHeight = 0;
+        let availableHeight = EFFECTIVE_HEIGHT - currentHeight;
         
         for (const li of listItems) {
           const liElement = li as HTMLElement;
           const liHeight = liElement.getBoundingClientRect().height;
           
-          // If adding this item would exceed and we have items, save slide
-          if (listHeight + liHeight > EFFECTIVE_HEIGHT - currentHeight && listHtml !== `<${tagName}>`) {
-            slides.push(currentSlideHtml + listHtml + `</${tagName}>`);
-            currentSlideHtml = '';
-            currentHeight = 0;
-            listHtml = `<${tagName}>`;
-            listHeight = 0;
+          // If this item won't fit in available space
+          if (listHeight + liHeight > availableHeight) {
+            // If we have items accumulated, close list and save slide
+            if (listHtml !== `<${tagName}>`) {
+              currentSlideHtml += listHtml + `</${tagName}>`;
+              saveCurrentSlide();
+              listHtml = `<${tagName}>`;
+              listHeight = 0;
+              availableHeight = EFFECTIVE_HEIGHT; // New slide has full space
+            } else if (currentSlideHtml !== '') {
+              // No items in this list yet, but we have other content - save it first
+              saveCurrentSlide();
+              availableHeight = EFFECTIVE_HEIGHT;
+            }
           }
           
           listHtml += liElement.outerHTML;
@@ -181,7 +191,7 @@ export default function SimplePptEditor() {
         continue;
       }
       
-      // CASE 4: Element is a table - divide by rows
+      // CASE 3: Element is a table - divide by rows, filling current space first
       if (tagName === 'table') {
         const thead = element.querySelector('thead');
         const tbody = element.querySelector('tbody');
@@ -191,18 +201,26 @@ export default function SimplePptEditor() {
         
         let tableHtml = `<table>${theadHtml}<tbody>`;
         let tableHeight = theadHeight;
+        let availableHeight = EFFECTIVE_HEIGHT - currentHeight;
         
         for (const row of rows) {
           const rowElement = row as HTMLElement;
           const rowHeight = rowElement.getBoundingClientRect().height;
           
-          // If adding this row would exceed and we have rows, save slide
-          if (tableHeight + rowHeight > EFFECTIVE_HEIGHT - currentHeight && tableHtml !== `<table>${theadHtml}<tbody>`) {
-            slides.push(currentSlideHtml + tableHtml + '</tbody></table>');
-            currentSlideHtml = '';
-            currentHeight = 0;
-            tableHtml = `<table>${theadHtml}<tbody>`; // Repeat header in new table
-            tableHeight = theadHeight;
+          // If this row won't fit in available space
+          if (tableHeight + rowHeight > availableHeight) {
+            // If we have rows accumulated, close table and save slide
+            if (tableHtml !== `<table>${theadHtml}<tbody>`) {
+              currentSlideHtml += tableHtml + '</tbody></table>';
+              saveCurrentSlide();
+              tableHtml = `<table>${theadHtml}<tbody>`; // Repeat header
+              tableHeight = theadHeight;
+              availableHeight = EFFECTIVE_HEIGHT;
+            } else if (currentSlideHtml !== '') {
+              // No rows in this table yet, but we have other content - save it first
+              saveCurrentSlide();
+              availableHeight = EFFECTIVE_HEIGHT;
+            }
           }
           
           tableHtml += rowElement.outerHTML;
@@ -217,15 +235,15 @@ export default function SimplePptEditor() {
         continue;
       }
       
-      // CASE 5: Simple element (h1-h4, p, etc.) - add whole to new slide
-      currentSlideHtml += element.outerHTML;
-      currentHeight += elementHeight;
+      // CASE 4: Simple element (h1-h4, p, etc.) that doesn't fit
+      // Save current slide first, then add element to new slide
+      saveCurrentSlide();
+      currentSlideHtml = element.outerHTML;
+      currentHeight = elementHeight;
     }
     
     // Save last slide if has content
-    if (currentSlideHtml !== '') {
-      slides.push(currentSlideHtml);
-    }
+    saveCurrentSlide();
 
     // Clean up
     document.body.removeChild(tempContainer);
