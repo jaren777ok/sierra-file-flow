@@ -105,28 +105,51 @@ export default function SimpleWordEditor() {
     document.execCommand(command, false, value);
   };
 
-  // Handle copy all text
+  // Handle copy all content WITH formatting (HTML)
   const handleCopyAll = async () => {
     try {
       const content = contentRef.current;
       if (!content) return;
 
-      // Get plain text from content
-      const textContent = content.innerText || content.textContent || '';
+      // Get HTML content (preserves formatting)
+      const htmlContent = content.innerHTML;
+      // Get plain text as fallback
+      const plainText = content.innerText || content.textContent || '';
       
-      await navigator.clipboard.writeText(textContent);
+      // Create blobs for both formats
+      const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
+      const textBlob = new Blob([plainText], { type: 'text/plain' });
+      
+      // Copy to clipboard with both formats
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': htmlBlob,
+          'text/plain': textBlob
+        })
+      ]);
       
       toast({
-        title: "¡Copiado!",
-        description: "El texto se copió al portapapeles",
+        title: "¡Copiado con formato!",
+        description: "Pega en Word o Google Docs para mantener el formato",
       });
     } catch (error) {
-      console.error('❌ Error copiando:', error);
-      toast({
-        title: "Error",
-        description: "No se pudo copiar el texto",
-        variant: "destructive",
-      });
+      console.error('❌ Error copiando con formato:', error);
+      
+      // Fallback to plain text if ClipboardItem not supported
+      try {
+        const plainText = contentRef.current?.innerText || '';
+        await navigator.clipboard.writeText(plainText);
+        toast({
+          title: "Copiado (sin formato)",
+          description: "Tu navegador no soporta copiar con formato",
+        });
+      } catch (fallbackError) {
+        toast({
+          title: "Error",
+          description: "No se pudo copiar el texto",
+          variant: "destructive",
+        });
+      }
     }
   };
 
