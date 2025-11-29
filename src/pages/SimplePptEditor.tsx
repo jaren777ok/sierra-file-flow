@@ -11,9 +11,15 @@ import html2canvas from 'html2canvas';
 const SLIDE_WIDTH = 1123; // 297mm
 const SLIDE_HEIGHT = 794; // 210mm
 const PADDING = 40;
-const SAFETY_MARGIN = 150; // Buffer de seguridad aumentado para evitar texto oculto
+const SAFETY_MARGIN = 100; // Reducido de 150 a 100 para mejor aprovechamiento
 const CONTENT_HEIGHT = SLIDE_HEIGHT - (PADDING * 2); // 714px
-const EFFECTIVE_HEIGHT = CONTENT_HEIGHT - SAFETY_MARGIN; // 564px - más conservador
+const EFFECTIVE_HEIGHT = CONTENT_HEIGHT - SAFETY_MARGIN; // 614px
+const MIN_CONTENT_WITH_TITLE = 80; // Mínimo contenido que debe acompañar a un título
+
+// Helper para verificar si un elemento es un título
+const isHeading = (tagName: string): boolean => {
+  return ['h1', 'h2', 'h3', 'h4'].includes(tagName);
+};
 
 // Clean HTML from webhook response
 const cleanHtml = (rawHtml: string): string => {
@@ -158,22 +164,36 @@ export default function SimplePptEditor() {
         let listHtml = `<${tagName}>`;
         let listHeight = 0;
         let availableHeight = EFFECTIVE_HEIGHT - currentHeight;
+        let itemsInCurrentSlide = 0;
         
-        for (const li of listItems) {
-          const liElement = li as HTMLElement;
+        // Si el slide actual tiene un título, asegurar al menos 2 items con él
+        const currentSlideHasHeading = /<h[1-4][^>]*>/.test(currentSlideHtml);
+        const minItemsWithHeading = currentSlideHasHeading ? 2 : 0;
+        
+        for (let j = 0; j < listItems.length; j++) {
+          const liElement = listItems[j] as HTMLElement;
           const liHeight = liElement.getBoundingClientRect().height;
           
           // If this item won't fit in available space
           if (listHeight + liHeight > availableHeight) {
-            // If we have items accumulated, close list and save slide
+            // Si tenemos título y pocos items, forzar agregar hasta minItemsWithHeading
+            if (currentSlideHasHeading && itemsInCurrentSlide < minItemsWithHeading) {
+              // Forzar agregar este item para mantener contenido con título
+              listHtml += liElement.outerHTML;
+              listHeight += liHeight;
+              itemsInCurrentSlide++;
+              continue;
+            }
+            
+            // Si hay items acumulados, cerrar lista y guardar slide
             if (listHtml !== `<${tagName}>`) {
               currentSlideHtml += listHtml + `</${tagName}>`;
               saveCurrentSlide();
               listHtml = `<${tagName}>`;
               listHeight = 0;
-              availableHeight = EFFECTIVE_HEIGHT; // New slide has full space
+              itemsInCurrentSlide = 0;
+              availableHeight = EFFECTIVE_HEIGHT;
             } else if (currentSlideHtml !== '') {
-              // No items in this list yet, but we have other content - save it first
               saveCurrentSlide();
               availableHeight = EFFECTIVE_HEIGHT;
             }
@@ -181,6 +201,7 @@ export default function SimplePptEditor() {
           
           listHtml += liElement.outerHTML;
           listHeight += liHeight;
+          itemsInCurrentSlide++;
         }
         
         // Add remaining list items to current slide
@@ -202,22 +223,35 @@ export default function SimplePptEditor() {
         let tableHtml = `<table>${theadHtml}<tbody>`;
         let tableHeight = theadHeight;
         let availableHeight = EFFECTIVE_HEIGHT - currentHeight;
+        let rowsInCurrentSlide = 0;
         
-        for (const row of rows) {
-          const rowElement = row as HTMLElement;
+        // Si el slide actual tiene un título, asegurar al menos 2 filas con él
+        const currentSlideHasHeading = /<h[1-4][^>]*>/.test(currentSlideHtml);
+        const minRowsWithHeading = currentSlideHasHeading ? 2 : 0;
+        
+        for (let j = 0; j < rows.length; j++) {
+          const rowElement = rows[j] as HTMLElement;
           const rowHeight = rowElement.getBoundingClientRect().height;
           
           // If this row won't fit in available space
           if (tableHeight + rowHeight > availableHeight) {
-            // If we have rows accumulated, close table and save slide
+            // Si tenemos título y pocas filas, forzar agregar
+            if (currentSlideHasHeading && rowsInCurrentSlide < minRowsWithHeading) {
+              tableHtml += rowElement.outerHTML;
+              tableHeight += rowHeight;
+              rowsInCurrentSlide++;
+              continue;
+            }
+            
+            // Si hay filas acumuladas, cerrar tabla y guardar slide
             if (tableHtml !== `<table>${theadHtml}<tbody>`) {
               currentSlideHtml += tableHtml + '</tbody></table>';
               saveCurrentSlide();
-              tableHtml = `<table>${theadHtml}<tbody>`; // Repeat header
+              tableHtml = `<table>${theadHtml}<tbody>`;
               tableHeight = theadHeight;
+              rowsInCurrentSlide = 0;
               availableHeight = EFFECTIVE_HEIGHT;
             } else if (currentSlideHtml !== '') {
-              // No rows in this table yet, but we have other content - save it first
               saveCurrentSlide();
               availableHeight = EFFECTIVE_HEIGHT;
             }
@@ -225,6 +259,7 @@ export default function SimplePptEditor() {
           
           tableHtml += rowElement.outerHTML;
           tableHeight += rowHeight;
+          rowsInCurrentSlide++;
         }
         
         // Add remaining table rows to current slide
@@ -235,8 +270,50 @@ export default function SimplePptEditor() {
         continue;
       }
       
-      // CASE 4: Simple element (h1-h4, p, etc.) that doesn't fit
-      // Save current slide first, then add element to new slide
+      // CASE 4: Headings (h1-h4) - implement "Keep With Next" logic
+      if (isHeading(tagName)) {
+        const nextElement = children[i + 1] as HTMLElement | undefined;
+        
+        if (nextElement) {
+          const nextTagName = nextElement.tagName.toLowerCase();
+          const nextHeight = nextElement.getBoundingClientRect().height;
+          
+          // Calcular el contenido mínimo que debe acompañar al título
+          let minNextContentHeight = MIN_CONTENT_WITH_TITLE;
+          
+          // Si el siguiente es una lista/tabla, calcular altura de primeros items
+          if (nextTagName === 'ul' || nextTagName === 'ol') {
+            const firstItems = Array.from(nextElement.querySelectorAll(':scope > li')).slice(0, 2);
+            minNextContentHeight = firstItems.reduce((sum, li) => 
+              sum + (li as HTMLElement).getBoundingClientRect().height, 0);
+          } else if (nextTagName === 'table') {
+            const thead = nextElement.querySelector('thead');
+            const firstRows = Array.from(nextElement.querySelectorAll('tbody tr, :scope > tr')).slice(0, 2);
+            const theadHeight = thead ? thead.getBoundingClientRect().height : 0;
+            minNextContentHeight = theadHeight + firstRows.reduce((sum, row) => 
+              sum + (row as HTMLElement).getBoundingClientRect().height, 0);
+          } else {
+            minNextContentHeight = Math.min(nextHeight, MIN_CONTENT_WITH_TITLE);
+          }
+          
+          // Si el título + contenido mínimo caben en un nuevo slide
+          if (elementHeight + minNextContentHeight <= EFFECTIVE_HEIGHT) {
+            // Guardar slide actual y poner título en nuevo slide
+            saveCurrentSlide();
+            currentSlideHtml = element.outerHTML;
+            currentHeight = elementHeight;
+            continue;
+          }
+        }
+        
+        // Si no hay siguiente elemento o no aplica, comportamiento normal
+        saveCurrentSlide();
+        currentSlideHtml = element.outerHTML;
+        currentHeight = elementHeight;
+        continue;
+      }
+      
+      // CASE 5: Simple element (p, div, etc.) that doesn't fit
       saveCurrentSlide();
       currentSlideHtml = element.outerHTML;
       currentHeight = elementHeight;
