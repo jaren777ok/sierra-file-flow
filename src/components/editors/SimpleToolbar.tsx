@@ -12,7 +12,8 @@ import {
   Redo,
   Download,
   Save,
-  Check
+  Check,
+  Copy
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -29,6 +30,7 @@ interface SimpleToolbarProps {
   onFormat: (command: string, value?: string) => void;
   onSave: () => void;
   onDownloadPdf: () => void;
+  onCopyAll: () => void;
   onBack: () => void;
   isSaving: boolean;
   lastSaved: Date | null;
@@ -39,6 +41,7 @@ export const SimpleToolbar = ({
   onFormat,
   onSave,
   onDownloadPdf,
+  onCopyAll,
   onBack,
   isSaving,
   lastSaved,
@@ -80,6 +83,17 @@ export const SimpleToolbar = ({
               </>
             ) : null}
           </div>
+
+          {/* Copy All */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onCopyAll}
+            className="gap-2"
+          >
+            <Copy className="h-4 w-4" />
+            Copiar Todo
+          </Button>
 
           {/* Download PDF */}
           <Button
