@@ -46,16 +46,32 @@ const imageToBase64 = (imgSrc: string): Promise<string> => {
   });
 };
 
-// Calculate text height based on content length and available width (in inches)
+// Calculate text height based on content length and available width (in inches) - CONSERVATIVE VERSION
 const calculateTextHeight = (text: string, fontSize: number, widthInches: number): number => {
-  // Approximate characters per inch based on font size
-  const avgCharWidth = fontSize * 0.5; // Approximate character width in points
-  const charsPerInch = 72 / avgCharWidth;
-  const charsPerLine = Math.floor(widthInches * charsPerInch);
-  const lines = Math.max(1, Math.ceil(text.length / charsPerLine));
-  const lineHeight = (fontSize / 72) * 1.5; // Convert pt to inches with line spacing
+  // PowerPoint uses ~72 points per inch
+  // More conservative character width estimation
+  const avgCharWidthPt = fontSize * 0.55; // More conservative (was 0.5)
+  const charsPerInch = 72 / avgCharWidthPt;
+  const charsPerLine = Math.max(10, Math.floor(widthInches * charsPerInch * 0.85)); // 85% margin of error
   
-  return Math.max(lines * lineHeight, 0.35);
+  // Calculate lines using word wrapping
+  const words = text.split(/\s+/);
+  let lineCount = 1;
+  let currentLineLength = 0;
+  
+  for (const word of words) {
+    if (currentLineLength + word.length + 1 > charsPerLine) {
+      lineCount++;
+      currentLineLength = word.length;
+    } else {
+      currentLineLength += word.length + 1;
+    }
+  }
+  
+  // Height per line with generous line spacing
+  const lineHeight = (fontSize / 72) * 1.6; // 1.6 line spacing (more space)
+  
+  return Math.max(lineCount * lineHeight + 0.1, 0.4); // Minimum 0.4"
 };
 
 // Clean HTML from webhook response
@@ -596,7 +612,7 @@ export default function SimplePptEditor() {
     }
   };
 
-  // Download as PDF (A4 landscape - more compatible)
+  // Download as PDF (16:9 format to match slides exactly)
   const handleDownloadPdf = async () => {
     try {
       toast({
@@ -609,15 +625,16 @@ export default function SimplePptEditor() {
         throw new Error('No hay slides para exportar');
       }
 
-      // Use A4 landscape for better compatibility
+      // Use custom 16:9 format (same ratio as 1920x1080 / 1280x720)
+      // 13.33" x 7.5" converted to mm = 338.67mm x 190.5mm
+      const pdfWidth = 338.67;  // 16:9 width in mm
+      const pdfHeight = 190.5;  // 16:9 height in mm
+
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
-        format: 'a4'
+        format: [pdfWidth, pdfHeight] // Custom 16:9 format
       });
-
-      const pdfWidth = 297;  // A4 landscape width in mm
-      const pdfHeight = 210; // A4 landscape height in mm
 
       for (let i = 0; i < slides.length; i++) {
         const slide = slides[i] as HTMLElement;
@@ -637,9 +654,10 @@ export default function SimplePptEditor() {
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
         
         if (i > 0) {
-          pdf.addPage('a4', 'landscape');
+          pdf.addPage([pdfWidth, pdfHeight], 'landscape');
         }
         
+        // Image fills exactly the PDF page (same aspect ratio)
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       }
 
@@ -659,7 +677,7 @@ export default function SimplePptEditor() {
     }
   };
 
-  // Download as PowerPoint (.pptx)
+  // Download as PowerPoint (.pptx) - IMPROVED with conservative margins
   const handleDownloadPptx = async () => {
     try {
       toast({
@@ -676,10 +694,11 @@ export default function SimplePptEditor() {
       pptx.author = 'Logistic Law';
       pptx.title = projectTitle;
 
-      // Constants for content positioning
-      const CONTENT_WIDTH = 12.3; // inches (16:9 = 13.33" total width)
-      const MAX_Y = 6.8; // Maximum Y position before overflow (16:9 = 7.5" height)
-      const LEFT_MARGIN = 0.5;
+      // CONSERVATIVE constants for content positioning
+      const PPTX_CONTENT_WIDTH = 11.5; // inches (reduced from 12.3 for more right margin)
+      const PPTX_MAX_Y = 6.5;          // Maximum Y (reduced from 6.8 for more bottom margin)
+      const PPTX_LEFT_MARGIN = 0.6;    // Left margin (increased from 0.5)
+      const PPTX_TOP_START = 0.5;      // Starting Y position
 
       // SLIDE 1: Portada (imagen completa con base64)
       const slidePortada = pptx.addSlide();
@@ -701,47 +720,51 @@ export default function SimplePptEditor() {
         tempDiv.innerHTML = slidesContent[i];
         
         // Procesar elementos y convertirlos a objetos PptxGenJS
-        let yPos = 0.4;
+        let yPos = PPTX_TOP_START;
         const children = Array.from(tempDiv.children);
         
         for (const element of children) {
-          // Check for overflow
-          if (yPos >= MAX_Y) break;
-          
           const tagName = element.tagName.toLowerCase();
           const text = element.textContent || '';
           
           if (!text.trim()) continue;
           
           if (isHeading(tagName)) {
-            const fontSize = tagName === 'h1' ? 28 : tagName === 'h2' ? 22 : tagName === 'h3' ? 18 : 16;
-            const height = calculateTextHeight(text, fontSize, CONTENT_WIDTH);
+            const fontSize = tagName === 'h1' ? 26 : tagName === 'h2' ? 20 : tagName === 'h3' ? 16 : 14;
+            const height = calculateTextHeight(text, fontSize, PPTX_CONTENT_WIDTH);
+            
+            // Check if fits before adding
+            if (yPos + height > PPTX_MAX_Y) break;
             
             slide.addText(text, {
-              x: LEFT_MARGIN,
+              x: PPTX_LEFT_MARGIN,
               y: yPos,
-              w: CONTENT_WIDTH,
+              w: PPTX_CONTENT_WIDTH,
               h: height,
               fontSize,
               bold: true,
               color: '1a1a1a',
               valign: 'top',
+              wrap: true,
             });
-            yPos += height + 0.15;
+            yPos += height + 0.2;
             
           } else if (tagName === 'p') {
-            const height = calculateTextHeight(text, 14, CONTENT_WIDTH);
+            const height = calculateTextHeight(text, 12, PPTX_CONTENT_WIDTH);
+            
+            if (yPos + height > PPTX_MAX_Y) break;
             
             slide.addText(text, {
-              x: LEFT_MARGIN,
+              x: PPTX_LEFT_MARGIN,
               y: yPos,
-              w: CONTENT_WIDTH,
+              w: PPTX_CONTENT_WIDTH,
               h: height,
-              fontSize: 14,
+              fontSize: 12,
               color: '333333',
               valign: 'top',
+              wrap: true,
             });
-            yPos += height + 0.1;
+            yPos += height + 0.15;
             
           } else if (tagName === 'ul' || tagName === 'ol') {
             const items = Array.from(element.querySelectorAll('li'));
@@ -751,21 +774,24 @@ export default function SimplePptEditor() {
             }));
             
             if (bulletItems.length > 0) {
-              // Calculate height based on total text length of all items
-              const totalText = items.map(li => li.textContent || '').join(' ');
-              const baseHeight = calculateTextHeight(totalText, 12, CONTENT_WIDTH - 0.5);
-              const height = Math.max(baseHeight, items.length * 0.3);
+              // More conservative height calculation for lists
+              const totalChars = items.reduce((acc, li) => acc + (li.textContent || '').length, 0);
+              const avgCharsPerItem = totalChars / items.length;
+              const linesPerItem = Math.ceil(avgCharsPerItem / 80);
+              const height = Math.max(items.length * linesPerItem * 0.25 + 0.2, 0.5);
+              
+              if (yPos + height > PPTX_MAX_Y) break;
               
               slide.addText(bulletItems, {
-                x: LEFT_MARGIN,
+                x: PPTX_LEFT_MARGIN + 0.2,
                 y: yPos,
-                w: CONTENT_WIDTH,
-                h: height,
-                fontSize: 12,
+                w: PPTX_CONTENT_WIDTH - 0.2,
+                h: Math.min(height, PPTX_MAX_Y - yPos),
+                fontSize: 11,
                 color: '333333',
                 valign: 'top',
               });
-              yPos += height + 0.15;
+              yPos += height + 0.2;
             }
             
           } else if (tagName === 'table') {
@@ -780,25 +806,27 @@ export default function SimplePptEditor() {
             });
             
             if (rows.length > 0) {
-              const tableHeight = Math.min(rows.length * 0.35 + 0.2, MAX_Y - yPos);
+              const tableHeight = Math.min(rows.length * 0.4 + 0.3, PPTX_MAX_Y - yPos);
+              
+              if (yPos + tableHeight > PPTX_MAX_Y) break;
               
               slide.addTable(rows, {
-                x: LEFT_MARGIN,
+                x: PPTX_LEFT_MARGIN,
                 y: yPos,
-                w: CONTENT_WIDTH,
+                w: PPTX_CONTENT_WIDTH,
                 h: tableHeight,
-                fontSize: 10,
+                fontSize: 9,
                 border: { pt: 0.5, color: '666666' },
                 fill: { color: 'F5F5F5' },
               });
-              yPos += tableHeight + 0.2;
+              yPos += tableHeight + 0.25;
             }
           }
         }
         
-        // Número de slide (positioned for 16:9)
+        // Número de slide (positioned for 16:9 with margins)
         slide.addText(`${i + 2} / ${slidesContent.length + 2}`, {
-          x: 12.0,
+          x: 11.5,
           y: 6.9,
           w: 1.2,
           h: 0.3,
