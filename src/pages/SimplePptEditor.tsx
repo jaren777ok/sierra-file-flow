@@ -3,9 +3,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { ArrowLeft, Copy, Download, RefreshCw, Presentation, Save } from 'lucide-react';
+import { ArrowLeft, Copy, Download, RefreshCw, Presentation, Save, Trash2, FileText } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import PptxGenJS from 'pptxgenjs';
+import portadaImage from '@/assets/presentacion_1_2.png';
+import graciasImage from '@/assets/presentacion_1_3.png';
 
 // A4 Landscape dimensions in pixels (96 DPI)
 const SLIDE_WIDTH = 1123; // 297mm
@@ -409,6 +412,25 @@ export default function SimplePptEditor() {
     }
   }, [divideContentIntoSlides, slidesContent]);
 
+  // Delete a specific slide
+  const handleDeleteSlide = useCallback((indexToDelete: number) => {
+    if (slidesContent.length <= 1) {
+      toast({
+        title: "No se puede eliminar",
+        description: "Debe haber al menos una slide de contenido",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setSlidesContent(prev => prev.filter((_, index) => index !== indexToDelete));
+    
+    toast({
+      title: "Slide eliminada",
+      description: `Se eliminó la slide ${indexToDelete + 2}`,
+    });
+  }, [slidesContent.length, toast]);
+
   // Save content to Supabase
   const handleSave = async () => {
     if (!jobId) return;
@@ -599,6 +621,143 @@ export default function SimplePptEditor() {
     }
   };
 
+  // Download as PowerPoint (.pptx)
+  const handleDownloadPptx = async () => {
+    try {
+      toast({
+        title: "Generando PowerPoint...",
+        description: "Por favor espera mientras se genera el archivo",
+      });
+
+      const pptx = new PptxGenJS();
+      pptx.layout = 'LAYOUT_16x9';
+      pptx.author = 'Logistic Law';
+      pptx.title = projectTitle;
+
+      // SLIDE 1: Portada (imagen completa)
+      const slidePortada = pptx.addSlide();
+      slidePortada.addImage({
+        path: portadaImage,
+        x: 0,
+        y: 0,
+        w: '100%',
+        h: '100%',
+      });
+
+      // SLIDES DE CONTENIDO
+      for (let i = 0; i < slidesContent.length; i++) {
+        const slide = pptx.addSlide();
+        slide.background = { color: 'FFFFFF' };
+        
+        // Extraer texto del HTML
+        const tempDiv = document.createElement('div');
+        tempDiv.innerHTML = slidesContent[i];
+        
+        // Procesar elementos y convertirlos a objetos PptxGenJS
+        let yPos = 0.4;
+        const children = Array.from(tempDiv.children);
+        
+        for (const element of children) {
+          const tagName = element.tagName.toLowerCase();
+          const text = element.textContent || '';
+          
+          if (isHeading(tagName)) {
+            const fontSize = tagName === 'h1' ? 28 : tagName === 'h2' ? 22 : tagName === 'h3' ? 18 : 16;
+            slide.addText(text, {
+              x: 0.5,
+              y: yPos,
+              w: 9,
+              fontSize,
+              bold: true,
+              color: '1a1a1a',
+            });
+            yPos += fontSize / 20 + 0.2;
+          } else if (tagName === 'p') {
+            slide.addText(text, {
+              x: 0.5,
+              y: yPos,
+              w: 9,
+              fontSize: 14,
+              color: '333333',
+            });
+            yPos += 0.5;
+          } else if (tagName === 'ul' || tagName === 'ol') {
+            const items = Array.from(element.querySelectorAll('li'));
+            const bulletItems = items.map(li => ({
+              text: li.textContent || '',
+              options: { bullet: tagName === 'ul' ? { type: 'bullet' as const } : { type: 'number' as const } }
+            }));
+            if (bulletItems.length > 0) {
+              slide.addText(bulletItems, {
+                x: 0.5,
+                y: yPos,
+                w: 9,
+                fontSize: 12,
+                color: '333333',
+              });
+              yPos += items.length * 0.35 + 0.2;
+            }
+          } else if (tagName === 'table') {
+            const rows: PptxGenJS.TableRow[] = [];
+            const tableRows = element.querySelectorAll('tr');
+            tableRows.forEach(tr => {
+              const cells: PptxGenJS.TableCell[] = [];
+              tr.querySelectorAll('th, td').forEach(cell => {
+                cells.push({ text: cell.textContent || '' });
+              });
+              if (cells.length > 0) rows.push(cells);
+            });
+            
+            if (rows.length > 0) {
+              slide.addTable(rows, {
+                x: 0.5,
+                y: yPos,
+                w: 9,
+                fontSize: 10,
+                border: { pt: 0.5, color: '666666' },
+                fill: { color: 'F5F5F5' },
+              });
+              yPos += rows.length * 0.4 + 0.3;
+            }
+          }
+        }
+        
+        // Número de slide
+        slide.addText(`${i + 2} / ${slidesContent.length + 2}`, {
+          x: 8.8,
+          y: 5.2,
+          fontSize: 9,
+          color: '999999',
+        });
+      }
+
+      // SLIDE FINAL: Gracias (imagen completa)
+      const slideGracias = pptx.addSlide();
+      slideGracias.addImage({
+        path: graciasImage,
+        x: 0,
+        y: 0,
+        w: '100%',
+        h: '100%',
+      });
+
+      // Descargar archivo
+      await pptx.writeFile({ fileName: `${projectTitle || 'presentacion'}.pptx` });
+      
+      toast({
+        title: "¡PowerPoint generado!",
+        description: `Se descargó con ${slidesContent.length + 2} slides`,
+      });
+    } catch (error) {
+      console.error('Error generating PPTX:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo generar el PowerPoint",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#2d2d2d] flex items-center justify-center">
@@ -632,7 +791,7 @@ export default function SimplePptEditor() {
                 {projectTitle}
               </span>
               <span className="text-gray-400 text-sm">
-                ({slidesContent.length} slide{slidesContent.length !== 1 ? 's' : ''})
+                ({slidesContent.length + 2} slide{slidesContent.length + 2 !== 1 ? 's' : ''})
               </span>
             </div>
           </div>
@@ -659,12 +818,21 @@ export default function SimplePptEditor() {
               Copiar Todo
             </Button>
             <Button
-              onClick={handleDownloadPdf}
+              onClick={handleDownloadPptx}
               size="sm"
               className="sierra-teal-gradient text-white border-0"
             >
+              <FileText className="h-4 w-4 mr-2" />
+              Descargar PPTX
+            </Button>
+            <Button
+              onClick={handleDownloadPdf}
+              variant="outline"
+              size="sm"
+              className="border-[#404040] text-gray-300 hover:text-white hover:bg-[#404040]"
+            >
               <Download className="h-4 w-4 mr-2" />
-              Descargar PDF
+              PDF
             </Button>
           </div>
         </div>
@@ -675,10 +843,28 @@ export default function SimplePptEditor() {
         ref={slidesContainerRef}
         className="py-8 px-4 flex flex-col items-center gap-6"
       >
+        {/* SLIDE PORTADA (no editable) */}
+        <div
+          className="ppt-slide shadow-2xl overflow-hidden"
+          style={{
+            width: `${SLIDE_WIDTH}px`,
+            height: `${SLIDE_HEIGHT}px`,
+            backgroundImage: `url(${portadaImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            position: 'relative',
+          }}
+        >
+          <div className="absolute bottom-3 right-4 text-xs text-white/70 font-medium pointer-events-none">
+            1 / {slidesContent.length + 2}
+          </div>
+        </div>
+
+        {/* SLIDES DE CONTENIDO (editables, eliminables) */}
         {slidesContent.map((slideHtml, index) => (
           <div
             key={index}
-            className="ppt-slide bg-white shadow-2xl overflow-hidden"
+            className="ppt-slide bg-white shadow-2xl overflow-hidden group"
             style={{
               width: `${SLIDE_WIDTH}px`,
               height: `${SLIDE_HEIGHT}px`,
@@ -687,9 +873,20 @@ export default function SimplePptEditor() {
               position: 'relative',
             }}
           >
+            {/* Botón eliminar (visible al hover) */}
+            <Button
+              onClick={() => handleDeleteSlide(index)}
+              variant="destructive"
+              size="icon"
+              className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity z-10 h-8 w-8"
+              title="Eliminar slide"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+            
             {/* Slide number badge */}
             <div className="absolute bottom-3 right-4 text-xs text-gray-400 font-medium pointer-events-none">
-              {index + 1} / {slidesContent.length}
+              {index + 2} / {slidesContent.length + 2}
             </div>
             
             {/* Slide content - editable */}
@@ -703,6 +900,23 @@ export default function SimplePptEditor() {
             />
           </div>
         ))}
+
+        {/* SLIDE GRACIAS (no editable) */}
+        <div
+          className="ppt-slide shadow-2xl overflow-hidden"
+          style={{
+            width: `${SLIDE_WIDTH}px`,
+            height: `${SLIDE_HEIGHT}px`,
+            backgroundImage: `url(${graciasImage})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            position: 'relative',
+          }}
+        >
+          <div className="absolute bottom-3 right-4 text-xs text-white/70 font-medium pointer-events-none">
+            {slidesContent.length + 2} / {slidesContent.length + 2}
+          </div>
+        </div>
       </div>
     </div>
   );
