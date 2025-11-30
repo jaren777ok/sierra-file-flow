@@ -582,7 +582,29 @@ export default function SimpleWordEditor() {
     }
   };
 
-  // Handle PDF download - capture each page with background
+  // Convert image to base64 for PDF
+  const imageToBase64 = (imgSrc: string): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        canvas.width = img.naturalWidth;
+        canvas.height = img.naturalHeight;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/jpeg', 0.95));
+        } else {
+          reject(new Error('Could not get canvas context'));
+        }
+      };
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.src = imgSrc;
+    });
+  };
+
+  // Handle PDF download - add background image + text overlay
   const handleDownloadPdf = async () => {
     try {
       toast({
@@ -590,8 +612,8 @@ export default function SimpleWordEditor() {
         description: "Por favor espera mientras se genera el archivo",
       });
 
-      const pages = document.querySelectorAll('.word-page-container');
-      if (pages.length === 0) {
+      const contentAreas = document.querySelectorAll('.page-content-area');
+      if (contentAreas.length === 0) {
         throw new Error('No hay páginas para exportar');
       }
 
@@ -605,61 +627,49 @@ export default function SimpleWordEditor() {
         format: 'a4'
       });
 
-      // Process each page
-      for (let i = 0; i < pages.length; i++) {
-        const page = pages[i] as HTMLElement;
-        
-        // Clone the page to avoid modifying the original
-        const clone = page.cloneNode(true) as HTMLElement;
-        clone.style.position = 'absolute';
-        clone.style.left = '-9999px';
-        clone.style.top = '0';
-        clone.style.width = `${PAGE_WIDTH}px`;
-        clone.style.height = `${PAGE_HEIGHT}px`;
-        document.body.appendChild(clone);
-        
-        // Wait a bit for styles to apply
-        await new Promise(resolve => setTimeout(resolve, 100));
-        
-        try {
-          // Capture with html2canvas
-          const canvas = await html2canvas(clone, {
-            scale: 2,
-            useCORS: true,
-            allowTaint: true,
-            backgroundColor: '#ffffff',
-            logging: false,
-            imageTimeout: 30000,
-            width: PAGE_WIDTH,
-            height: PAGE_HEIGHT,
-            onclone: (clonedDoc) => {
-              // Ensure images in cloned doc are loaded
-              const imgs = clonedDoc.querySelectorAll('img');
-              imgs.forEach(img => {
-                img.crossOrigin = 'anonymous';
-              });
-            }
-          });
+      // Pre-load background image as base64
+      let backgroundBase64: string | null = null;
+      try {
+        backgroundBase64 = await imageToBase64(fondoA4Image);
+      } catch (e) {
+        console.warn('Could not load background image:', e);
+      }
 
-          const imgData = canvas.toDataURL('image/jpeg', 0.95);
-          
-          if (i > 0) {
-            pdf.addPage('a4', 'portrait');
-          }
-          
-          // Add image maintaining exact A4 proportions
-          pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-        } finally {
-          // Clean up clone
-          document.body.removeChild(clone);
+      // Process each page
+      for (let i = 0; i < contentAreas.length; i++) {
+        const contentArea = contentAreas[i] as HTMLElement;
+        
+        if (i > 0) {
+          pdf.addPage('a4', 'portrait');
         }
+
+        // Step 1: Add background image to PDF
+        if (backgroundBase64) {
+          pdf.addImage(backgroundBase64, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        }
+
+        // Step 2: Capture ONLY the text content (transparent background)
+        const canvas = await html2canvas(contentArea, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: null, // Transparent!
+          logging: false,
+          imageTimeout: 30000,
+          width: PAGE_WIDTH,
+          height: PAGE_HEIGHT,
+        });
+
+        // Step 3: Add text overlay on top of background
+        const textImgData = canvas.toDataURL('image/png'); // PNG for transparency
+        pdf.addImage(textImgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       }
 
       pdf.save(`${projectTitle || 'documento'}.pdf`);
       
       toast({
         title: "¡PDF generado!",
-        description: `Se descargó con ${pages.length} página${pages.length > 1 ? 's' : ''}`,
+        description: `Se descargó con ${contentAreas.length} página${contentAreas.length > 1 ? 's' : ''}`,
       });
     } catch (error) {
       console.error('Error generating PDF:', error);
