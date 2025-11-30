@@ -10,14 +10,14 @@ import PptxGenJS from 'pptxgenjs';
 import portadaImage from '@/assets/presentacion_1_2.png';
 import graciasImage from '@/assets/presentacion_1_3.png';
 
-// A4 Landscape dimensions in pixels (96 DPI)
-const SLIDE_WIDTH = 1123; // 297mm
-const SLIDE_HEIGHT = 794; // 210mm
-const PADDING = 40;
-const SAFETY_MARGIN = 100; // Reducido de 150 a 100 para mejor aprovechamiento
-const CONTENT_HEIGHT = SLIDE_HEIGHT - (PADDING * 2); // 714px
-const EFFECTIVE_HEIGHT = CONTENT_HEIGHT - SAFETY_MARGIN; // 614px
-const MIN_CONTENT_WITH_TITLE = 80; // Mínimo contenido que debe acompañar a un título
+// 16:9 HD dimensions (standard presentation format)
+const SLIDE_WIDTH = 1280;  // 16:9 HD width
+const SLIDE_HEIGHT = 720;  // 16:9 HD height
+const PADDING = 50;        // Adjusted for 16:9 proportion
+const SAFETY_MARGIN = 90;  // Adjusted for 16:9 proportion
+const CONTENT_HEIGHT = SLIDE_HEIGHT - (PADDING * 2); // 620px
+const EFFECTIVE_HEIGHT = CONTENT_HEIGHT - SAFETY_MARGIN; // 530px
+const MIN_CONTENT_WITH_TITLE = 70; // Mínimo contenido que debe acompañar a un título
 
 // Helper para verificar si un elemento es un título
 const isHeading = (tagName: string): boolean => {
@@ -138,7 +138,7 @@ export default function SimplePptEditor() {
     let currentHeight = 0;
     
     // Espacio mínimo que debe quedar después de un título para contenido
-    const MIN_SPACE_FOR_CONTENT = 150;
+    const MIN_SPACE_FOR_CONTENT = 130; // Adjusted for 16:9
     
     // Helper to save current slide and reset
     const saveCurrentSlide = () => {
@@ -562,7 +562,7 @@ export default function SimplePptEditor() {
     }
   };
 
-  // Download as PDF (landscape)
+  // Download as PDF (16:9 landscape)
   const handleDownloadPdf = async () => {
     try {
       toast({
@@ -575,15 +575,15 @@ export default function SimplePptEditor() {
         throw new Error('No hay slides para exportar');
       }
 
-      // Create PDF in landscape A4
+      // Create PDF in 16:9 format (custom size: 338.67mm x 190.5mm = 13.33" x 7.5")
+      const pdfWidth = 338.67;
+      const pdfHeight = 190.5;
+      
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
-        format: 'a4'
+        format: [pdfWidth, pdfHeight]
       });
-
-      const pdfWidth = 297; // A4 landscape width in mm
-      const pdfHeight = 210; // A4 landscape height in mm
 
       for (let i = 0; i < slides.length; i++) {
         const slide = slides[i] as HTMLElement;
@@ -599,7 +599,7 @@ export default function SimplePptEditor() {
         const imgData = canvas.toDataURL('image/png');
         
         if (i > 0) {
-          pdf.addPage();
+          pdf.addPage([pdfWidth, pdfHeight], 'landscape');
         }
         
         pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
@@ -666,7 +666,7 @@ export default function SimplePptEditor() {
             slide.addText(text, {
               x: 0.5,
               y: yPos,
-              w: 9,
+              w: 12.3,  // Wider for 16:9 format
               fontSize,
               bold: true,
               color: '1a1a1a',
@@ -676,7 +676,7 @@ export default function SimplePptEditor() {
             slide.addText(text, {
               x: 0.5,
               y: yPos,
-              w: 9,
+              w: 12.3,  // Wider for 16:9 format
               fontSize: 14,
               color: '333333',
             });
@@ -691,7 +691,7 @@ export default function SimplePptEditor() {
               slide.addText(bulletItems, {
                 x: 0.5,
                 y: yPos,
-                w: 9,
+                w: 12.3,  // Wider for 16:9 format
                 fontSize: 12,
                 color: '333333',
               });
@@ -712,7 +712,7 @@ export default function SimplePptEditor() {
               slide.addTable(rows, {
                 x: 0.5,
                 y: yPos,
-                w: 9,
+                w: 12.3,  // Wider for 16:9 format
                 fontSize: 10,
                 border: { pt: 0.5, color: '666666' },
                 fill: { color: 'F5F5F5' },
@@ -722,9 +722,9 @@ export default function SimplePptEditor() {
           }
         }
         
-        // Número de slide
+        // Número de slide (positioned for 16:9)
         slide.addText(`${i + 2} / ${slidesContent.length + 2}`, {
-          x: 8.8,
+          x: 12.3,  // Adjusted for 16:9 width
           y: 5.2,
           fontSize: 9,
           color: '999999',
