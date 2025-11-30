@@ -24,6 +24,40 @@ const isHeading = (tagName: string): boolean => {
   return ['h1', 'h2', 'h3', 'h4'].includes(tagName);
 };
 
+// Convert image to base64 for PPTX export
+const imageToBase64 = (imgSrc: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = img.naturalWidth;
+      canvas.height = img.naturalHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } else {
+        reject(new Error('Could not get canvas context'));
+      }
+    };
+    img.onerror = () => reject(new Error('Failed to load image'));
+    img.src = imgSrc;
+  });
+};
+
+// Calculate text height based on content length and available width (in inches)
+const calculateTextHeight = (text: string, fontSize: number, widthInches: number): number => {
+  // Approximate characters per inch based on font size
+  const avgCharWidth = fontSize * 0.5; // Approximate character width in points
+  const charsPerInch = 72 / avgCharWidth;
+  const charsPerLine = Math.floor(widthInches * charsPerInch);
+  const lines = Math.max(1, Math.ceil(text.length / charsPerLine));
+  const lineHeight = (fontSize / 72) * 1.5; // Convert pt to inches with line spacing
+  
+  return Math.max(lines * lineHeight, 0.35);
+};
+
 // Clean HTML from webhook response
 const cleanHtml = (rawHtml: string): string => {
   let cleaned = rawHtml.replace(/\\n/g, '\n');
@@ -562,7 +596,7 @@ export default function SimplePptEditor() {
     }
   };
 
-  // Download as PDF (16:9 landscape)
+  // Download as PDF (A4 landscape - more compatible)
   const handleDownloadPdf = async () => {
     try {
       toast({
@@ -575,34 +609,38 @@ export default function SimplePptEditor() {
         throw new Error('No hay slides para exportar');
       }
 
-      // Create PDF in 16:9 format (custom size: 338.67mm x 190.5mm = 13.33" x 7.5")
-      const pdfWidth = 338.67;
-      const pdfHeight = 190.5;
-      
+      // Use A4 landscape for better compatibility
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
-        format: [pdfWidth, pdfHeight]
+        format: 'a4'
       });
+
+      const pdfWidth = 297;  // A4 landscape width in mm
+      const pdfHeight = 210; // A4 landscape height in mm
 
       for (let i = 0; i < slides.length; i++) {
         const slide = slides[i] as HTMLElement;
         
+        // Improved html2canvas options for better image capture
         const canvas = await html2canvas(slide, {
           scale: 2,
           useCORS: true,
+          allowTaint: true,
           backgroundColor: '#ffffff',
+          logging: false,
+          imageTimeout: 15000,
           width: SLIDE_WIDTH,
           height: SLIDE_HEIGHT,
         });
 
-        const imgData = canvas.toDataURL('image/png');
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
         
         if (i > 0) {
-          pdf.addPage([pdfWidth, pdfHeight], 'landscape');
+          pdf.addPage('a4', 'landscape');
         }
         
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       }
 
       pdf.save(`${projectTitle || 'presentacion'}.pdf`);
@@ -626,18 +664,27 @@ export default function SimplePptEditor() {
     try {
       toast({
         title: "Generando PowerPoint...",
-        description: "Por favor espera mientras se genera el archivo",
+        description: "Convirtiendo imágenes...",
       });
+
+      // Convert images to base64 for proper embedding in PPTX
+      const portadaBase64 = await imageToBase64(portadaImage);
+      const graciasBase64 = await imageToBase64(graciasImage);
 
       const pptx = new PptxGenJS();
       pptx.layout = 'LAYOUT_16x9';
       pptx.author = 'Logistic Law';
       pptx.title = projectTitle;
 
-      // SLIDE 1: Portada (imagen completa)
+      // Constants for content positioning
+      const CONTENT_WIDTH = 12.3; // inches (16:9 = 13.33" total width)
+      const MAX_Y = 6.8; // Maximum Y position before overflow (16:9 = 7.5" height)
+      const LEFT_MARGIN = 0.5;
+
+      // SLIDE 1: Portada (imagen completa con base64)
       const slidePortada = pptx.addSlide();
       slidePortada.addImage({
-        path: portadaImage,
+        data: portadaBase64,
         x: 0,
         y: 0,
         w: '100%',
@@ -658,45 +705,69 @@ export default function SimplePptEditor() {
         const children = Array.from(tempDiv.children);
         
         for (const element of children) {
+          // Check for overflow
+          if (yPos >= MAX_Y) break;
+          
           const tagName = element.tagName.toLowerCase();
           const text = element.textContent || '';
           
+          if (!text.trim()) continue;
+          
           if (isHeading(tagName)) {
             const fontSize = tagName === 'h1' ? 28 : tagName === 'h2' ? 22 : tagName === 'h3' ? 18 : 16;
+            const height = calculateTextHeight(text, fontSize, CONTENT_WIDTH);
+            
             slide.addText(text, {
-              x: 0.5,
+              x: LEFT_MARGIN,
               y: yPos,
-              w: 12.3,  // Wider for 16:9 format
+              w: CONTENT_WIDTH,
+              h: height,
               fontSize,
               bold: true,
               color: '1a1a1a',
+              valign: 'top',
             });
-            yPos += fontSize / 20 + 0.2;
+            yPos += height + 0.15;
+            
           } else if (tagName === 'p') {
+            const height = calculateTextHeight(text, 14, CONTENT_WIDTH);
+            
             slide.addText(text, {
-              x: 0.5,
+              x: LEFT_MARGIN,
               y: yPos,
-              w: 12.3,  // Wider for 16:9 format
+              w: CONTENT_WIDTH,
+              h: height,
               fontSize: 14,
               color: '333333',
+              valign: 'top',
             });
-            yPos += 0.5;
+            yPos += height + 0.1;
+            
           } else if (tagName === 'ul' || tagName === 'ol') {
             const items = Array.from(element.querySelectorAll('li'));
             const bulletItems = items.map(li => ({
               text: li.textContent || '',
               options: { bullet: tagName === 'ul' ? { type: 'bullet' as const } : { type: 'number' as const } }
             }));
+            
             if (bulletItems.length > 0) {
+              // Calculate height based on total text length of all items
+              const totalText = items.map(li => li.textContent || '').join(' ');
+              const baseHeight = calculateTextHeight(totalText, 12, CONTENT_WIDTH - 0.5);
+              const height = Math.max(baseHeight, items.length * 0.3);
+              
               slide.addText(bulletItems, {
-                x: 0.5,
+                x: LEFT_MARGIN,
                 y: yPos,
-                w: 12.3,  // Wider for 16:9 format
+                w: CONTENT_WIDTH,
+                h: height,
                 fontSize: 12,
                 color: '333333',
+                valign: 'top',
               });
-              yPos += items.length * 0.35 + 0.2;
+              yPos += height + 0.15;
             }
+            
           } else if (tagName === 'table') {
             const rows: PptxGenJS.TableRow[] = [];
             const tableRows = element.querySelectorAll('tr');
@@ -709,32 +780,38 @@ export default function SimplePptEditor() {
             });
             
             if (rows.length > 0) {
+              const tableHeight = Math.min(rows.length * 0.35 + 0.2, MAX_Y - yPos);
+              
               slide.addTable(rows, {
-                x: 0.5,
+                x: LEFT_MARGIN,
                 y: yPos,
-                w: 12.3,  // Wider for 16:9 format
+                w: CONTENT_WIDTH,
+                h: tableHeight,
                 fontSize: 10,
                 border: { pt: 0.5, color: '666666' },
                 fill: { color: 'F5F5F5' },
               });
-              yPos += rows.length * 0.4 + 0.3;
+              yPos += tableHeight + 0.2;
             }
           }
         }
         
         // Número de slide (positioned for 16:9)
         slide.addText(`${i + 2} / ${slidesContent.length + 2}`, {
-          x: 12.3,  // Adjusted for 16:9 width
-          y: 5.2,
+          x: 12.0,
+          y: 6.9,
+          w: 1.2,
+          h: 0.3,
           fontSize: 9,
           color: '999999',
+          align: 'right',
         });
       }
 
-      // SLIDE FINAL: Gracias (imagen completa)
+      // SLIDE FINAL: Gracias (imagen completa con base64)
       const slideGracias = pptx.addSlide();
       slideGracias.addImage({
-        path: graciasImage,
+        data: graciasBase64,
         x: 0,
         y: 0,
         w: '100%',
