@@ -582,29 +582,19 @@ export default function SimpleWordEditor() {
     }
   };
 
-  // Convert image to base64 for PDF
-  const imageToBase64 = (imgSrc: string): Promise<string> => {
+  // Convert image to base64 using fetch (avoids CORS issues with ES6 imports)
+  const imageToBase64 = async (imgSrc: string): Promise<string> => {
+    const response = await fetch(imgSrc);
+    const blob = await response.blob();
     return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0);
-          resolve(canvas.toDataURL('image/jpeg', 0.95));
-        } else {
-          reject(new Error('Could not get canvas context'));
-        }
-      };
-      img.onerror = () => reject(new Error('Failed to load image'));
-      img.src = imgSrc;
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
     });
   };
 
-  // Handle PDF download - add background image + text overlay
+  // Handle PDF download - capture entire container with background
   const handleDownloadPdf = async () => {
     try {
       toast({
@@ -612,8 +602,8 @@ export default function SimpleWordEditor() {
         description: "Por favor espera mientras se genera el archivo",
       });
 
-      const contentAreas = document.querySelectorAll('.page-content-area');
-      if (contentAreas.length === 0) {
+      const pageContainers = document.querySelectorAll('.word-page-container');
+      if (pageContainers.length === 0) {
         throw new Error('No hay páginas para exportar');
       }
 
@@ -627,49 +617,58 @@ export default function SimpleWordEditor() {
         format: 'a4'
       });
 
-      // Pre-load background image as base64
+      // Pre-convert background image to base64 using fetch
       let backgroundBase64: string | null = null;
       try {
         backgroundBase64 = await imageToBase64(fondoA4Image);
       } catch (e) {
-        console.warn('Could not load background image:', e);
+        console.warn('Could not convert background to base64:', e);
       }
 
       // Process each page
-      for (let i = 0; i < contentAreas.length; i++) {
-        const contentArea = contentAreas[i] as HTMLElement;
-        
+      for (let i = 0; i < pageContainers.length; i++) {
+        const container = pageContainers[i] as HTMLElement;
+        const bgImg = container.querySelector('img') as HTMLImageElement;
+        const originalSrc = bgImg?.src;
+
+        // Temporarily replace img src with base64 for html2canvas to capture it
+        if (bgImg && backgroundBase64) {
+          bgImg.src = backgroundBase64;
+        }
+
+        // Wait for image src to update in DOM
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         if (i > 0) {
           pdf.addPage('a4', 'portrait');
         }
 
-        // Step 1: Add background image to PDF
-        if (backgroundBase64) {
-          pdf.addImage(backgroundBase64, 'JPEG', 0, 0, pdfWidth, pdfHeight);
-        }
-
-        // Step 2: Capture ONLY the text content (transparent background)
-        const canvas = await html2canvas(contentArea, {
+        // Capture ENTIRE container (background image + content)
+        const canvas = await html2canvas(container, {
           scale: 2,
           useCORS: true,
           allowTaint: true,
-          backgroundColor: null, // Transparent!
+          backgroundColor: '#ffffff',
           logging: false,
           imageTimeout: 30000,
           width: PAGE_WIDTH,
           height: PAGE_HEIGHT,
         });
 
-        // Step 3: Add text overlay on top of background
-        const textImgData = canvas.toDataURL('image/png'); // PNG for transparency
-        pdf.addImage(textImgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        // Restore original src
+        if (bgImg && originalSrc) {
+          bgImg.src = originalSrc;
+        }
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       }
 
       pdf.save(`${projectTitle || 'documento'}.pdf`);
       
       toast({
         title: "¡PDF generado!",
-        description: `Se descargó con ${contentAreas.length} página${contentAreas.length > 1 ? 's' : ''}`,
+        description: `Se descargó con ${pageContainers.length} página${pageContainers.length > 1 ? 's' : ''}`,
       });
     } catch (error) {
       console.error('Error generating PDF:', error);
