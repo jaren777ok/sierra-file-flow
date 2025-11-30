@@ -582,19 +582,6 @@ export default function SimpleWordEditor() {
     }
   };
 
-  // Wait for all images to load
-  const waitForImages = (container: HTMLElement): Promise<void> => {
-    const images = container.querySelectorAll('img');
-    const promises = Array.from(images).map(img => {
-      if (img.complete) return Promise.resolve();
-      return new Promise<void>((resolve) => {
-        img.onload = () => resolve();
-        img.onerror = () => resolve();
-      });
-    });
-    return Promise.all(promises).then(() => {});
-  };
-
   // Handle PDF download - capture each page with background
   const handleDownloadPdf = async () => {
     try {
@@ -608,11 +595,6 @@ export default function SimpleWordEditor() {
         throw new Error('No hay páginas para exportar');
       }
 
-      // Wait for all background images to load
-      for (const page of Array.from(pages)) {
-        await waitForImages(page as HTMLElement);
-      }
-
       // A4 Portrait format
       const pdfWidth = 210;  // A4 width mm
       const pdfHeight = 297; // A4 height mm
@@ -623,29 +605,54 @@ export default function SimpleWordEditor() {
         format: 'a4'
       });
 
+      // Process each page
       for (let i = 0; i < pages.length; i++) {
         const page = pages[i] as HTMLElement;
         
-        // Capture with proper settings for background images
-        const canvas = await html2canvas(page, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: null, // Transparent to show background image
-          logging: false,
-          imageTimeout: 30000,
-          windowWidth: page.offsetWidth,
-          windowHeight: page.offsetHeight,
-        });
+        // Clone the page to avoid modifying the original
+        const clone = page.cloneNode(true) as HTMLElement;
+        clone.style.position = 'absolute';
+        clone.style.left = '-9999px';
+        clone.style.top = '0';
+        clone.style.width = `${PAGE_WIDTH}px`;
+        clone.style.height = `${PAGE_HEIGHT}px`;
+        document.body.appendChild(clone);
+        
+        // Wait a bit for styles to apply
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        try {
+          // Capture with html2canvas
+          const canvas = await html2canvas(clone, {
+            scale: 2,
+            useCORS: true,
+            allowTaint: true,
+            backgroundColor: '#ffffff',
+            logging: false,
+            imageTimeout: 30000,
+            width: PAGE_WIDTH,
+            height: PAGE_HEIGHT,
+            onclone: (clonedDoc) => {
+              // Ensure images in cloned doc are loaded
+              const imgs = clonedDoc.querySelectorAll('img');
+              imgs.forEach(img => {
+                img.crossOrigin = 'anonymous';
+              });
+            }
+          });
 
-        const imgData = canvas.toDataURL('image/png', 1.0);
-        
-        if (i > 0) {
-          pdf.addPage('a4', 'portrait');
+          const imgData = canvas.toDataURL('image/jpeg', 0.95);
+          
+          if (i > 0) {
+            pdf.addPage('a4', 'portrait');
+          }
+          
+          // Add image maintaining exact A4 proportions
+          pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        } finally {
+          // Clean up clone
+          document.body.removeChild(clone);
         }
-        
-        // Add image maintaining exact proportions
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       }
 
       pdf.save(`${projectTitle || 'documento'}.pdf`);
@@ -658,7 +665,7 @@ export default function SimpleWordEditor() {
       console.error('Error generating PDF:', error);
       toast({
         title: "Error",
-        description: "No se pudo generar el PDF",
+        description: "No se pudo generar el PDF. Intenta de nuevo.",
         variant: "destructive",
       });
     }
