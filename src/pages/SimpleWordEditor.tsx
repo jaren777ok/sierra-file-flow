@@ -2,26 +2,30 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { useSimpleAutoSave } from '@/hooks/useSimpleAutoSave';
-import { SimplePdfService } from '@/services/simplePdfService';
 import { SimpleToolbar } from '@/components/editors/SimpleToolbar';
+import { SimpleRuler } from '@/components/editors/SimpleRuler';
+import { Trash2 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 
-const PAGE_WIDTH = 793; // A4 width in pixels (21cm at 96 DPI)
+// A4 Portrait dimensions (standard document format)
+const PAGE_WIDTH = 793;   // 21cm at 96 DPI
+const PAGE_HEIGHT = 1122; // 29.7cm at 96 DPI
+const PADDING_VERTICAL = 60;   // Top/bottom margins
+const DEFAULT_PADDING_HORIZONTAL = 60; // Default left/right (adjustable via ruler)
+const CONTENT_HEIGHT = PAGE_HEIGHT - (PADDING_VERTICAL * 2); // 1002px
+const SAFETY_MARGIN = 100; // Buffer for pagination
+const EFFECTIVE_HEIGHT = CONTENT_HEIGHT - SAFETY_MARGIN; // 902px
 
 // Function to clean HTML - extract only body content and remove \n literals
 const cleanHtml = (rawHtml: string): string => {
-  // 1. Convert \n literals (backslash + n) to actual newlines
   let cleaned = rawHtml.replace(/\\n/g, '\n');
-  
-  // 2. Convert escaped quotes \" to normal quotes "
   cleaned = cleaned.replace(/\\"/g, '"');
   
-  // 3. Extract content between <body> and </body>
   const bodyMatch = cleaned.match(/<body[^>]*>([\s\S]*)<\/body>/i);
   if (bodyMatch) {
     cleaned = bodyMatch[1].trim();
   } else {
-    // If no body structure, clean DOCTYPE, html, head tags
     cleaned = cleaned
       .replace(/<!DOCTYPE[^>]*>/gi, '')
       .replace(/<html[^>]*>|<\/html>/gi, '')
@@ -30,9 +34,7 @@ const cleanHtml = (rawHtml: string): string => {
       .trim();
   }
   
-  // 4. Remove remaining newlines between tags (not needed in HTML)
   cleaned = cleaned.replace(/>\s*\n\s*</g, '><');
-  
   return cleaned;
 };
 
@@ -40,22 +42,18 @@ const cleanHtml = (rawHtml: string): string => {
 const applyInlineStylesForCopy = (element: HTMLElement): HTMLElement => {
   const clone = element.cloneNode(true) as HTMLElement;
   
-  // Apply styles to tables
   clone.querySelectorAll('table').forEach(table => {
     table.setAttribute('style', 'width: 100%; border-collapse: collapse; margin: 12pt 0; font-size: 10pt;');
   });
   
-  // Apply styles to th
   clone.querySelectorAll('th').forEach(th => {
     th.setAttribute('style', 'border: 1px solid #000; padding: 6pt 8pt; text-align: left; background-color: #f0f0f0; font-weight: 700;');
   });
   
-  // Apply styles to td
   clone.querySelectorAll('td').forEach(td => {
     td.setAttribute('style', 'border: 1px solid #000; padding: 6pt 8pt; text-align: left;');
   });
   
-  // Apply styles to headings
   clone.querySelectorAll('h1').forEach(h1 => {
     h1.setAttribute('style', 'font-size: 24pt; font-weight: 800; text-align: center; margin: 24pt 0 16pt 0; border-bottom: 2px solid #000;');
   });
@@ -68,12 +66,10 @@ const applyInlineStylesForCopy = (element: HTMLElement): HTMLElement => {
     h3.setAttribute('style', 'font-size: 13pt; font-weight: 700; margin: 14pt 0 8pt 0; text-transform: uppercase;');
   });
   
-  // Apply styles to paragraphs
   clone.querySelectorAll('p').forEach(p => {
     p.setAttribute('style', 'margin-bottom: 8pt; text-align: justify; line-height: 1.5;');
   });
   
-  // Apply styles to lists
   clone.querySelectorAll('ul').forEach(ul => {
     ul.setAttribute('style', 'margin: 8pt 0; padding-left: 24pt; list-style-type: disc;');
   });
@@ -86,7 +82,6 @@ const applyInlineStylesForCopy = (element: HTMLElement): HTMLElement => {
     li.setAttribute('style', 'margin-bottom: 4pt; line-height: 1.5;');
   });
   
-  // Apply styles to strong/bold
   clone.querySelectorAll('strong, b').forEach(el => {
     el.setAttribute('style', 'font-weight: 700;');
   });
@@ -94,15 +89,182 @@ const applyInlineStylesForCopy = (element: HTMLElement): HTMLElement => {
   return clone;
 };
 
+// Check if element is a heading
+const isHeading = (tagName: string): boolean => {
+  return ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName.toLowerCase());
+};
+
+// Check if page content is empty
+const isPageEmpty = (html: string): boolean => {
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  const textContent = tempDiv.textContent || tempDiv.innerText || '';
+  return textContent.trim().length === 0;
+};
+
+// Divide content into A4 pages based on height
+const divideContentIntoPages = (
+  htmlContent: string, 
+  leftMargin: number, 
+  rightMargin: number
+): string[] => {
+  if (!htmlContent || htmlContent.trim() === '') {
+    return [''];
+  }
+
+  const tempContainer = document.createElement('div');
+  tempContainer.innerHTML = htmlContent;
+  tempContainer.style.cssText = `
+    position: absolute;
+    visibility: hidden;
+    width: ${PAGE_WIDTH - leftMargin - rightMargin}px;
+    font-family: Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+  `;
+  document.body.appendChild(tempContainer);
+
+  const pages: string[] = [];
+  let currentPageHtml = '';
+  let currentHeight = 0;
+
+  const children = Array.from(tempContainer.children);
+
+  for (let i = 0; i < children.length; i++) {
+    const element = children[i] as HTMLElement;
+    const tagName = element.tagName.toLowerCase();
+    
+    // Measure element height
+    const elementHeight = element.offsetHeight || 30;
+
+    // If element fits in current page
+    if (currentHeight + elementHeight <= EFFECTIVE_HEIGHT) {
+      currentPageHtml += element.outerHTML;
+      currentHeight += elementHeight;
+    } else {
+      // Element doesn't fit - need to handle specially
+      
+      // If it's a list, try to split by items
+      if (tagName === 'ul' || tagName === 'ol') {
+        const items = Array.from(element.querySelectorAll(':scope > li'));
+        let listHtml = `<${tagName}>`;
+        let listHeight = 0;
+        
+        for (const item of items) {
+          const itemHeight = (item as HTMLElement).offsetHeight || 25;
+          
+          if (currentHeight + listHeight + itemHeight <= EFFECTIVE_HEIGHT) {
+            listHtml += item.outerHTML;
+            listHeight += itemHeight;
+          } else {
+            // Save current list portion to current page
+            if (listHtml !== `<${tagName}>`) {
+              listHtml += `</${tagName}>`;
+              currentPageHtml += listHtml;
+            }
+            
+            // Start new page with remaining items
+            if (currentPageHtml.trim()) {
+              pages.push(currentPageHtml);
+            }
+            currentPageHtml = '';
+            currentHeight = 0;
+            
+            // Continue list on new page
+            listHtml = `<${tagName}>` + item.outerHTML;
+            listHeight = itemHeight;
+          }
+        }
+        
+        // Add remaining list items
+        if (listHtml !== `<${tagName}>`) {
+          listHtml += `</${tagName}>`;
+          currentPageHtml += listHtml;
+          currentHeight += listHeight;
+        }
+      }
+      // If it's a table, try to split by rows
+      else if (tagName === 'table') {
+        const rows = Array.from(element.querySelectorAll('tr'));
+        const thead = element.querySelector('thead')?.outerHTML || '';
+        let tableHtml = `<table>${thead}<tbody>`;
+        let tableHeight = 30; // Header height estimate
+        
+        for (const row of rows) {
+          if (row.parentElement?.tagName.toLowerCase() === 'thead') continue;
+          
+          const rowHeight = (row as HTMLElement).offsetHeight || 30;
+          
+          if (currentHeight + tableHeight + rowHeight <= EFFECTIVE_HEIGHT) {
+            tableHtml += row.outerHTML;
+            tableHeight += rowHeight;
+          } else {
+            // Save current table portion
+            if (tableHtml !== `<table>${thead}<tbody>`) {
+              tableHtml += '</tbody></table>';
+              currentPageHtml += tableHtml;
+            }
+            
+            // Start new page
+            if (currentPageHtml.trim()) {
+              pages.push(currentPageHtml);
+            }
+            currentPageHtml = '';
+            currentHeight = 0;
+            
+            // Continue table on new page with header
+            tableHtml = `<table>${thead}<tbody>` + row.outerHTML;
+            tableHeight = 30 + rowHeight;
+          }
+        }
+        
+        // Add remaining table
+        if (tableHtml !== `<table>${thead}<tbody>`) {
+          tableHtml += '</tbody></table>';
+          currentPageHtml += tableHtml;
+          currentHeight += tableHeight;
+        }
+      }
+      // For headings and other elements - don't split, push to new page
+      else {
+        // Save current page if has content
+        if (currentPageHtml.trim()) {
+          pages.push(currentPageHtml);
+        }
+        
+        // Start new page with this element
+        currentPageHtml = element.outerHTML;
+        currentHeight = elementHeight;
+      }
+    }
+  }
+
+  // Add last page if has content
+  if (currentPageHtml.trim()) {
+    pages.push(currentPageHtml);
+  }
+
+  document.body.removeChild(tempContainer);
+
+  return pages.length > 0 ? pages : [''];
+};
+
 export default function SimpleWordEditor() {
   const { jobId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const contentRef = useRef<HTMLDivElement>(null);
-
-  const [htmlContent, setHtmlContent] = useState<string>('');
+  
+  // State for pagination and margins
+  const [pagesContent, setPagesContent] = useState<string[]>([]);
+  const [leftMargin, setLeftMargin] = useState(DEFAULT_PADDING_HORIZONTAL);
+  const [rightMargin, setRightMargin] = useState(DEFAULT_PADDING_HORIZONTAL);
+  const [isRulerDragging, setIsRulerDragging] = useState(false);
   const [projectTitle, setProjectTitle] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  
+  // Refs for page elements
+  const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Load job content from Supabase on mount
   useEffect(() => {
@@ -130,11 +292,14 @@ export default function SimpleWordEditor() {
         if (error) throw error;
 
         if (data?.result_html) {
-          // Clean HTML - extract only body content
           const cleanedHtml = cleanHtml(data.result_html);
-          setHtmlContent(cleanedHtml);
           setProjectTitle(data.project_title || 'Documento Sin Título');
-          console.log('✅ HTML limpio cargado:', cleanedHtml.length, 'caracteres');
+          
+          // Divide content into pages
+          const pages = divideContentIntoPages(cleanedHtml, leftMargin, rightMargin);
+          setPagesContent(pages);
+          
+          console.log('✅ HTML cargado y dividido en', pages.length, 'páginas');
         } else {
           throw new Error('No se encontró contenido en el job');
         }
@@ -153,13 +318,86 @@ export default function SimpleWordEditor() {
     loadJobContent();
   }, [jobId, navigate, toast]);
 
-  // Get current content from editor
-  const getCurrentContent = () => {
-    return contentRef.current?.innerHTML || htmlContent;
+  // Redistribute content when margins change (on drag end)
+  const redistributeContent = () => {
+    const allHtml = pageRefs.current
+      .filter(ref => ref !== null)
+      .map(ref => ref!.innerHTML)
+      .join('');
+    
+    const newPages = divideContentIntoPages(allHtml, leftMargin, rightMargin);
+    const filteredPages = newPages.filter(page => !isPageEmpty(page));
+    setPagesContent(filteredPages.length > 0 ? filteredPages : ['']);
   };
 
-  // Manual save hook
-  const { isSaving, lastSaved, saveNow } = useSimpleAutoSave(jobId || '', getCurrentContent);
+  // Handle page blur - redistribute content
+  const handlePageBlur = () => {
+    const allHtml = pageRefs.current
+      .filter(ref => ref !== null)
+      .map(ref => ref!.innerHTML)
+      .join('');
+    
+    const newPages = divideContentIntoPages(allHtml, leftMargin, rightMargin);
+    const filteredPages = newPages.filter(page => !isPageEmpty(page));
+    setPagesContent(filteredPages.length > 0 ? filteredPages : ['']);
+  };
+
+  // Delete a page
+  const handleDeletePage = (index: number) => {
+    if (pagesContent.length <= 1) {
+      toast({
+        title: "No se puede eliminar",
+        description: "Debe haber al menos una página",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    const newPages = pagesContent.filter((_, i) => i !== index);
+    setPagesContent(newPages);
+    
+    toast({
+      title: "Página eliminada",
+      description: `Quedan ${newPages.length} páginas`,
+    });
+  };
+
+  // Handle save
+  const handleSave = async () => {
+    if (!jobId) return;
+    
+    setIsSaving(true);
+    try {
+      const allHtml = pageRefs.current
+        .filter(ref => ref !== null)
+        .map(ref => ref!.innerHTML)
+        .join('');
+
+      const { error } = await supabase
+        .from('processing_jobs')
+        .update({ 
+          result_html: allHtml,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobId);
+
+      if (error) throw error;
+
+      toast({
+        title: "¡Guardado!",
+        description: "Los cambios se han guardado correctamente",
+      });
+    } catch (error) {
+      console.error('Error saving:', error);
+      toast({
+        title: "Error",
+        description: "No se pudieron guardar los cambios",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Handle format commands
   const handleFormat = (command: string, value?: string) => {
@@ -169,22 +407,22 @@ export default function SimpleWordEditor() {
   // Handle copy all content WITH formatting (HTML)
   const handleCopyAll = async () => {
     try {
-      const content = contentRef.current;
-      if (!content) return;
-
-      // Apply inline styles for proper formatting in Word/Docs
-      const styledContent = applyInlineStylesForCopy(content);
+      // Collect all pages content
+      const allContent = pageRefs.current
+        .filter(ref => ref !== null)
+        .map(ref => ref!.innerHTML)
+        .join('');
       
-      // Get HTML content WITH inline styles
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = allContent;
+      
+      const styledContent = applyInlineStylesForCopy(tempDiv);
       const htmlContent = styledContent.innerHTML;
-      // Get plain text as fallback
-      const plainText = content.innerText || content.textContent || '';
+      const plainText = tempDiv.textContent || '';
       
-      // Create blobs for both formats
       const htmlBlob = new Blob([htmlContent], { type: 'text/html' });
       const textBlob = new Blob([plainText], { type: 'text/plain' });
       
-      // Copy to clipboard with both formats
       await navigator.clipboard.write([
         new ClipboardItem({
           'text/html': htmlBlob,
@@ -197,17 +435,18 @@ export default function SimpleWordEditor() {
         description: "Pega en Word o Google Docs para mantener tablas y formato",
       });
     } catch (error) {
-      console.error('❌ Error copiando con formato:', error);
-      
-      // Fallback to plain text if ClipboardItem not supported
+      console.error('Error copiando:', error);
       try {
-        const plainText = contentRef.current?.innerText || '';
+        const plainText = pageRefs.current
+          .filter(ref => ref !== null)
+          .map(ref => ref!.textContent)
+          .join('\n\n');
         await navigator.clipboard.writeText(plainText);
         toast({
           title: "Copiado (sin formato)",
           description: "Tu navegador no soporta copiar con formato",
         });
-      } catch (fallbackError) {
+      } catch {
         toast({
           title: "Error",
           description: "No se pudo copiar el texto",
@@ -217,17 +456,60 @@ export default function SimpleWordEditor() {
     }
   };
 
-  // Handle PDF download
+  // Handle PDF download - capture each page
   const handleDownloadPdf = async () => {
     try {
-      console.log('📄 Generando PDF...');
-      await SimplePdfService.generatePdf(`${projectTitle}.pdf`);
       toast({
-        title: "¡PDF Generado!",
-        description: "El documento se descargó correctamente",
+        title: "Generando PDF...",
+        description: "Por favor espera mientras se genera el archivo",
+      });
+
+      const pages = document.querySelectorAll('.word-page-container');
+      if (pages.length === 0) {
+        throw new Error('No hay páginas para exportar');
+      }
+
+      // A4 Portrait format
+      const pdfWidth = 210;  // A4 width mm
+      const pdfHeight = 297; // A4 height mm
+
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i] as HTMLElement;
+        
+        const canvas = await html2canvas(page, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          imageTimeout: 15000,
+          width: PAGE_WIDTH,
+          height: PAGE_HEIGHT,
+        });
+
+        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        
+        if (i > 0) {
+          pdf.addPage('a4', 'portrait');
+        }
+        
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      }
+
+      pdf.save(`${projectTitle || 'documento'}.pdf`);
+      
+      toast({
+        title: "¡PDF generado!",
+        description: `Se descargó con ${pages.length} página${pages.length > 1 ? 's' : ''}`,
       });
     } catch (error) {
-      console.error('❌ Error generando PDF:', error);
+      console.error('Error generating PDF:', error);
       toast({
         title: "Error",
         description: "No se pudo generar el PDF",
@@ -252,43 +534,100 @@ export default function SimpleWordEditor() {
       {/* Toolbar sticky */}
       <SimpleToolbar
         onFormat={handleFormat}
-        onSave={saveNow}
+        onSave={handleSave}
         onDownloadPdf={handleDownloadPdf}
         onCopyAll={handleCopyAll}
         onBack={() => navigate('/')}
         isSaving={isSaving}
-        lastSaved={lastSaved}
+        lastSaved={null}
         title={projectTitle}
       />
 
-      {/* Main content area - single scrollable page */}
-      <div className="py-8 bg-gray-50 min-h-screen">
-        <div className="mx-auto" style={{ width: `${PAGE_WIDTH}px` }}>
-          {/* Single page container */}
-          <div 
-            className="page-container bg-white shadow-lg"
-            style={{
-              width: `${PAGE_WIDTH}px`,
-              minHeight: '500px',
-              padding: '60px',
-            }}
-          >
-            {/* Content area */}
-            <div
-              ref={contentRef}
-              contentEditable
-              suppressContentEditableWarning
-              className="page-content-area focus:outline-none"
+      {/* Ruler sticky */}
+      <div className="sticky top-[108px] z-40 bg-[#f5f5f5] flex justify-center py-2">
+        <SimpleRuler
+          leftMargin={leftMargin}
+          rightMargin={rightMargin}
+          onLeftMarginChange={setLeftMargin}
+          onRightMarginChange={setRightMargin}
+          onDragStart={() => setIsRulerDragging(true)}
+          onDragEnd={() => {
+            setIsRulerDragging(false);
+            redistributeContent();
+          }}
+          pageWidth={PAGE_WIDTH}
+        />
+      </div>
+
+      {/* Pages container */}
+      <div className="py-8 bg-[#f5f5f5] min-h-screen">
+        <div className="flex flex-col items-center gap-8">
+          {pagesContent.map((pageHtml, index) => (
+            <div 
+              key={index}
+              className="word-page-container bg-white shadow-lg relative group"
               style={{
-                fontFamily: 'Arial, sans-serif',
-                fontSize: '11pt',
-                lineHeight: '1.6',
-                color: '#000',
-                minHeight: '400px',
+                width: PAGE_WIDTH,
+                height: PAGE_HEIGHT,
+                position: 'relative',
               }}
-              dangerouslySetInnerHTML={{ __html: htmlContent }}
-            />
-          </div>
+            >
+              {/* Page content area */}
+              <div
+                ref={el => pageRefs.current[index] = el}
+                contentEditable
+                suppressContentEditableWarning
+                className="page-content-area focus:outline-none"
+                style={{
+                  paddingTop: PADDING_VERTICAL,
+                  paddingBottom: PADDING_VERTICAL,
+                  paddingLeft: leftMargin,
+                  paddingRight: rightMargin,
+                  height: '100%',
+                  overflow: 'hidden',
+                  fontFamily: 'Arial, sans-serif',
+                  fontSize: '11pt',
+                  lineHeight: '1.6',
+                  color: '#000',
+                }}
+                onBlur={handlePageBlur}
+                dangerouslySetInnerHTML={{ __html: pageHtml }}
+              />
+              
+              {/* Delete button - visible on hover, only if more than 1 page */}
+              {pagesContent.length > 1 && (
+                <button
+                  onClick={() => handleDeletePage(index)}
+                  className="absolute top-4 right-4 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                  title="Eliminar página"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              )}
+              
+              {/* Page number */}
+              <div 
+                className="absolute bottom-4 right-4 text-sm text-gray-400"
+                style={{ pointerEvents: 'none' }}
+              >
+                {index + 1} / {pagesContent.length}
+              </div>
+
+              {/* Margin guides during drag */}
+              {isRulerDragging && (
+                <>
+                  <div 
+                    className="absolute top-0 bottom-0 w-px bg-sierra-teal opacity-50"
+                    style={{ left: leftMargin }}
+                  />
+                  <div 
+                    className="absolute top-0 bottom-0 w-px bg-sierra-teal opacity-50"
+                    style={{ right: rightMargin }}
+                  />
+                </>
+              )}
+            </div>
+          ))}
         </div>
       </div>
     </div>
