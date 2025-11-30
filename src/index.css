@@ -190,6 +190,20 @@
     color: #000;
     overflow-wrap: break-word;
     word-wrap: break-word;
+    word-break: break-word;
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    -ms-hyphens: auto;
+  }
+
+  .page-content-area p,
+  .page-content-area li,
+  .page-content-area td,
+  .page-content-area th,
+  .page-content-area span {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+    word-break: break-word;
   }
 
   .page-content-area h1 {
