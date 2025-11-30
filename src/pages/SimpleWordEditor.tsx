@@ -7,15 +7,16 @@ import { SimpleRuler } from '@/components/editors/SimpleRuler';
 import { Trash2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import fondoA4Image from '@/assets/FONDO_A4.png';
 
 // A4 Portrait dimensions (standard document format)
 const PAGE_WIDTH = 793;   // 21cm at 96 DPI
 const PAGE_HEIGHT = 1122; // 29.7cm at 96 DPI
-const PADDING_VERTICAL = 60;   // Top/bottom margins
-const DEFAULT_PADDING_HORIZONTAL = 60; // Default left/right (adjustable via ruler)
-const CONTENT_HEIGHT = PAGE_HEIGHT - (PADDING_VERTICAL * 2); // 1002px
+const PADDING_VERTICAL = 80;   // Top/bottom margins (increased for logo space)
+const DEFAULT_PADDING_HORIZONTAL = 80; // Default left/right (adjustable via ruler)
+const CONTENT_HEIGHT = PAGE_HEIGHT - (PADDING_VERTICAL * 2); // 962px
 const SAFETY_MARGIN = 50; // Reduced buffer for better space usage
-const EFFECTIVE_HEIGHT = CONTENT_HEIGHT - SAFETY_MARGIN; // 952px
+const EFFECTIVE_HEIGHT = CONTENT_HEIGHT - SAFETY_MARGIN; // 912px
 
 // Function to clean HTML - extract only body content and remove \n literals
 const cleanHtml = (rawHtml: string): string => {
@@ -581,7 +582,20 @@ export default function SimpleWordEditor() {
     }
   };
 
-  // Handle PDF download - capture each page
+  // Wait for all images to load
+  const waitForImages = (container: HTMLElement): Promise<void> => {
+    const images = container.querySelectorAll('img');
+    const promises = Array.from(images).map(img => {
+      if (img.complete) return Promise.resolve();
+      return new Promise<void>((resolve) => {
+        img.onload = () => resolve();
+        img.onerror = () => resolve();
+      });
+    });
+    return Promise.all(promises).then(() => {});
+  };
+
+  // Handle PDF download - capture each page with background
   const handleDownloadPdf = async () => {
     try {
       toast({
@@ -592,6 +606,11 @@ export default function SimpleWordEditor() {
       const pages = document.querySelectorAll('.word-page-container');
       if (pages.length === 0) {
         throw new Error('No hay páginas para exportar');
+      }
+
+      // Wait for all background images to load
+      for (const page of Array.from(pages)) {
+        await waitForImages(page as HTMLElement);
       }
 
       // A4 Portrait format
@@ -607,24 +626,26 @@ export default function SimpleWordEditor() {
       for (let i = 0; i < pages.length; i++) {
         const page = pages[i] as HTMLElement;
         
+        // Capture with proper settings for background images
         const canvas = await html2canvas(page, {
           scale: 2,
           useCORS: true,
           allowTaint: true,
-          backgroundColor: '#ffffff',
+          backgroundColor: null, // Transparent to show background image
           logging: false,
-          imageTimeout: 15000,
-          width: PAGE_WIDTH,
-          height: PAGE_HEIGHT,
+          imageTimeout: 30000,
+          windowWidth: page.offsetWidth,
+          windowHeight: page.offsetHeight,
         });
 
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgData = canvas.toDataURL('image/png', 1.0);
         
         if (i > 0) {
           pdf.addPage('a4', 'portrait');
         }
         
-        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        // Add image maintaining exact proportions
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       }
 
       pdf.save(`${projectTitle || 'documento'}.pdf`);
@@ -690,28 +711,47 @@ export default function SimpleWordEditor() {
           {pagesContent.map((pageHtml, index) => (
             <div 
               key={index}
-              className="word-page-container bg-white shadow-lg relative group"
+              className="word-page-container shadow-lg relative group"
               style={{
                 width: PAGE_WIDTH,
                 height: PAGE_HEIGHT,
                 position: 'relative',
               }}
             >
-              {/* Page content area */}
+              {/* Background image - AS Consultores template */}
+              <img
+                src={fondoA4Image}
+                alt=""
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'cover',
+                  zIndex: 0,
+                  pointerEvents: 'none',
+                }}
+              />
+              
+              {/* Page content area - on top of background */}
               <div
                 ref={el => pageRefs.current[index] = el}
                 contentEditable
                 suppressContentEditableWarning
                 className="page-content-area focus:outline-none"
                 style={{
+                  position: 'relative',
+                  zIndex: 1,
                   paddingTop: PADDING_VERTICAL,
                   paddingBottom: PADDING_VERTICAL,
                   paddingLeft: leftMargin,
                   paddingRight: rightMargin,
-                  height: CONTENT_HEIGHT,
+                  height: PAGE_HEIGHT,
                   maxHeight: CONTENT_HEIGHT,
                   overflow: 'hidden',
                   boxSizing: 'border-box',
+                  backgroundColor: 'transparent',
                 }}
                 onBlur={handlePageBlur}
                 dangerouslySetInnerHTML={{ __html: pageHtml }}
@@ -721,7 +761,7 @@ export default function SimpleWordEditor() {
               {pagesContent.length > 1 && (
                 <button
                   onClick={() => handleDeletePage(index)}
-                  className="absolute top-4 right-4 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
+                  className="absolute top-4 right-4 p-2 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 z-10"
                   title="Eliminar página"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -730,7 +770,7 @@ export default function SimpleWordEditor() {
               
               {/* Page number */}
               <div 
-                className="absolute bottom-4 right-4 text-sm text-gray-400"
+                className="absolute bottom-4 right-4 text-sm text-gray-600 z-10"
                 style={{ pointerEvents: 'none' }}
               >
                 {index + 1} / {pagesContent.length}
@@ -740,11 +780,11 @@ export default function SimpleWordEditor() {
               {isRulerDragging && (
                 <>
                   <div 
-                    className="absolute top-0 bottom-0 w-px bg-sierra-teal opacity-50"
+                    className="absolute top-0 bottom-0 w-px bg-sierra-teal opacity-50 z-20"
                     style={{ left: leftMargin }}
                   />
                   <div 
-                    className="absolute top-0 bottom-0 w-px bg-sierra-teal opacity-50"
+                    className="absolute top-0 bottom-0 w-px bg-sierra-teal opacity-50 z-20"
                     style={{ right: rightMargin }}
                   />
                 </>
