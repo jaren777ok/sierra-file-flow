@@ -1,4 +1,4 @@
-import { CheckCircle, FileText, ArrowRight, RotateCcw } from 'lucide-react';
+import { CheckCircle, FileEdit, ArrowRight, RotateCcw, Presentation, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useNavigate } from 'react-router-dom';
@@ -14,74 +14,74 @@ export const ResultScreen = ({ projectTitle, onStartNew }: ResultScreenProps) =>
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-sierra-teal/5 flex items-center justify-center p-6">
       <Card className="max-w-2xl w-full p-8 space-y-8 text-center">
-        {/* Success Icon */}
+        {/* Success Icon with enhanced animation */}
         <div className="flex justify-center">
           <div className="relative">
-            <div className="absolute inset-0 bg-sierra-bright/20 rounded-full blur-xl animate-pulse" />
-            <CheckCircle className="w-24 h-24 text-sierra-bright relative z-10" />
+            <div className="absolute inset-0 bg-sierra-bright/30 rounded-full blur-2xl animate-pulse" />
+            <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-sierra-teal to-sierra-bright flex items-center justify-center shadow-2xl">
+              <CheckCircle className="w-16 h-16 text-white" />
+            </div>
           </div>
         </div>
 
-        {/* Success Message */}
-        <div className="space-y-3">
-          <h2 className="text-3xl font-bold text-foreground">
-            ¡Procesamiento Completado con Éxito!
+        {/* Enhanced Success Message */}
+        <div className="space-y-4">
+          <h2 className="text-4xl font-bold bg-gradient-to-r from-sierra-teal to-sierra-bright bg-clip-text text-transparent">
+            ¡Análisis Completado!
           </h2>
-          <p className="text-lg text-muted-foreground">
-            Tu informe <span className="font-semibold text-sierra-teal">"{projectTitle}"</span> ha sido generado y guardado
+          <p className="text-xl text-muted-foreground">
+            Se generaron <span className="font-bold text-sierra-teal">2 documentos</span> para tu proyecto
+          </p>
+          <p className="text-lg font-semibold text-foreground">
+            "{projectTitle}"
           </p>
         </div>
 
-        {/* Info Card */}
-        <div className="bg-sierra-teal/5 border border-sierra-teal/20 rounded-lg p-6 space-y-3">
-          <div className="flex items-center justify-center gap-3 text-sierra-teal">
-            <FileText className="w-6 h-6" />
-            <p className="font-medium text-lg">Documento listo para editar</p>
+        {/* Document Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="bg-sierra-teal/10 border border-sierra-teal/30 rounded-xl p-5 space-y-3">
+            <FileEdit className="w-10 h-10 text-sierra-teal mx-auto" />
+            <h3 className="font-bold text-sierra-teal">Informe Word</h3>
+            <p className="text-sm text-muted-foreground">
+              Documento editable con análisis detallado
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground">
-            Encontrarás tu proyecto en <span className="font-semibold">Archivos Guardados</span> donde podrás:
-          </p>
-          <ul className="text-sm text-muted-foreground space-y-2 text-left max-w-md mx-auto">
-            <li className="flex items-start gap-2">
-              <span className="text-sierra-bright mt-0.5">•</span>
-              <span>Abrir y editar el informe tipo Microsoft Word</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-sierra-bright mt-0.5">•</span>
-              <span>Crear presentación PowerPoint del contenido</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-sierra-bright mt-0.5">•</span>
-              <span>Descargar en PDF con formato profesional</span>
-            </li>
-          </ul>
+          
+          <div className="bg-purple-100/50 dark:bg-purple-900/20 border border-purple-300/50 dark:border-purple-700/50 rounded-xl p-5 space-y-3">
+            <Presentation className="w-10 h-10 text-purple-600 dark:text-purple-400 mx-auto" />
+            <h3 className="font-bold text-purple-600 dark:text-purple-400">Presentación PPT</h3>
+            <p className="text-sm text-muted-foreground">
+              Slides listas para presentar
+            </p>
+          </div>
         </div>
 
-        {/* Action Buttons */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center pt-4">
+        {/* More prominent action buttons */}
+        <div className="flex flex-col gap-4 pt-4">
           <Button
             size="lg"
-            className="bg-sierra-teal hover:bg-sierra-teal/90 text-white gap-2 shadow-lg hover:shadow-xl transition-all"
+            className="w-full bg-gradient-to-r from-sierra-teal to-sierra-bright hover:opacity-90 text-white text-lg py-6 shadow-xl hover:shadow-2xl transition-all"
             onClick={() => navigate('/saved-files')}
           >
-            Ver Archivos Guardados
-            <ArrowRight className="w-5 h-5" />
+            <Sparkles className="w-5 h-5 mr-2" />
+            Ver Mis Análisis
+            <ArrowRight className="w-5 h-5 ml-2" />
           </Button>
           
           <Button
             size="lg"
             variant="outline"
-            className="gap-2 border-sierra-teal/30 hover:bg-sierra-teal/5"
+            className="w-full gap-2 border-sierra-teal/30 hover:bg-sierra-teal/5 py-6"
             onClick={onStartNew}
           >
             <RotateCcw className="w-5 h-5" />
-            Procesar Nuevo Proyecto
+            Procesar Otro Proyecto
           </Button>
         </div>
 
         {/* Footer Info */}
-        <p className="text-xs text-muted-foreground pt-4">
-          El documento permanecerá guardado hasta que decidas eliminarlo
+        <p className="text-xs text-muted-foreground pt-2">
+          Tus documentos permanecerán guardados hasta que decidas eliminarlos
         </p>
       </Card>
     </div>
