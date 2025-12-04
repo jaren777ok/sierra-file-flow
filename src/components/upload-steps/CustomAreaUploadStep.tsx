@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, ArrowRight, Upload, X, FolderPlus, Trash2, Plus } from 'lucide-react';
@@ -38,6 +38,12 @@ const CustomAreaUploadStep = ({
   const { toast } = useToast();
   const [isEditingName, setIsEditingName] = useState(false);
   const [tempName, setTempName] = useState(area.name);
+
+  // Sincronizar tempName cuando cambia el área
+  useEffect(() => {
+    setTempName(area.name);
+    setIsEditingName(false);
+  }, [area.id, area.name]);
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
