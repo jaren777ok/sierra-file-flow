@@ -125,10 +125,14 @@ export const useMultiStepUpload = () => {
         files: []
       };
       setCustomAreas(prev => [...prev, newArea]);
-      // Saltar al paso del área recién creada
-      setCurrentStep(6 + customAreas.length);
+      
+      // Calcular el paso correcto dinámicamente
+      const analysisOffset = companyInfo.length > 0 && companyAnalysis ? 3 : 1;
+      const customAreasStart = 1 + analysisOffset + 4; // 1 proyecto + offset análisis + 4 áreas fijas
+      const newAreaStep = customAreasStart + customAreas.length;
+      setCurrentStep(newAreaStep);
     }
-  }, [customAreas.length]);
+  }, [customAreas.length, companyInfo.length, companyAnalysis]);
 
   const removeCustomArea = useCallback((id: string) => {
     setCustomAreas(prev => prev.filter(area => area.id !== id));

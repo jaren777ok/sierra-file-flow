@@ -11,7 +11,6 @@ import ReviewStep from './upload-steps/ReviewStep';
 import FuturisticAIProcessingScreen from './upload-steps/FuturisticAIProcessingScreen';
 import { ResultScreen } from './upload-steps/ResultScreen';
 import StepIndicator from './upload-steps/StepIndicator';
-import AreaDropTargets from './upload-steps/AreaDropTargets';
 import { Card, CardContent } from '@/components/ui/card';
 import { AlertCircle, Clock, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -309,42 +308,8 @@ const MultiStepUploader = () => {
     hasActiveJob()
   );
 
-  // Calcular offset para determinar si estamos en pasos de subida de archivos
-  const analysisOffset = companyInfo.length > 0 && companyAnalysis ? 3 : 1;
-  const fixedAreasStart = 1 + analysisOffset;
-  const fixedAreasEnd = fixedAreasStart + 3;
-  const customAreasStart = fixedAreasEnd + 1;
-  const customAreasEnd = customAreasStart + customAreas.length - 1;
-  const reviewStep = customAreasEnd + 1;
-  
-  // Mostrar drop targets durante pasos de subida de archivos (áreas fijas, personalizadas y revisión)
-  const showDropTargets = currentStep >= fixedAreasStart && currentStep <= reviewStep && !isProcessingStep;
-
-  // Obtener el área actual para resaltarla
-  const getCurrentAreaKey = () => {
-    if (currentStep >= fixedAreasStart && currentStep <= fixedAreasEnd) {
-      const areaIndex = currentStep - fixedAreasStart;
-      return areas[areaIndex]?.key;
-    }
-    return undefined;
-  };
-
   return (
     <div className="max-w-4xl mx-auto relative">
-      {/* Drop Targets Sidebar - visible during file upload steps */}
-      {showDropTargets && (
-        <AreaDropTargets
-          areas={areas}
-          areaFiles={areaFiles}
-          customAreas={customAreas}
-          onAreaFilesChange={updateAreaFiles}
-          onCustomAreaFilesChange={updateCustomAreaFiles}
-          onAddCustomArea={addCustomArea}
-          currentAreaKey={getCurrentAreaKey()}
-          disabled={hasActiveJob()}
-        />
-      )}
-
       {/* Step Indicator */}
       {!isProcessingStep && (
         <div className="mb-8">
