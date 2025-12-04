@@ -481,7 +481,7 @@ export default function SimplePptEditor() {
     });
   }, [slidesContent.length, toast]);
 
-  // Save content to Supabase
+  // Save content to Supabase (save to result_html_ppt for PPT editor)
   const handleSave = async () => {
     if (!jobId) return;
     
@@ -496,7 +496,7 @@ export default function SimplePptEditor() {
       const { error } = await supabase
         .from('processing_jobs')
         .update({ 
-          result_html: combinedHtml,
+          result_html_ppt: combinedHtml,
           updated_at: new Date().toISOString()
         })
         .eq('id', jobId);
@@ -528,15 +528,18 @@ export default function SimplePptEditor() {
       try {
         const { data, error } = await supabase
           .from('processing_jobs')
-          .select('result_html, project_title')
+          .select('result_html_ppt, result_html, project_title')
           .eq('id', jobId)
           .eq('status', 'completed')
           .single();
 
         if (error) throw error;
         
-        if (data?.result_html) {
-          const cleanedHtml = cleanHtml(data.result_html);
+        // Use result_html_ppt with fallback to result_html for backwards compatibility
+        const htmlContent = (data as any)?.result_html_ppt || data?.result_html;
+        
+        if (htmlContent) {
+          const cleanedHtml = cleanHtml(htmlContent);
           setProjectTitle(data.project_title || 'Presentación');
           
           // Wait for DOM to be ready, then divide content

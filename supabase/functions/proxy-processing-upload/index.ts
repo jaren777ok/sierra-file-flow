@@ -96,20 +96,41 @@ Deno.serve(async (req) => {
         );
       }
       
-      // Parse HTML response from webhook
+      // Parse response from webhook
       const webhookResult = await response.json();
       console.log('🎉 [proxy-processing-upload] Webhook completó procesamiento');
       
-      // Extract HTML from format: [{"EXITO": "<!DOCTYPE HTML>..."}]
-      let resultHtml = '';
-      if (Array.isArray(webhookResult) && webhookResult.length > 0 && webhookResult[0]?.EXITO) {
-        resultHtml = webhookResult[0].EXITO;
-        console.log(`✅ [proxy-processing-upload] HTML extraído: ${resultHtml.length} caracteres`);
+      // Extract HTML from NEW format: [{"informe": "html word", "ppt": "html ppt"}]
+      // With fallback to old format: [{"EXITO": "<!DOCTYPE HTML>..."}]
+      let resultHtmlInforme = '';
+      let resultHtmlPpt = '';
+
+      if (Array.isArray(webhookResult) && webhookResult.length > 0) {
+        const webhookData = webhookResult[0];
+        
+        // New format with separate fields
+        if (webhookData?.informe) {
+          resultHtmlInforme = webhookData.informe;
+          console.log(`✅ [proxy-processing-upload] HTML Informe extraído: ${resultHtmlInforme.length} caracteres`);
+        }
+        
+        if (webhookData?.ppt) {
+          resultHtmlPpt = webhookData.ppt;
+          console.log(`✅ [proxy-processing-upload] HTML PPT extraído: ${resultHtmlPpt.length} caracteres`);
+        }
+        
+        // Fallback to old format for backwards compatibility
+        if (!resultHtmlInforme && webhookData?.EXITO) {
+          resultHtmlInforme = webhookData.EXITO;
+          resultHtmlPpt = webhookData.EXITO; // Use same content if no separation
+          console.log(`⚠️ [proxy-processing-upload] Usando formato antiguo EXITO: ${resultHtmlInforme.length} caracteres`);
+        }
       } else if (typeof webhookResult === 'string') {
-        resultHtml = webhookResult;
+        resultHtmlInforme = webhookResult;
+        resultHtmlPpt = webhookResult;
       }
       
-      if (!resultHtml) {
+      if (!resultHtmlInforme) {
         console.error('⚠️ [proxy-processing-upload] No se pudo extraer HTML de la respuesta');
         
         await supabase
@@ -134,13 +155,14 @@ Deno.serve(async (req) => {
         );
       }
       
-      // Save completed job with HTML to database
+      // Save completed job with BOTH HTML fields to database
       const { error: updateError } = await supabase
         .from('processing_jobs')
         .update({
           status: 'completed',
           progress: 100,
-          result_html: resultHtml,
+          result_html: resultHtmlInforme,         // HTML for Word editor
+          result_html_ppt: resultHtmlPpt || resultHtmlInforme, // HTML for PPT editor (fallback to informe)
           completed_at: new Date().toISOString(),
         })
         .eq('request_id', requestId);

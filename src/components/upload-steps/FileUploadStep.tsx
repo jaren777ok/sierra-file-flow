@@ -198,11 +198,12 @@ const FileUploadStep = ({ area, files, onFilesChange, onNext, onPrev, disabled =
         </Button>
         
         <Button
+          key={`next-btn-${files.length}`}
           onClick={onNext}
           className="sierra-gradient hover:opacity-90 px-6 py-3"
           disabled={disabled}
         >
-          {files.length === 0 ? 'Saltar' : 'Siguiente'}
+          {files.length === 0 ? 'Saltar' : 'Continuar'}
           <ArrowRight className="ml-2 h-4 w-4" />
         </Button>
       </div>

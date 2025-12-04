@@ -1583,6 +1583,7 @@ export type Database = {
           project_title: string
           request_id: string
           result_html: string | null
+          result_html_ppt: string | null
           result_url: string | null
           started_at: string
           status: Database["public"]["Enums"]["processing_status"]
@@ -1599,6 +1600,7 @@ export type Database = {
           project_title: string
           request_id: string
           result_html?: string | null
+          result_html_ppt?: string | null
           result_url?: string | null
           started_at?: string
           status: Database["public"]["Enums"]["processing_status"]
@@ -1615,6 +1617,7 @@ export type Database = {
           project_title?: string
           request_id?: string
           result_html?: string | null
+          result_html_ppt?: string | null
           result_url?: string | null
           started_at?: string
           status?: Database["public"]["Enums"]["processing_status"]
