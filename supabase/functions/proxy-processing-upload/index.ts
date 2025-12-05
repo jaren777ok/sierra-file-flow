@@ -4,6 +4,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.3';
 const WEBHOOK_URL = 'https://cris.cloude.es/webhook/sierra';
 const TIMEOUT = 15 * 60 * 1000; // 15 minutos
 
+// Handler para logging cuando la función se apaga
+addEventListener('beforeunload', (ev: any) => {
+  console.log(`🛑 [proxy-processing-upload] Shutdown: ${ev.detail?.reason || 'unknown'}`);
+});
+
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -53,172 +58,150 @@ Deno.serve(async (req) => {
 
     console.log('✅ [proxy-processing-upload] Job guardado en DB');
 
-    // Send files to webhook and WAIT for HTML response
-    console.log('📤 [proxy-processing-upload] Enviando archivos al webhook y esperando respuesta...');
-    
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT); // 15 minutes
-
-    try {
-      const response = await fetch(WEBHOOK_URL, {
-        method: 'POST',
-        body: formData,
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
+    // ============================================
+    // BACKGROUND TASK: Procesar en segundo plano
+    // ============================================
+    async function processInBackground() {
+      console.log('🔄 [Background] Iniciando procesamiento en segundo plano...');
       
-      console.log(`📥 [proxy-processing-upload] Webhook respondió: ${response.status}`);
-      
-      if (!response.ok) {
-        console.error(`⚠️ [proxy-processing-upload] Webhook retornó error: ${response.status}`);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
+
+      try {
+        console.log('📤 [Background] Enviando archivos al webhook...');
         
-        // Update DB with error
-        await supabase
+        const response = await fetch(WEBHOOK_URL, {
+          method: 'POST',
+          body: formData,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+        
+        console.log(`📥 [Background] Webhook respondió: ${response.status}`);
+        
+        if (!response.ok) {
+          console.error(`⚠️ [Background] Webhook retornó error: ${response.status}`);
+          
+          await supabase
+            .from('processing_jobs')
+            .update({
+              status: 'error',
+              error_message: `Error del webhook: ${response.status}`,
+              progress: 0,
+              completed_at: new Date().toISOString(),
+            })
+            .eq('request_id', requestId);
+          return;
+        }
+        
+        // Parse response from webhook
+        const webhookResult = await response.json();
+        console.log('🎉 [Background] Webhook completó procesamiento');
+        
+        // Extract HTML from NEW format: [{"informe": "html word", "ppt": "html ppt"}]
+        // With fallback to old format: [{"EXITO": "<!DOCTYPE HTML>..."}]
+        let resultHtmlInforme = '';
+        let resultHtmlPpt = '';
+
+        if (Array.isArray(webhookResult) && webhookResult.length > 0) {
+          const webhookData = webhookResult[0];
+          
+          // New format with separate fields
+          if (webhookData?.informe) {
+            resultHtmlInforme = webhookData.informe;
+            console.log(`✅ [Background] HTML Informe extraído: ${resultHtmlInforme.length} caracteres`);
+          }
+          
+          if (webhookData?.ppt) {
+            resultHtmlPpt = webhookData.ppt;
+            console.log(`✅ [Background] HTML PPT extraído: ${resultHtmlPpt.length} caracteres`);
+          }
+          
+          // Fallback to old format for backwards compatibility
+          if (!resultHtmlInforme && webhookData?.EXITO) {
+            resultHtmlInforme = webhookData.EXITO;
+            resultHtmlPpt = webhookData.EXITO;
+            console.log(`⚠️ [Background] Usando formato antiguo EXITO: ${resultHtmlInforme.length} caracteres`);
+          }
+        } else if (typeof webhookResult === 'string') {
+          resultHtmlInforme = webhookResult;
+          resultHtmlPpt = webhookResult;
+        }
+        
+        if (!resultHtmlInforme) {
+          console.error('⚠️ [Background] No se pudo extraer HTML de la respuesta');
+          
+          await supabase
+            .from('processing_jobs')
+            .update({
+              status: 'error',
+              error_message: 'Respuesta del webhook sin HTML',
+              progress: 0,
+              completed_at: new Date().toISOString(),
+            })
+            .eq('request_id', requestId);
+          return;
+        }
+        
+        // Save completed job with BOTH HTML fields to database
+        const { error: updateError } = await supabase
           .from('processing_jobs')
           .update({
-            status: 'error',
-            error_message: `Error del webhook: ${response.status}`,
-            progress: 0,
+            status: 'completed',
+            progress: 100,
+            result_html: resultHtmlInforme,
+            result_html_ppt: resultHtmlPpt || resultHtmlInforme,
             completed_at: new Date().toISOString(),
           })
           .eq('request_id', requestId);
           
-        return new Response(
-          JSON.stringify({ 
-            error: `Error del webhook: ${response.status}`,
-            requestId
-          }),
-          { 
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
-      }
-      
-      // Parse response from webhook
-      const webhookResult = await response.json();
-      console.log('🎉 [proxy-processing-upload] Webhook completó procesamiento');
-      
-      // Extract HTML from NEW format: [{"informe": "html word", "ppt": "html ppt"}]
-      // With fallback to old format: [{"EXITO": "<!DOCTYPE HTML>..."}]
-      let resultHtmlInforme = '';
-      let resultHtmlPpt = '';
-
-      if (Array.isArray(webhookResult) && webhookResult.length > 0) {
-        const webhookData = webhookResult[0];
-        
-        // New format with separate fields
-        if (webhookData?.informe) {
-          resultHtmlInforme = webhookData.informe;
-          console.log(`✅ [proxy-processing-upload] HTML Informe extraído: ${resultHtmlInforme.length} caracteres`);
+        if (updateError) {
+          console.error('❌ [Background] Error actualizando job:', updateError);
+        } else {
+          console.log('✅ [Background] Job completado y HTML guardado en BD');
         }
         
-        if (webhookData?.ppt) {
-          resultHtmlPpt = webhookData.ppt;
-          console.log(`✅ [proxy-processing-upload] HTML PPT extraído: ${resultHtmlPpt.length} caracteres`);
-        }
+      } catch (error: any) {
+        clearTimeout(timeoutId);
+        console.error('❌ [Background] Error procesando:', error);
         
-        // Fallback to old format for backwards compatibility
-        if (!resultHtmlInforme && webhookData?.EXITO) {
-          resultHtmlInforme = webhookData.EXITO;
-          resultHtmlPpt = webhookData.EXITO; // Use same content if no separation
-          console.log(`⚠️ [proxy-processing-upload] Usando formato antiguo EXITO: ${resultHtmlInforme.length} caracteres`);
-        }
-      } else if (typeof webhookResult === 'string') {
-        resultHtmlInforme = webhookResult;
-        resultHtmlPpt = webhookResult;
-      }
-      
-      if (!resultHtmlInforme) {
-        console.error('⚠️ [proxy-processing-upload] No se pudo extraer HTML de la respuesta');
+        const isTimeout = error.name === 'AbortError';
+        const errorMessage = isTimeout 
+          ? 'Procesamiento excedió el tiempo límite (15 minutos)' 
+          : `Error al procesar: ${error.message}`;
         
         await supabase
           .from('processing_jobs')
           .update({
-            status: 'error',
-            error_message: 'Respuesta del webhook sin HTML',
+            status: isTimeout ? 'timeout' : 'error',
+            error_message: errorMessage,
             progress: 0,
             completed_at: new Date().toISOString(),
           })
           .eq('request_id', requestId);
-          
-        return new Response(
-          JSON.stringify({ 
-            error: 'Respuesta del webhook sin HTML',
-            requestId
-          }),
-          { 
-            status: 500,
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
       }
-      
-      // Save completed job with BOTH HTML fields to database
-      const { error: updateError } = await supabase
-        .from('processing_jobs')
-        .update({
-          status: 'completed',
-          progress: 100,
-          result_html: resultHtmlInforme,         // HTML for Word editor
-          result_html_ppt: resultHtmlPpt || resultHtmlInforme, // HTML for PPT editor (fallback to informe)
-          completed_at: new Date().toISOString(),
-        })
-        .eq('request_id', requestId);
-        
-      if (updateError) {
-        console.error('❌ [proxy-processing-upload] Error actualizando job:', updateError);
-        throw new Error('Error guardando resultado en base de datos');
-      }
-      
-      console.log('✅ [proxy-processing-upload] Job completado y HTML guardado en BD');
-      
-      // Return success with HTML preview
-      return new Response(
-        JSON.stringify({ 
-          requestId,
-          status: 'completed',
-          message: 'Procesamiento completado',
-          resultHtml: resultHtml.substring(0, 500) + '...' // Preview only
-        }),
-        { 
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-      
-    } catch (error: any) {
-      clearTimeout(timeoutId);
-      console.error('❌ [proxy-processing-upload] Error procesando:', error);
-      
-      const isTimeout = error.name === 'AbortError';
-      const errorMessage = isTimeout 
-        ? 'Procesamiento excedió el tiempo límite (15 minutos)' 
-        : `Error al procesar: ${error.message}`;
-      
-      // Update DB with error or timeout
-      await supabase
-        .from('processing_jobs')
-        .update({
-          status: isTimeout ? 'timeout' : 'error',
-          error_message: errorMessage,
-          progress: 0,
-          completed_at: new Date().toISOString(),
-        })
-        .eq('request_id', requestId);
-        
-      return new Response(
-        JSON.stringify({ 
-          error: errorMessage,
-          requestId
-        }),
-        { 
-          status: isTimeout ? 408 : 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
     }
+
+    // ============================================
+    // INICIAR TAREA EN BACKGROUND Y RETORNAR INMEDIATAMENTE
+    // ============================================
+    EdgeRuntime.waitUntil(processInBackground());
+    
+    console.log('🚀 [proxy-processing-upload] Retornando inmediatamente, procesamiento continúa en background');
+
+    // Retornar inmediatamente al frontend (< 5 segundos)
+    return new Response(
+      JSON.stringify({ 
+        requestId,
+        status: 'processing',
+        message: 'Procesamiento iniciado en segundo plano'
+      }),
+      { 
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
 
   } catch (error: any) {
     console.error('❌ [proxy-processing-upload] Error:', error);
