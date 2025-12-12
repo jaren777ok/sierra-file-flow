@@ -87,6 +87,15 @@ const applyInlineStylesForCopy = (element: HTMLElement): HTMLElement => {
     el.setAttribute('style', 'font-weight: 700;');
   });
   
+  // Replace <code> tags with italic quoted text
+  clone.querySelectorAll('code').forEach(code => {
+    const text = code.textContent || '';
+    const span = document.createElement('span');
+    span.style.fontStyle = 'italic';
+    span.textContent = `"${text}"`;
+    code.replaceWith(span);
+  });
+  
   return clone;
 };
 
@@ -116,7 +125,8 @@ const measureElementHeight = (element: HTMLElement, containerWidth: number): num
     line-height: 1.6;
     word-wrap: break-word;
     overflow-wrap: break-word;
-    hyphens: auto;
+    word-break: normal;
+    hyphens: none;
   `;
   
   const clone = element.cloneNode(true) as HTMLElement;
@@ -185,7 +195,8 @@ const divideContentIntoPages = (
     line-height: 1.6;
     word-wrap: break-word;
     overflow-wrap: break-word;
-    hyphens: auto;
+    word-break: normal;
+    hyphens: none;
   `;
   document.body.appendChild(tempContainer);
 
