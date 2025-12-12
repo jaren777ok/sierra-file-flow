@@ -190,10 +190,10 @@
     color: #000;
     overflow-wrap: break-word;
     word-wrap: break-word;
-    word-break: break-word;
-    hyphens: auto;
-    -webkit-hyphens: auto;
-    -ms-hyphens: auto;
+    word-break: normal;
+    hyphens: none;
+    -webkit-hyphens: none;
+    -ms-hyphens: none;
   }
 
   .page-content-area p,
@@ -203,7 +203,8 @@
   .page-content-area span {
     overflow-wrap: break-word;
     word-wrap: break-word;
-    word-break: break-word;
+    word-break: normal;
+    hyphens: none;
   }
 
   .page-content-area h1 {
@@ -332,11 +333,21 @@
   }
 
   .page-content-area code {
-    background-color: #f5f5f5;
-    padding: 2pt 4pt;
-    border-radius: 3px;
-    font-family: 'Courier New', monospace;
-    font-size: 10pt;
+    font-family: Arial, sans-serif;
+    font-style: italic;
+    font-size: 11pt;
+    color: #000;
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+  }
+
+  .page-content-area code::before {
+    content: """;
+  }
+
+  .page-content-area code::after {
+    content: """;
   }
 
   .page-content-area pre {
