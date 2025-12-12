@@ -12,11 +12,12 @@ import fondoA4Image from '@/assets/FONDO_A4.png';
 // A4 Portrait dimensions (standard document format)
 const PAGE_WIDTH = 793;   // 21cm at 96 DPI
 const PAGE_HEIGHT = 1122; // 29.7cm at 96 DPI
-const PADDING_VERTICAL = 80;   // Top/bottom margins (increased for logo space)
+const PADDING_TOP = 120;       // Top margin - space for logos (OSIRIS + LOGISTIC LAW)
+const PADDING_BOTTOM = 60;     // Bottom margin - footer space
 const DEFAULT_PADDING_HORIZONTAL = 80; // Default left/right (adjustable via ruler)
-const CONTENT_HEIGHT = PAGE_HEIGHT - (PADDING_VERTICAL * 2); // 962px
-const SAFETY_MARGIN = 50; // Reduced buffer for better space usage
-const EFFECTIVE_HEIGHT = CONTENT_HEIGHT - SAFETY_MARGIN; // 912px
+const CONTENT_HEIGHT = PAGE_HEIGHT - PADDING_TOP - PADDING_BOTTOM; // 942px
+const SAFETY_MARGIN = 40; // Reduced buffer for better space usage
+const EFFECTIVE_HEIGHT = CONTENT_HEIGHT - SAFETY_MARGIN; // 902px
 
 // Function to clean HTML - extract only body content and remove \n literals
 const cleanHtml = (rawHtml: string): string => {
@@ -467,16 +468,11 @@ export default function SimpleWordEditor() {
     setPagesContent(filteredPages.length > 0 ? filteredPages : ['']);
   };
 
-  // Handle page blur - redistribute content
+  // Handle page blur - NO automatic redistribution to prevent infinite loops
+  // User edits freely, content is saved as-is when they click Save
   const handlePageBlur = () => {
-    const allHtml = pageRefs.current
-      .filter(ref => ref !== null)
-      .map(ref => ref!.innerHTML)
-      .join('');
-    
-    const newPages = divideContentIntoPages(allHtml, leftMargin, rightMargin);
-    const filteredPages = newPages.filter(page => !isPageEmpty(page));
-    setPagesContent(filteredPages.length > 0 ? filteredPages : ['']);
+    // Do nothing - let the user edit freely without automatic redistribution
+    // This prevents the infinite duplication bug when moving text between pages
   };
 
   // Delete a page
@@ -770,13 +766,12 @@ export default function SimpleWordEditor() {
                 style={{
                   position: 'relative',
                   zIndex: 1,
-                  paddingTop: PADDING_VERTICAL,
-                  paddingBottom: PADDING_VERTICAL,
+                  paddingTop: PADDING_TOP,
+                  paddingBottom: PADDING_BOTTOM,
                   paddingLeft: leftMargin,
                   paddingRight: rightMargin,
-                  height: PAGE_HEIGHT,
-                  maxHeight: CONTENT_HEIGHT,
-                  overflow: 'hidden',
+                  minHeight: CONTENT_HEIGHT,
+                  overflow: 'visible',
                   boxSizing: 'border-box',
                   backgroundColor: 'transparent',
                 }}
