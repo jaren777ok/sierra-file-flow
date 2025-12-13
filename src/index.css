@@ -284,33 +284,31 @@
     line-height: 1.5;
   }
 
-  .page-content-area table {
+.page-content-area table {
     width: 100% !important;
     table-layout: fixed !important;
     border-collapse: collapse;
-    margin: 8pt 0;
-    font-size: 9pt !important;
+    margin: 4pt 0 !important;
+    font-size: 8pt !important;
     word-break: break-word;
+    page-break-inside: auto;
   }
 
   .page-content-area th,
   .page-content-area td {
     border: 1px solid #000;
-    padding: 4pt 6pt !important;
+    padding: 2pt 3pt !important;
     text-align: left;
     word-break: break-word;
     overflow-wrap: break-word;
+    font-size: 8pt !important;
+    max-width: 0;
+    vertical-align: top;
   }
 
   .page-content-area th {
     background-color: #f0f0f0;
     font-weight: 700;
-    font-size: 9pt !important;
-  }
-
-  .page-content-area td {
-    vertical-align: top;
-    font-size: 9pt !important;
   }
 
   .page-content-area strong,
