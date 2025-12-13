@@ -12,12 +12,15 @@ import fondoA4Image from '@/assets/FONDO_A4.png';
 // A4 Portrait dimensions (standard document format)
 const PAGE_WIDTH = 793;   // 21cm at 96 DPI
 const PAGE_HEIGHT = 1122; // 29.7cm at 96 DPI
-const PADDING_TOP = 120;       // Top margin - space for logos (OSIRIS + LOGISTIC LAW)
+const PADDING_TOP = 120;       // Top margin - space for logos
 const PADDING_BOTTOM = 60;     // Bottom margin - footer space
 const DEFAULT_PADDING_HORIZONTAL = 80; // Default left/right (adjustable via ruler)
 const CONTENT_HEIGHT = PAGE_HEIGHT - PADDING_TOP - PADDING_BOTTOM; // 942px
-const SAFETY_MARGIN = 40; // Reduced buffer for better space usage
-const EFFECTIVE_HEIGHT = CONTENT_HEIGHT - SAFETY_MARGIN; // 902px
+
+// LINE-BASED CALCULATION CONSTANTS
+const LINE_HEIGHT_PX = 26;    // 11pt * 1.6 line-height ≈ 26px per line
+const CHAR_WIDTH_PX = 7;      // ~7px per character at 11pt Arial
+const TABLE_ROW_HEIGHT_PX = 22;  // 8pt row + padding
 
 // Function to clean HTML - extract only body content and remove \n literals
 const cleanHtml = (rawHtml: string): string => {
@@ -45,15 +48,15 @@ const applyInlineStylesForCopy = (element: HTMLElement): HTMLElement => {
   const clone = element.cloneNode(true) as HTMLElement;
   
   clone.querySelectorAll('table').forEach(table => {
-    table.setAttribute('style', 'width: 100%; border-collapse: collapse; margin: 12pt 0; font-size: 10pt;');
+    table.setAttribute('style', 'width: 100%; border-collapse: collapse; margin: 8pt 0; font-size: 8pt;');
   });
   
   clone.querySelectorAll('th').forEach(th => {
-    th.setAttribute('style', 'border: 1px solid #000; padding: 6pt 8pt; text-align: left; background-color: #f0f0f0; font-weight: 700;');
+    th.setAttribute('style', 'border: 1px solid #000; padding: 2pt 3pt; text-align: left; background-color: #f0f0f0; font-weight: 700;');
   });
   
   clone.querySelectorAll('td').forEach(td => {
-    td.setAttribute('style', 'border: 1px solid #000; padding: 6pt 8pt; text-align: left;');
+    td.setAttribute('style', 'border: 1px solid #000; padding: 2pt 3pt; text-align: left;');
   });
   
   clone.querySelectorAll('h1').forEach(h1 => {
@@ -113,65 +116,145 @@ const isPageEmpty = (html: string): boolean => {
   return textContent.trim().length === 0;
 };
 
-// Measure element height accurately with all styles applied
-const measureElementHeight = (element: HTMLElement, containerWidth: number): number => {
-  const measureDiv = document.createElement('div');
-  measureDiv.className = 'page-content-area';
-  measureDiv.style.cssText = `
-    position: absolute;
-    visibility: hidden;
-    width: ${containerWidth}px;
-    font-family: Arial, sans-serif;
-    font-size: 11pt;
-    line-height: 1.6;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    word-break: normal;
-    hyphens: none;
-  `;
+// Calculate lines an element occupies based on its text content and type
+const calculateElementLines = (element: HTMLElement, contentWidth: number): number => {
+  const tagName = element.tagName.toLowerCase();
+  const text = element.textContent || '';
+  const charsPerLine = Math.floor(contentWidth / CHAR_WIDTH_PX);
   
-  const clone = element.cloneNode(true) as HTMLElement;
-  measureDiv.appendChild(clone);
-  document.body.appendChild(measureDiv);
-  
-  const height = measureDiv.offsetHeight;
-  document.body.removeChild(measureDiv);
-  
-  return height;
-};
-
-// Split long paragraphs into multiple parts that fit in a page
-const splitLongParagraph = (
-  text: string, 
-  containerWidth: number,
-  maxHeight: number
-): string[] => {
-  // Estimate characters per line based on width (~7px per character at 11pt)
-  const charsPerLine = Math.floor(containerWidth / 7);
-  // Estimate lines per page based on height (~24px per line with line-height 1.6)
-  const linesPerPage = Math.floor(maxHeight / 24);
-  const charsPerPage = charsPerLine * linesPerPage;
-  
-  const parts: string[] = [];
-  let remaining = text;
-  
-  while (remaining.length > charsPerPage) {
-    let cutPoint = charsPerPage;
-    // Find a good break point (space, period, comma)
-    while (cutPoint > charsPerPage * 0.7 && !/[\s.,;:!?]/.test(remaining[cutPoint])) {
-      cutPoint--;
-    }
-    if (cutPoint <= charsPerPage * 0.7) cutPoint = charsPerPage;
-    
-    parts.push(remaining.substring(0, cutPoint).trim());
-    remaining = remaining.substring(cutPoint).trim();
+  // Headings - estimate based on font size
+  if (tagName === 'h1') {
+    const h1CharsPerLine = Math.floor(contentWidth / 14); // Larger font
+    return Math.ceil(text.length / h1CharsPerLine) + 2; // +2 for margins
+  }
+  if (tagName === 'h2') {
+    const h2CharsPerLine = Math.floor(contentWidth / 10);
+    return Math.ceil(text.length / h2CharsPerLine) + 2;
+  }
+  if (tagName === 'h3' || tagName === 'h4') {
+    const h3CharsPerLine = Math.floor(contentWidth / 8);
+    return Math.ceil(text.length / h3CharsPerLine) + 1;
   }
   
-  if (remaining) parts.push(remaining);
-  return parts;
+  // Tables - count rows
+  if (tagName === 'table') {
+    const rows = element.querySelectorAll('tr');
+    // Each row ~1.5 lines (considering padding), + header + margins
+    return Math.ceil(rows.length * 1.5) + 2;
+  }
+  
+  // Lists - count items
+  if (tagName === 'ul' || tagName === 'ol') {
+    const items = element.querySelectorAll('li');
+    let totalLines = 1; // margin
+    items.forEach(li => {
+      const liText = li.textContent || '';
+      totalLines += Math.max(1, Math.ceil(liText.length / (charsPerLine - 4))); // -4 for indent
+    });
+    return totalLines;
+  }
+  
+  // Paragraphs - based on text length
+  if (tagName === 'p') {
+    return Math.max(1, Math.ceil(text.length / charsPerLine)) + 1; // +1 for margin
+  }
+  
+  // Default - estimate based on text
+  return Math.max(1, Math.ceil(text.length / charsPerLine));
 };
 
-// Divide content into A4 pages based on height - IMPROVED VERSION
+// Split paragraph text to fit available lines
+const splitParagraphByLines = (
+  text: string,
+  availableLines: number,
+  charsPerLine: number
+): { firstPart: string; secondPart: string } => {
+  const charsForFirstPart = availableLines * charsPerLine;
+  
+  // Find natural break point
+  let cutPoint = Math.min(charsForFirstPart, text.length);
+  while (cutPoint > charsForFirstPart * 0.7 && cutPoint < text.length && !/[\s.,;:!?]/.test(text[cutPoint])) {
+    cutPoint--;
+  }
+  if (cutPoint <= charsForFirstPart * 0.7) cutPoint = charsForFirstPart;
+  
+  return {
+    firstPart: text.substring(0, cutPoint).trim(),
+    secondPart: text.substring(cutPoint).trim()
+  };
+};
+
+// Split table by rows to fit available lines
+const splitTableByRows = (
+  table: HTMLElement,
+  availableLines: number
+): { firstPart: string; secondPart: string } => {
+  const thead = table.querySelector('thead');
+  const theadHtml = thead?.outerHTML || '';
+  const headerLines = thead ? 2 : 0;
+  
+  const rows = Array.from(table.querySelectorAll('tbody > tr, :scope > tr:not(thead tr)'));
+  const availableRowLines = availableLines - headerLines - 1; // -1 for margin
+  const rowsPerLine = 1.5; // Each row takes ~1.5 lines
+  const maxRows = Math.floor(availableRowLines / rowsPerLine);
+  
+  if (maxRows <= 0 || rows.length === 0) {
+    return { firstPart: '', secondPart: table.outerHTML };
+  }
+  
+  const firstRows = rows.slice(0, maxRows);
+  const secondRows = rows.slice(maxRows);
+  
+  const firstPart = firstRows.length > 0 
+    ? `<table>${theadHtml}<tbody>${firstRows.map(r => r.outerHTML).join('')}</tbody></table>`
+    : '';
+  
+  const secondPart = secondRows.length > 0
+    ? `<table>${theadHtml}<tbody>${secondRows.map(r => r.outerHTML).join('')}</tbody></table>`
+    : '';
+  
+  return { firstPart, secondPart };
+};
+
+// Split list by items to fit available lines
+const splitListByItems = (
+  list: HTMLElement,
+  availableLines: number,
+  charsPerLine: number
+): { firstPart: string; secondPart: string } => {
+  const tagName = list.tagName.toLowerCase();
+  const items = Array.from(list.querySelectorAll(':scope > li'));
+  
+  let currentLines = 1; // margin
+  let splitIndex = 0;
+  
+  for (let i = 0; i < items.length; i++) {
+    const itemText = items[i].textContent || '';
+    const itemLines = Math.max(1, Math.ceil(itemText.length / (charsPerLine - 4)));
+    
+    if (currentLines + itemLines > availableLines) {
+      break;
+    }
+    currentLines += itemLines;
+    splitIndex = i + 1;
+  }
+  
+  if (splitIndex === 0) {
+    return { firstPart: '', secondPart: list.outerHTML };
+  }
+  
+  const firstItems = items.slice(0, splitIndex);
+  const secondItems = items.slice(splitIndex);
+  
+  const firstPart = `<${tagName}>${firstItems.map(i => i.outerHTML).join('')}</${tagName}>`;
+  const secondPart = secondItems.length > 0 
+    ? `<${tagName}>${secondItems.map(i => i.outerHTML).join('')}</${tagName}>`
+    : '';
+  
+  return { firstPart, secondPart };
+};
+
+// Divide content into pages - LINE-BASED ALGORITHM
 const divideContentIntoPages = (
   htmlContent: string, 
   leftMargin: number, 
@@ -182,198 +265,95 @@ const divideContentIntoPages = (
   }
 
   const CONTENT_WIDTH = PAGE_WIDTH - leftMargin - rightMargin;
+  const charsPerLine = Math.floor(CONTENT_WIDTH / CHAR_WIDTH_PX);
+  const linesPerPage = Math.floor(CONTENT_HEIGHT / LINE_HEIGHT_PX); // ~36 lines
 
-  // Create temporary container with ALL styles applied
+  // Parse HTML into elements
   const tempContainer = document.createElement('div');
   tempContainer.innerHTML = htmlContent;
-  tempContainer.className = 'page-content-area';
-  tempContainer.style.cssText = `
-    position: absolute;
-    visibility: hidden;
-    width: ${CONTENT_WIDTH}px;
-    font-family: Arial, sans-serif;
-    font-size: 11pt;
-    line-height: 1.6;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-    word-break: normal;
-    hyphens: none;
-  `;
-  document.body.appendChild(tempContainer);
 
   const pages: string[] = [];
   let currentPageHtml = '';
-  let currentHeight = 0;
+  let currentLines = 0;
 
   const children = Array.from(tempContainer.children);
 
   for (let i = 0; i < children.length; i++) {
     const element = children[i] as HTMLElement;
     const tagName = element.tagName.toLowerCase();
-    
-    // Measure element height accurately
-    const elementHeight = measureElementHeight(element, CONTENT_WIDTH);
+    const elementLines = calculateElementLines(element, CONTENT_WIDTH);
 
-    // CASE 1: Element fits in current page
-    if (currentHeight + elementHeight <= EFFECTIVE_HEIGHT) {
+    // CASE 1: Element fits completely in current page
+    if (currentLines + elementLines <= linesPerPage) {
       currentPageHtml += element.outerHTML;
-      currentHeight += elementHeight;
+      currentLines += elementLines;
       continue;
     }
 
-    // CASE 2: Element doesn't fit - handle specially
+    // CASE 2: Element doesn't fit - need to split or move
+    const remainingLines = linesPerPage - currentLines;
 
-    // 2A: Lists - split by items
-    if (tagName === 'ul' || tagName === 'ol') {
-      const items = Array.from(element.querySelectorAll(':scope > li'));
-      let listHtml = `<${tagName}>`;
-      let listHeight = 8; // Initial margin
+    // 2A: Paragraphs - split by text if beneficial
+    if (tagName === 'p' && remainingLines >= 2) {
+      const text = element.textContent || '';
+      const { firstPart, secondPart } = splitParagraphByLines(text, remainingLines - 1, charsPerLine);
       
-      for (let j = 0; j < items.length; j++) {
-        const item = items[j] as HTMLElement;
-        const itemHeight = measureElementHeight(item, CONTENT_WIDTH - 24); // Account for list padding
-        
-        // If a single item is too large for an empty page, we must include it anyway
-        if (currentHeight === 0 && listHeight === 8 && itemHeight > EFFECTIVE_HEIGHT) {
-          listHtml += item.outerHTML;
-          listHeight += itemHeight;
-          continue;
-        }
-        
-        if (currentHeight + listHeight + itemHeight <= EFFECTIVE_HEIGHT) {
-          listHtml += item.outerHTML;
-          listHeight += itemHeight;
-        } else {
-          // Close current list portion and add to page
-          if (listHtml !== `<${tagName}>`) {
-            listHtml += `</${tagName}>`;
-            currentPageHtml += listHtml;
-          }
-          
-          // Save current page
-          if (currentPageHtml.trim()) {
-            pages.push(currentPageHtml);
-          }
-          
-          // Start new page
-          currentPageHtml = '';
-          currentHeight = 0;
-          listHtml = `<${tagName}>` + item.outerHTML;
-          listHeight = 8 + itemHeight;
-        }
-      }
-      
-      // Add remaining list items
-      if (listHtml !== `<${tagName}>`) {
-        listHtml += `</${tagName}>`;
-        currentPageHtml += listHtml;
-        currentHeight += listHeight;
+      if (firstPart) {
+        currentPageHtml += `<p>${firstPart}</p>`;
+        pages.push(currentPageHtml);
+        currentPageHtml = secondPart ? `<p>${secondPart}</p>` : '';
+        currentLines = secondPart ? Math.ceil(secondPart.length / charsPerLine) + 1 : 0;
+      } else {
+        // Can't split meaningfully, push whole paragraph to new page
+        if (currentPageHtml.trim()) pages.push(currentPageHtml);
+        currentPageHtml = element.outerHTML;
+        currentLines = elementLines;
       }
     }
     // 2B: Tables - split by rows
-    else if (tagName === 'table') {
-      const thead = element.querySelector('thead');
-      const theadHtml = thead?.outerHTML || '';
-      const theadHeight = thead ? measureElementHeight(thead, CONTENT_WIDTH) : 0;
+    else if (tagName === 'table' && remainingLines >= 4) {
+      const { firstPart, secondPart } = splitTableByRows(element, remainingLines);
       
-      const rows = Array.from(element.querySelectorAll('tbody > tr, :scope > tr'));
-      let tableHtml = `<table>${theadHtml}<tbody>`;
-      let tableHeight = theadHeight + 12; // Include margins
-      
-      for (const row of rows) {
-        if (row.closest('thead')) continue;
-        
-        const rowEl = row as HTMLElement;
-        const rowHeight = measureElementHeight(rowEl, CONTENT_WIDTH);
-        
-        // If a single row is too large for an empty page
-        if (currentHeight === 0 && tableHeight === theadHeight + 12 && rowHeight > EFFECTIVE_HEIGHT - theadHeight) {
-          tableHtml += row.outerHTML;
-          tableHeight += rowHeight;
-          continue;
-        }
-        
-        if (currentHeight + tableHeight + rowHeight <= EFFECTIVE_HEIGHT) {
-          tableHtml += row.outerHTML;
-          tableHeight += rowHeight;
-        } else {
-          // Save current table portion
-          if (tableHtml !== `<table>${theadHtml}<tbody>`) {
-            tableHtml += '</tbody></table>';
-            currentPageHtml += tableHtml;
-          }
-          
-          // Save current page
-          if (currentPageHtml.trim()) {
-            pages.push(currentPageHtml);
-          }
-          
-          // Start new page with header repeated
-          currentPageHtml = '';
-          currentHeight = 0;
-          tableHtml = `<table>${theadHtml}<tbody>` + row.outerHTML;
-          tableHeight = theadHeight + 12 + rowHeight;
-        }
-      }
-      
-      // Add remaining table
-      if (tableHtml !== `<table>${theadHtml}<tbody>`) {
-        tableHtml += '</tbody></table>';
-        currentPageHtml += tableHtml;
-        currentHeight += tableHeight;
-      }
-    }
-    // 2C: Long paragraphs - split by text
-    else if (tagName === 'p' && elementHeight > EFFECTIVE_HEIGHT) {
-      const text = element.textContent || '';
-      const availableHeight = currentHeight > 0 ? EFFECTIVE_HEIGHT - currentHeight : EFFECTIVE_HEIGHT;
-      const parts = splitLongParagraph(text, CONTENT_WIDTH, availableHeight);
-      
-      for (let k = 0; k < parts.length; k++) {
-        const partHtml = `<p>${parts[k]}</p>`;
-        const partHeight = measureElementHeight(
-          Object.assign(document.createElement('p'), { innerHTML: parts[k] }),
+      if (firstPart) {
+        currentPageHtml += firstPart;
+        pages.push(currentPageHtml);
+        currentPageHtml = secondPart || '';
+        currentLines = secondPart ? calculateElementLines(
+          Object.assign(document.createElement('div'), { innerHTML: secondPart }).firstChild as HTMLElement,
           CONTENT_WIDTH
-        );
-        
-        if (k === 0 && currentHeight > 0 && currentHeight + partHeight <= EFFECTIVE_HEIGHT) {
-          currentPageHtml += partHtml;
-          currentHeight += partHeight;
-        } else if (k === 0 && currentHeight > 0) {
-          // First part doesn't fit, save page and start new one
-          pages.push(currentPageHtml);
-          currentPageHtml = partHtml;
-          currentHeight = partHeight;
-        } else if (k < parts.length - 1) {
-          // Middle parts go to their own pages
-          if (currentPageHtml.trim()) {
-            pages.push(currentPageHtml);
-          }
-          currentPageHtml = partHtml;
-          currentHeight = partHeight;
-          pages.push(currentPageHtml);
-          currentPageHtml = '';
-          currentHeight = 0;
-        } else {
-          // Last part
-          if (currentPageHtml.trim()) {
-            pages.push(currentPageHtml);
-          }
-          currentPageHtml = partHtml;
-          currentHeight = partHeight;
-        }
+        ) : 0;
+      } else {
+        // Table too small to split, move to new page
+        if (currentPageHtml.trim()) pages.push(currentPageHtml);
+        currentPageHtml = element.outerHTML;
+        currentLines = elementLines;
       }
     }
-    // 2D: Headings and other elements - push to new page (never split)
+    // 2C: Lists - split by items
+    else if ((tagName === 'ul' || tagName === 'ol') && remainingLines >= 2) {
+      const { firstPart, secondPart } = splitListByItems(element, remainingLines, charsPerLine);
+      
+      if (firstPart) {
+        currentPageHtml += firstPart;
+        pages.push(currentPageHtml);
+        currentPageHtml = secondPart || '';
+        currentLines = secondPart ? calculateElementLines(
+          Object.assign(document.createElement('div'), { innerHTML: secondPart }).firstChild as HTMLElement,
+          CONTENT_WIDTH
+        ) : 0;
+      } else {
+        if (currentPageHtml.trim()) pages.push(currentPageHtml);
+        currentPageHtml = element.outerHTML;
+        currentLines = elementLines;
+      }
+    }
+    // 2D: Headings and other elements - never split, move to new page
     else {
-      // Save current page if has content
       if (currentPageHtml.trim()) {
         pages.push(currentPageHtml);
       }
-      
-      // Start new page with this element
       currentPageHtml = element.outerHTML;
-      currentHeight = Math.min(elementHeight, EFFECTIVE_HEIGHT);
+      currentLines = elementLines;
     }
   }
 
@@ -381,8 +361,6 @@ const divideContentIntoPages = (
   if (currentPageHtml.trim()) {
     pages.push(currentPageHtml);
   }
-
-  document.body.removeChild(tempContainer);
 
   return pages.length > 0 ? pages : [''];
 };
