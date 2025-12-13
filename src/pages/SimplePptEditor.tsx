@@ -9,6 +9,7 @@ import html2canvas from 'html2canvas';
 import PptxGenJS from 'pptxgenjs';
 import portadaImage from '@/assets/presentacion_1_2.png';
 import graciasImage from '@/assets/presentacion_1_3.png';
+import slideBackgroundImage from '@/assets/hojas_de_en_medio.png';
 
 // 16:9 HD dimensions (standard presentation format)
 const SLIDE_WIDTH = 1280;  // 16:9 HD width
@@ -968,17 +969,19 @@ export default function SimplePptEditor() {
           </div>
         </div>
 
-        {/* SLIDES DE CONTENIDO (editables, eliminables) */}
+        {/* SLIDES DE CONTENIDO (editables, eliminables) con fondo corporativo */}
         {slidesContent.map((slideHtml, index) => (
           <div
             key={index}
-            className="ppt-slide bg-white shadow-2xl overflow-hidden group"
+            className="ppt-slide shadow-2xl overflow-hidden group"
             style={{
               width: `${SLIDE_WIDTH}px`,
               height: `${SLIDE_HEIGHT}px`,
-              padding: `${PADDING}px`,
               boxSizing: 'border-box',
               position: 'relative',
+              backgroundImage: `url(${slideBackgroundImage})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center',
             }}
           >
             {/* Botón eliminar (visible al hover) */}
@@ -993,17 +996,24 @@ export default function SimplePptEditor() {
             </Button>
             
             {/* Slide number badge */}
-            <div className="absolute bottom-3 right-4 text-xs text-gray-400 font-medium pointer-events-none">
+            <div className="absolute bottom-3 right-4 text-xs text-gray-600 font-medium pointer-events-none">
               {index + 2} / {slidesContent.length + 2}
             </div>
             
-            {/* Slide content - editable */}
+            {/* Slide content - editable with padding for logo */}
             <div 
               ref={el => slideRefs.current[index] = el}
-              className="slide-content"
+              className="slide-content bg-white/95"
               contentEditable
               suppressContentEditableWarning
               onBlur={handleSlideBlur}
+              style={{
+                margin: '70px 50px 50px 50px',
+                padding: '20px',
+                height: 'calc(100% - 120px)',
+                overflow: 'hidden',
+                borderRadius: '4px',
+              }}
               dangerouslySetInnerHTML={{ __html: slideHtml }}
             />
           </div>
