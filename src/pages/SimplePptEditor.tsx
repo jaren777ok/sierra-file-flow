@@ -14,11 +14,27 @@ import slideBackgroundImage from '@/assets/hojas_de_en_medio.png';
 // 16:9 HD dimensions (standard presentation format)
 const SLIDE_WIDTH = 1280;  // 16:9 HD width
 const SLIDE_HEIGHT = 720;  // 16:9 HD height
-const PADDING = 50;        // Adjusted for 16:9 proportion
-const SAFETY_MARGIN = 90;  // Adjusted for 16:9 proportion
-const CONTENT_HEIGHT = SLIDE_HEIGHT - (PADDING * 2); // 620px
-const EFFECTIVE_HEIGHT = CONTENT_HEIGHT - SAFETY_MARGIN; // 530px
-const MIN_CONTENT_WITH_TITLE = 70; // Mínimo contenido que debe acompañar a un título
+
+// Content area margins (respecting logo and bottom strips)
+const CONTENT_TOP = 30;
+const CONTENT_BOTTOM = 80;
+const CONTENT_LEFT = 60;
+const CONTENT_RIGHT = 180;
+const CONTENT_PADDING = 20;
+
+// Calculated text area dimensions
+const TEXT_AREA_HEIGHT = SLIDE_HEIGHT - CONTENT_TOP - CONTENT_BOTTOM - (CONTENT_PADDING * 2); // 720 - 30 - 80 - 40 = 570px
+const TEXT_AREA_WIDTH = SLIDE_WIDTH - CONTENT_LEFT - CONTENT_RIGHT - (CONTENT_PADDING * 2);  // 1280 - 60 - 180 - 40 = 1000px
+
+// Font and line constants (11pt ≈ 14.67px)
+const FONT_SIZE_PX = 14.67;
+const LINE_HEIGHT_MULTIPLIER = 1.5;
+const LINE_HEIGHT_PX = Math.ceil(FONT_SIZE_PX * LINE_HEIGHT_MULTIPLIER); // ~22px
+const CHAR_WIDTH_PX = 7.5;  // Average char width at 11pt Arial
+
+// ABSOLUTE LIMITS - Line-based pagination
+const MAX_LINES_PER_SLIDE = Math.floor(TEXT_AREA_HEIGHT / LINE_HEIGHT_PX); // ~25-26 lines
+const CHARS_PER_LINE = Math.floor(TEXT_AREA_WIDTH / CHAR_WIDTH_PX); // ~133 characters
 
 // Helper para verificar si un elemento es un título
 const isHeading = (tagName: string): boolean => {
@@ -167,270 +183,154 @@ export default function SimplePptEditor() {
   const slidesContainerRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Divide content into slides based on element heights - OPTIMIZED to fill available space
+  // Count lines for an element based on text content (character counting)
+  const countElementLines = (element: HTMLElement): number => {
+    const tagName = element.tagName.toLowerCase();
+    
+    // Headings: fixed lines
+    if (tagName === 'h1') return 3;
+    if (tagName === 'h2') return 2;
+    if (tagName === 'h3') return 2;
+    if (tagName === 'h4') return 1;
+    
+    // Tables: count rows + header
+    if (tagName === 'table') {
+      const rows = element.querySelectorAll('tr');
+      return rows.length + 1;
+    }
+    
+    // Lists: sum lines of each item
+    if (tagName === 'ul' || tagName === 'ol') {
+      const items = element.querySelectorAll('li');
+      let lines = 0;
+      items.forEach(item => {
+        const text = item.textContent || '';
+        lines += Math.max(1, Math.ceil(text.length / CHARS_PER_LINE));
+      });
+      return lines + 1; // +1 for margin
+    }
+    
+    // Paragraphs: calculate by characters
+    const text = element.textContent || '';
+    return Math.max(1, Math.ceil(text.length / CHARS_PER_LINE));
+  };
+
+  // Divide content into slides based on LINE COUNT (not DOM height)
   const divideContentIntoSlides = useCallback((html: string): string[] => {
     const slides: string[] = [];
     
-    // Create temporary container to measure elements
+    // Parse HTML into elements
     const tempContainer = document.createElement('div');
-    tempContainer.style.cssText = `
-      position: absolute;
-      visibility: hidden;
-      width: ${SLIDE_WIDTH - (PADDING * 2)}px;
-      font-family: Arial, sans-serif;
-      font-size: 14px;
-      line-height: 1.5;
-    `;
-    tempContainer.className = 'slide-content';
     tempContainer.innerHTML = html;
-    document.body.appendChild(tempContainer);
-
+    
     let currentSlideHtml = '';
-    let currentHeight = 0;
+    let currentLines = 0;
+    const MAX_LINES = MAX_LINES_PER_SLIDE - 1; // Small safety margin
     
-    // Espacio mínimo que debe quedar después de un título para contenido
-    const MIN_SPACE_FOR_CONTENT = 130; // Adjusted for 16:9
-    
-    // Helper to save current slide and reset
+    // Helper to save current slide
     const saveCurrentSlide = () => {
-      if (currentSlideHtml !== '') {
+      if (currentSlideHtml.trim()) {
         slides.push(currentSlideHtml);
         currentSlideHtml = '';
-        currentHeight = 0;
+        currentLines = 0;
       }
     };
     
-    // Get all block-level children
     const children = Array.from(tempContainer.children);
     
     for (let i = 0; i < children.length; i++) {
       const element = children[i] as HTMLElement;
       const tagName = element.tagName.toLowerCase();
-      const elementHeight = element.getBoundingClientRect().height;
+      const elementLines = countElementLines(element);
       
-      // CASE 1: Element fits completely in current slide
-      if (currentHeight + elementHeight <= EFFECTIVE_HEIGHT) {
-        // Si es un título, verificar que quede espacio suficiente para contenido siguiente
-        if (isHeading(tagName)) {
-          const spaceAfterTitle = EFFECTIVE_HEIGHT - (currentHeight + elementHeight);
-          const nextElement = children[i + 1] as HTMLElement | undefined;
-          
-          // Si hay siguiente elemento y el espacio restante es limitado
-          if (nextElement && spaceAfterTitle < MIN_SPACE_FOR_CONTENT) {
-            const nextTagName = nextElement.tagName.toLowerCase();
-            
-            // Calcular cuánto espacio mínimo necesita el siguiente elemento
-            let minNextSpace = MIN_SPACE_FOR_CONTENT;
-            
-            if (nextTagName === 'ul' || nextTagName === 'ol') {
-              // Para listas, calcular altura del primer item
-              const firstItem = nextElement.querySelector(':scope > li') as HTMLElement;
-              if (firstItem) {
-                minNextSpace = firstItem.getBoundingClientRect().height;
-              }
-            } else if (nextTagName === 'table') {
-              // Para tablas, calcular altura de primera fila
-              const firstRow = nextElement.querySelector('tbody tr, :scope > tr') as HTMLElement;
-              const thead = nextElement.querySelector('thead') as HTMLElement;
-              if (firstRow) {
-                minNextSpace = firstRow.getBoundingClientRect().height + (thead?.getBoundingClientRect().height || 0);
-              }
-            } else if (!isHeading(nextTagName)) {
-              // Para párrafos u otros elementos, usar su altura o mínimo
-              minNextSpace = Math.min(nextElement.getBoundingClientRect().height, MIN_SPACE_FOR_CONTENT);
-            }
-            
-            // Si NO hay espacio suficiente para el mínimo requerido, mover título a nuevo slide
-            if (spaceAfterTitle < minNextSpace) {
-              saveCurrentSlide();
-              currentSlideHtml = element.outerHTML;
-              currentHeight = elementHeight;
-              continue;
-            }
-          }
-        }
-        
-        // Comportamiento normal: agregar elemento
+      // CASE 1: Element fits completely
+      if (currentLines + elementLines <= MAX_LINES) {
         currentSlideHtml += element.outerHTML;
-        currentHeight += elementHeight;
+        currentLines += elementLines;
         continue;
       }
       
-      // CASE 2: Element is a list (ul/ol) - divide by items, filling current space first
-      if (tagName === 'ul' || tagName === 'ol') {
-        const listItems = Array.from(element.querySelectorAll(':scope > li'));
-        let listHtml = `<${tagName}>`;
-        let listHeight = 0;
-        let availableHeight = EFFECTIVE_HEIGHT - currentHeight;
-        let itemsInCurrentSlide = 0;
-        
-        // Si el slide actual tiene un título, asegurar al menos 2 items con él
-        const currentSlideHasHeading = /<h[1-4][^>]*>/.test(currentSlideHtml);
-        const minItemsWithHeading = currentSlideHasHeading ? 2 : 0;
-        
-        for (let j = 0; j < listItems.length; j++) {
-          const liElement = listItems[j] as HTMLElement;
-          const liHeight = liElement.getBoundingClientRect().height;
-          
-          // If this item won't fit in available space
-          if (listHeight + liHeight > availableHeight) {
-            // Si tenemos título y pocos items, verificar si podemos forzar SIN exceder límite absoluto
-            if (currentSlideHasHeading && itemsInCurrentSlide < minItemsWithHeading) {
-              const totalHeightWithItem = currentHeight + listHeight + liHeight;
-              // Solo forzar si el TOTAL no excede EFFECTIVE_HEIGHT
-              if (totalHeightWithItem <= EFFECTIVE_HEIGHT) {
-                listHtml += liElement.outerHTML;
-                listHeight += liHeight;
-                itemsInCurrentSlide++;
-                continue;
-              }
-              // Si excede, NO forzar - continuar con división normal
-            }
-            
-            // Si hay items acumulados, cerrar lista y guardar slide
-            if (listHtml !== `<${tagName}>`) {
-              currentSlideHtml += listHtml + `</${tagName}>`;
-              saveCurrentSlide();
-              listHtml = `<${tagName}>`;
-              listHeight = 0;
-              itemsInCurrentSlide = 0;
-              availableHeight = EFFECTIVE_HEIGHT;
-            } else if (currentSlideHtml !== '') {
-              saveCurrentSlide();
-              availableHeight = EFFECTIVE_HEIGHT;
-            }
-          }
-          
-          listHtml += liElement.outerHTML;
-          listHeight += liHeight;
-          itemsInCurrentSlide++;
-        }
-        
-        // Add remaining list items to current slide
-        if (listHtml !== `<${tagName}>`) {
-          currentSlideHtml += listHtml + `</${tagName}>`;
-          currentHeight += listHeight;
-        }
-        continue;
-      }
+      const remainingLines = MAX_LINES - currentLines;
       
-      // CASE 3: Element is a table - divide by rows, filling current space first
-      if (tagName === 'table') {
+      // CASE 2: Tables - split by rows
+      if (tagName === 'table' && remainingLines >= 2) {
         const thead = element.querySelector('thead');
         const tbody = element.querySelector('tbody');
         const rows = Array.from(tbody ? tbody.querySelectorAll('tr') : element.querySelectorAll(':scope > tr'));
         const theadHtml = thead ? thead.outerHTML : '';
-        const theadHeight = thead ? thead.getBoundingClientRect().height : 0;
         
-        let tableHtml = `<table>${theadHtml}<tbody>`;
-        let tableHeight = theadHeight;
-        let availableHeight = EFFECTIVE_HEIGHT - currentHeight;
-        let rowsInCurrentSlide = 0;
+        // Calculate how many rows fit (1 line per row + 1 for header)
+        const rowsForCurrentSlide = Math.max(1, remainingLines - 1);
         
-        // Si el slide actual tiene un título, asegurar al menos 2 filas con él
-        const currentSlideHasHeading = /<h[1-4][^>]*>/.test(currentSlideHtml);
-        const minRowsWithHeading = currentSlideHasHeading ? 2 : 0;
-        
-        for (let j = 0; j < rows.length; j++) {
-          const rowElement = rows[j] as HTMLElement;
-          const rowHeight = rowElement.getBoundingClientRect().height;
+        if (rowsForCurrentSlide < rows.length) {
+          // Split table
+          const firstRows = rows.slice(0, rowsForCurrentSlide);
+          const remainingRows = rows.slice(rowsForCurrentSlide);
           
-          // If this row won't fit in available space
-          if (tableHeight + rowHeight > availableHeight) {
-            // Si tenemos título y pocas filas, verificar si podemos forzar SIN exceder límite absoluto
-            if (currentSlideHasHeading && rowsInCurrentSlide < minRowsWithHeading) {
-              const totalHeightWithRow = currentHeight + tableHeight + rowHeight;
-              // Solo forzar si el TOTAL no excede EFFECTIVE_HEIGHT
-              if (totalHeightWithRow <= EFFECTIVE_HEIGHT) {
-                tableHtml += rowElement.outerHTML;
-                tableHeight += rowHeight;
-                rowsInCurrentSlide++;
-                continue;
-              }
-              // Si excede, NO forzar - continuar con división normal
-            }
-            
-            // Si hay filas acumuladas, cerrar tabla y guardar slide
-            if (tableHtml !== `<table>${theadHtml}<tbody>`) {
-              currentSlideHtml += tableHtml + '</tbody></table>';
-              saveCurrentSlide();
-              tableHtml = `<table>${theadHtml}<tbody>`;
-              tableHeight = theadHeight;
-              rowsInCurrentSlide = 0;
-              availableHeight = EFFECTIVE_HEIGHT;
-            } else if (currentSlideHtml !== '') {
-              saveCurrentSlide();
-              availableHeight = EFFECTIVE_HEIGHT;
-            }
-          }
+          // Add first part to current slide
+          currentSlideHtml += `<table>${theadHtml}<tbody>${firstRows.map(r => (r as HTMLElement).outerHTML).join('')}</tbody></table>`;
+          saveCurrentSlide();
           
-          tableHtml += rowElement.outerHTML;
-          tableHeight += rowHeight;
-          rowsInCurrentSlide++;
+          // Put remaining rows in new slide
+          currentSlideHtml = `<table>${theadHtml}<tbody>${remainingRows.map(r => (r as HTMLElement).outerHTML).join('')}</tbody></table>`;
+          currentLines = remainingRows.length + 1;
+          continue;
         }
-        
-        // Add remaining table rows to current slide
-        if (tableHtml !== `<table>${theadHtml}<tbody>`) {
-          currentSlideHtml += tableHtml + '</tbody></table>';
-          currentHeight += tableHeight;
-        }
-        continue;
       }
       
-      // CASE 4: Headings (h1-h4) - implement "Keep With Next" logic
-      if (isHeading(tagName)) {
-        const nextElement = children[i + 1] as HTMLElement | undefined;
+      // CASE 3: Lists - split by items
+      if ((tagName === 'ul' || tagName === 'ol') && remainingLines >= 1) {
+        const items = Array.from(element.querySelectorAll(':scope > li'));
+        let itemsForCurrentSlide = 0;
+        let linesUsed = 0;
         
-        if (nextElement) {
-          const nextTagName = nextElement.tagName.toLowerCase();
-          const nextHeight = nextElement.getBoundingClientRect().height;
+        for (const item of items) {
+          const itemText = item.textContent || '';
+          const itemLines = Math.max(1, Math.ceil(itemText.length / CHARS_PER_LINE));
           
-          // Calcular el contenido mínimo que debe acompañar al título
-          let minNextContentHeight = MIN_CONTENT_WITH_TITLE;
-          
-          // Si el siguiente es una lista/tabla, calcular altura de primeros items
-          if (nextTagName === 'ul' || nextTagName === 'ol') {
-            const firstItems = Array.from(nextElement.querySelectorAll(':scope > li')).slice(0, 2);
-            minNextContentHeight = firstItems.reduce((sum, li) => 
-              sum + (li as HTMLElement).getBoundingClientRect().height, 0);
-          } else if (nextTagName === 'table') {
-            const thead = nextElement.querySelector('thead');
-            const firstRows = Array.from(nextElement.querySelectorAll('tbody tr, :scope > tr')).slice(0, 2);
-            const theadHeight = thead ? thead.getBoundingClientRect().height : 0;
-            minNextContentHeight = theadHeight + firstRows.reduce((sum, row) => 
-              sum + (row as HTMLElement).getBoundingClientRect().height, 0);
+          if (linesUsed + itemLines <= remainingLines) {
+            linesUsed += itemLines;
+            itemsForCurrentSlide++;
           } else {
-            minNextContentHeight = Math.min(nextHeight, MIN_CONTENT_WITH_TITLE);
-          }
-          
-          // Si el título + contenido mínimo caben en un nuevo slide
-          if (elementHeight + minNextContentHeight <= EFFECTIVE_HEIGHT) {
-            // Guardar slide actual y poner título en nuevo slide
-            saveCurrentSlide();
-            currentSlideHtml = element.outerHTML;
-            currentHeight = elementHeight;
-            continue;
+            break;
           }
         }
         
-        // Si no hay siguiente elemento o no aplica, comportamiento normal
+        if (itemsForCurrentSlide > 0 && itemsForCurrentSlide < items.length) {
+          // Split list
+          const firstItems = items.slice(0, itemsForCurrentSlide);
+          const remainingItems = items.slice(itemsForCurrentSlide);
+          
+          // Add first part to current slide
+          currentSlideHtml += `<${tagName}>${firstItems.map(li => (li as HTMLElement).outerHTML).join('')}</${tagName}>`;
+          saveCurrentSlide();
+          
+          // Put remaining items in new slide
+          currentSlideHtml = `<${tagName}>${remainingItems.map(li => (li as HTMLElement).outerHTML).join('')}</${tagName}>`;
+          currentLines = remainingItems.reduce((sum, li) => {
+            const text = li.textContent || '';
+            return sum + Math.max(1, Math.ceil(text.length / CHARS_PER_LINE));
+          }, 1);
+          continue;
+        }
+      }
+      
+      // CASE 4: Headings - never split, push to next slide
+      if (isHeading(tagName)) {
         saveCurrentSlide();
         currentSlideHtml = element.outerHTML;
-        currentHeight = elementHeight;
+        currentLines = elementLines;
         continue;
       }
       
-      // CASE 5: Simple element (p, div, etc.) that doesn't fit
+      // CASE 5: Other elements - push to next slide
       saveCurrentSlide();
       currentSlideHtml = element.outerHTML;
-      currentHeight = elementHeight;
+      currentLines = elementLines;
     }
     
-    // Save last slide if has content
+    // Save last slide
     saveCurrentSlide();
-
-    // Clean up
-    document.body.removeChild(tempContainer);
     
     // Ensure at least one slide
     if (slides.length === 0 && html.trim()) {
@@ -1000,23 +900,27 @@ export default function SimplePptEditor() {
               {index + 2} / {slidesContent.length + 2}
             </div>
             
-            {/* Slide content - editable directly on background (no white box) */}
+            {/* Slide content - fixed text area with line-based limits */}
             <div 
               ref={el => slideRefs.current[index] = el}
-              className="slide-content"
+              className="slide-content ppt-content-area"
               contentEditable
               suppressContentEditableWarning
               onBlur={handleSlideBlur}
               style={{
                 position: 'absolute',
-                top: '30px',
-                left: '60px',
-                right: '180px',  // Space for logo on right
-                bottom: '80px',  // Space for bottom strips
-                padding: '20px',
-                overflow: 'hidden',
+                top: `${CONTENT_TOP}px`,
+                left: `${CONTENT_LEFT}px`,
+                right: `${CONTENT_RIGHT}px`,
+                bottom: `${CONTENT_BOTTOM}px`,
+                padding: `${CONTENT_PADDING}px`,
+                maxHeight: `${TEXT_AREA_HEIGHT}px`,  // Fixed max height
+                overflow: 'auto',  // Show scroll if overflow (for debugging)
                 color: '#1a1a1a',
                 backgroundColor: 'transparent',
+                fontFamily: 'Arial, sans-serif',
+                fontSize: `${FONT_SIZE_PX}px`,
+                lineHeight: LINE_HEIGHT_MULTIPLIER,
               }}
               dangerouslySetInnerHTML={{ __html: slideHtml }}
             />

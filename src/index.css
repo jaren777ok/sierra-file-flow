@@ -448,6 +448,40 @@
   line-height: 1.4;
 }
 
+/* PPT content area - fixed line-based layout */
+.ppt-content-area {
+  font-family: Arial, sans-serif;
+  font-size: 14.67px;
+  line-height: 1.5;
+}
+
+.ppt-content-area h1 {
+  font-size: 18pt;
+  font-weight: 800;
+  margin: 0 0 12px 0;
+}
+
+.ppt-content-area h2 {
+  font-size: 14pt;
+  font-weight: 700;
+  margin: 10px 0 8px 0;
+  text-transform: uppercase;
+}
+
+.ppt-content-area h3 {
+  font-size: 12pt;
+  font-weight: 700;
+  margin: 8px 0 6px 0;
+}
+
+.ppt-content-area p {
+  margin-bottom: 8px;
+}
+
+.ppt-content-area li {
+  margin-bottom: 4px;
+}
+
 .slide-content table {
   width: 100%;
   border-collapse: collapse;
@@ -484,4 +518,27 @@
 
 .slide-content u {
   text-decoration: underline;
+}
+
+/* PPT tables inherit from content area */
+.ppt-content-area table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 11px;
+  table-layout: fixed;
+}
+
+.ppt-content-area th,
+.ppt-content-area td {
+  border: 1px solid #333;
+  padding: 4px 6px;
+  text-align: left;
+  word-break: break-word;
+}
+
+.ppt-content-area th {
+  background-color: hsl(var(--sierra-teal));
+  color: white;
+  font-weight: 700;
 }
