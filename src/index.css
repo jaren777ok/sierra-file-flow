@@ -284,28 +284,28 @@
     line-height: 1.5;
   }
 
-.page-content-area table {
+  .page-content-area table {
     width: 100% !important;
     table-layout: fixed !important;
     border-collapse: collapse;
-    margin: 3pt 0 !important;
-    font-size: 7pt !important;
-    word-break: break-all;
-    overflow-wrap: anywhere;
+    margin: 6pt 0 !important;
+    font-size: 9pt !important;
+    word-break: break-word;
+    overflow-wrap: break-word;
     page-break-inside: auto;
   }
 
   .page-content-area th,
   .page-content-area td {
     border: 1px solid #000;
-    padding: 1pt 2pt !important;
+    padding: 3pt 4pt !important;
     text-align: left;
-    word-break: break-all;
-    overflow-wrap: anywhere;
-    font-size: 7pt !important;
+    word-break: break-word;
+    overflow-wrap: break-word;
+    font-size: 9pt !important;
     max-width: 0;
     vertical-align: top;
-    line-height: 1.2;
+    line-height: 1.4;
   }
 
   .page-content-area th {
