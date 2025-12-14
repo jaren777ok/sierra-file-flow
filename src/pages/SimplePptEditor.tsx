@@ -15,24 +15,24 @@ import slideBackgroundImage from '@/assets/hojas_de_en_medio.png';
 const SLIDE_WIDTH = 1280;  // 16:9 HD width
 const SLIDE_HEIGHT = 720;  // 16:9 HD height
 
-// Content area margins (respecting logo and bottom strips)
+// Content area margins (respecting logo and bottom orange strips)
 const CONTENT_TOP = 30;
-const CONTENT_BOTTOM = 80;
+const CONTENT_BOTTOM = 150;  // INCREASED to respect bottom strips
 const CONTENT_LEFT = 60;
 const CONTENT_RIGHT = 180;
 const CONTENT_PADDING = 20;
 
-// Calculated text area dimensions - EXACT
-const TEXT_AREA_HEIGHT = 570;  // 720 - 30 - 80 - 40 = 570px
+// Calculated text area dimensions - CORRECTED for visible area
+const TEXT_AREA_HEIGHT = 500;  // 720 - 30 - 150 - 40 = 500px visible
 const TEXT_AREA_WIDTH = 1000;  // 1280 - 60 - 180 - 40 = 1000px
 
-// Font and line constants (11pt ≈ 14.67px)
-const LINE_HEIGHT_PX = 22;  // 11pt * 1.5 line-height
-const CHAR_WIDTH_PX = 7;    // Average char width at 11pt Arial (más conservador)
+// Font and line constants for precise calculation
+const LINE_HEIGHT_PX = 26;  // 11pt * 1.6 + extra spacing for readability
+const CHAR_WIDTH_PX = 7;    // Average char width at 11pt Arial
 
-// ABSOLUTE LIMITS - FIXED LINE CAPACITY
-const MAX_LINES_PER_SLIDE = 25;  // 570 / 22 ≈ 25 líneas exactas
-const CHARS_PER_LINE = 142;      // 1000 / 7 ≈ 142 caracteres por línea
+// STRICT LIMITS - CORRECTED for visible area only
+const MAX_LINES_PER_SLIDE = 19;  // 500 / 26 ≈ 19 lines (CORRECTED)
+const CHARS_PER_LINE = 142;      // 1000 / 7 ≈ 142 chars per line
 
 // Helper para verificar si un elemento es un título
 const isHeading = (tagName: string): boolean => {
