@@ -22,19 +22,17 @@ const CONTENT_LEFT = 60;
 const CONTENT_RIGHT = 180;
 const CONTENT_PADDING = 20;
 
-// Calculated text area dimensions
-const TEXT_AREA_HEIGHT = SLIDE_HEIGHT - CONTENT_TOP - CONTENT_BOTTOM - (CONTENT_PADDING * 2); // 720 - 30 - 80 - 40 = 570px
-const TEXT_AREA_WIDTH = SLIDE_WIDTH - CONTENT_LEFT - CONTENT_RIGHT - (CONTENT_PADDING * 2);  // 1280 - 60 - 180 - 40 = 1000px
+// Calculated text area dimensions - EXACT
+const TEXT_AREA_HEIGHT = 570;  // 720 - 30 - 80 - 40 = 570px
+const TEXT_AREA_WIDTH = 1000;  // 1280 - 60 - 180 - 40 = 1000px
 
 // Font and line constants (11pt ≈ 14.67px)
-const FONT_SIZE_PX = 14.67;
-const LINE_HEIGHT_MULTIPLIER = 1.5;
-const LINE_HEIGHT_PX = Math.ceil(FONT_SIZE_PX * LINE_HEIGHT_MULTIPLIER); // ~22px
-const CHAR_WIDTH_PX = 7.5;  // Average char width at 11pt Arial
+const LINE_HEIGHT_PX = 22;  // 11pt * 1.5 line-height
+const CHAR_WIDTH_PX = 7;    // Average char width at 11pt Arial (más conservador)
 
-// ABSOLUTE LIMITS - Line-based pagination
-const MAX_LINES_PER_SLIDE = Math.floor(TEXT_AREA_HEIGHT / LINE_HEIGHT_PX); // ~25-26 lines
-const CHARS_PER_LINE = Math.floor(TEXT_AREA_WIDTH / CHAR_WIDTH_PX); // ~133 characters
+// ABSOLUTE LIMITS - FIXED LINE CAPACITY
+const MAX_LINES_PER_SLIDE = 25;  // 570 / 22 ≈ 25 líneas exactas
+const CHARS_PER_LINE = 142;      // 1000 / 7 ≈ 142 caracteres por línea
 
 // Helper para verificar si un elemento es un título
 const isHeading = (tagName: string): boolean => {
@@ -183,161 +181,185 @@ export default function SimplePptEditor() {
   const slidesContainerRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Count lines for an element based on text content (character counting)
-  const countElementLines = (element: HTMLElement): number => {
-    const tagName = element.tagName.toLowerCase();
-    
-    // Headings: fixed lines
-    if (tagName === 'h1') return 3;
-    if (tagName === 'h2') return 2;
-    if (tagName === 'h3') return 2;
-    if (tagName === 'h4') return 1;
-    
-    // Tables: count rows + header
-    if (tagName === 'table') {
-      const rows = element.querySelectorAll('tr');
-      return rows.length + 1;
-    }
-    
-    // Lists: sum lines of each item
-    if (tagName === 'ul' || tagName === 'ol') {
-      const items = element.querySelectorAll('li');
-      let lines = 0;
-      items.forEach(item => {
-        const text = item.textContent || '';
-        lines += Math.max(1, Math.ceil(text.length / CHARS_PER_LINE));
-      });
-      return lines + 1; // +1 for margin
-    }
-    
-    // Paragraphs: calculate by characters
-    const text = element.textContent || '';
+  // Count text lines based on characters (not DOM)
+  const countTextLines = (text: string): number => {
+    if (!text.trim()) return 0;
     return Math.max(1, Math.ceil(text.length / CHARS_PER_LINE));
   };
 
-  // Divide content into slides based on LINE COUNT (not DOM height)
+  // Count lines for an element - SIMPLIFIED for accuracy
+  const countElementLines = (element: HTMLElement): number => {
+    const tagName = element.tagName.toLowerCase();
+    
+    // Títulos: líneas fijas (incluyendo espaciado)
+    if (tagName === 'h1') return 2;
+    if (tagName === 'h2') return 2;
+    if (tagName === 'h3') return 1;
+    if (tagName === 'h4') return 1;
+    
+    // Tablas: 1 línea por fila
+    if (tagName === 'table') {
+      const rows = element.querySelectorAll('tr');
+      return rows.length + 1; // +1 para header/margen
+    }
+    
+    // Listas: calcular líneas de cada item
+    if (tagName === 'ul' || tagName === 'ol') {
+      const items = element.querySelectorAll(':scope > li');
+      let lines = 0;
+      items.forEach(item => {
+        lines += countTextLines(item.textContent || '');
+      });
+      return lines;
+    }
+    
+    // Otros: calcular por caracteres
+    return countTextLines(element.textContent || '');
+  };
+
+  // ALGORITMO PRINCIPAL: Divide contenido FILA POR FILA y ITEM POR ITEM
   const divideContentIntoSlides = useCallback((html: string): string[] => {
     const slides: string[] = [];
-    
-    // Parse HTML into elements
     const tempContainer = document.createElement('div');
     tempContainer.innerHTML = html;
     
     let currentSlideHtml = '';
     let currentLines = 0;
-    const MAX_LINES = MAX_LINES_PER_SLIDE - 1; // Small safety margin
     
-    // Helper to save current slide
-    const saveCurrentSlide = () => {
+    // Guardar slide actual y resetear
+    const saveSlide = () => {
       if (currentSlideHtml.trim()) {
         slides.push(currentSlideHtml);
-        currentSlideHtml = '';
-        currentLines = 0;
       }
+      currentSlideHtml = '';
+      currentLines = 0;
     };
     
+    // Procesar cada elemento hijo
     const children = Array.from(tempContainer.children);
     
-    for (let i = 0; i < children.length; i++) {
-      const element = children[i] as HTMLElement;
+    for (const child of children) {
+      const element = child as HTMLElement;
       const tagName = element.tagName.toLowerCase();
-      const elementLines = countElementLines(element);
       
-      // CASE 1: Element fits completely
-      if (currentLines + elementLines <= MAX_LINES) {
+      // === TABLAS: Procesar FILA POR FILA ===
+      if (tagName === 'table') {
+        const thead = element.querySelector('thead');
+        const theadHtml = thead?.outerHTML || '';
+        const headerLines = thead ? 1 : 0;
+        
+        // Obtener todas las filas del tbody o directas
+        const tbody = element.querySelector('tbody');
+        const rows = Array.from(tbody ? tbody.querySelectorAll('tr') : element.querySelectorAll(':scope > tr:not(thead tr)'));
+        
+        let tableStarted = false;
+        
+        for (const row of rows) {
+          const rowHtml = (row as HTMLElement).outerHTML;
+          const rowLines = 1; // Cada fila = 1 línea
+          
+          // ¿Cabe esta fila en la slide actual?
+          const linesNeeded = tableStarted ? rowLines : (headerLines + rowLines + 1);
+          
+          if (currentLines + linesNeeded > MAX_LINES_PER_SLIDE) {
+            // Cerrar tabla si está abierta
+            if (tableStarted) {
+              currentSlideHtml += '</tbody></table>';
+            }
+            saveSlide();
+            
+            // Nueva slide con header de tabla + esta fila
+            currentSlideHtml = `<table>${theadHtml}<tbody>${rowHtml}`;
+            currentLines = headerLines + rowLines;
+            tableStarted = true;
+          } else {
+            // Agregar fila a slide actual
+            if (!tableStarted) {
+              currentSlideHtml += `<table>${theadHtml}<tbody>`;
+              currentLines += headerLines;
+              tableStarted = true;
+            }
+            currentSlideHtml += rowHtml;
+            currentLines += rowLines;
+          }
+        }
+        
+        // Cerrar tabla al terminar
+        if (tableStarted) {
+          currentSlideHtml += '</tbody></table>';
+        }
+        continue;
+      }
+      
+      // === LISTAS: Procesar ITEM POR ITEM ===
+      if (tagName === 'ul' || tagName === 'ol') {
+        const items = Array.from(element.querySelectorAll(':scope > li'));
+        let listStarted = false;
+        
+        for (const item of items) {
+          const itemHtml = (item as HTMLElement).outerHTML;
+          const itemText = item.textContent || '';
+          const itemLines = countTextLines(itemText);
+          
+          // ¿Cabe este item en la slide actual?
+          if (currentLines + itemLines > MAX_LINES_PER_SLIDE) {
+            // Cerrar lista si está abierta
+            if (listStarted) {
+              currentSlideHtml += `</${tagName}>`;
+            }
+            saveSlide();
+            
+            // Nueva slide con nueva lista + este item
+            currentSlideHtml = `<${tagName}>${itemHtml}`;
+            currentLines = itemLines;
+            listStarted = true;
+          } else {
+            // Agregar item a slide actual
+            if (!listStarted) {
+              currentSlideHtml += `<${tagName}>`;
+              listStarted = true;
+            }
+            currentSlideHtml += itemHtml;
+            currentLines += itemLines;
+          }
+        }
+        
+        // Cerrar lista al terminar
+        if (listStarted) {
+          currentSlideHtml += `</${tagName}>`;
+        }
+        continue;
+      }
+      
+      // === TÍTULOS: Nunca dividir, mover completo si no cabe ===
+      if (isHeading(tagName)) {
+        const elementLines = countElementLines(element);
+        
+        if (currentLines + elementLines > MAX_LINES_PER_SLIDE) {
+          saveSlide();
+        }
+        
         currentSlideHtml += element.outerHTML;
         currentLines += elementLines;
         continue;
       }
       
-      const remainingLines = MAX_LINES - currentLines;
+      // === OTROS ELEMENTOS (párrafos, etc.): Agregar o mover ===
+      const elementLines = countElementLines(element);
       
-      // CASE 2: Tables - split by rows
-      if (tagName === 'table' && remainingLines >= 2) {
-        const thead = element.querySelector('thead');
-        const tbody = element.querySelector('tbody');
-        const rows = Array.from(tbody ? tbody.querySelectorAll('tr') : element.querySelectorAll(':scope > tr'));
-        const theadHtml = thead ? thead.outerHTML : '';
-        
-        // Calculate how many rows fit (1 line per row + 1 for header)
-        const rowsForCurrentSlide = Math.max(1, remainingLines - 1);
-        
-        if (rowsForCurrentSlide < rows.length) {
-          // Split table
-          const firstRows = rows.slice(0, rowsForCurrentSlide);
-          const remainingRows = rows.slice(rowsForCurrentSlide);
-          
-          // Add first part to current slide
-          currentSlideHtml += `<table>${theadHtml}<tbody>${firstRows.map(r => (r as HTMLElement).outerHTML).join('')}</tbody></table>`;
-          saveCurrentSlide();
-          
-          // Put remaining rows in new slide
-          currentSlideHtml = `<table>${theadHtml}<tbody>${remainingRows.map(r => (r as HTMLElement).outerHTML).join('')}</tbody></table>`;
-          currentLines = remainingRows.length + 1;
-          continue;
-        }
+      if (currentLines + elementLines > MAX_LINES_PER_SLIDE) {
+        saveSlide();
       }
       
-      // CASE 3: Lists - split by items
-      if ((tagName === 'ul' || tagName === 'ol') && remainingLines >= 1) {
-        const items = Array.from(element.querySelectorAll(':scope > li'));
-        let itemsForCurrentSlide = 0;
-        let linesUsed = 0;
-        
-        for (const item of items) {
-          const itemText = item.textContent || '';
-          const itemLines = Math.max(1, Math.ceil(itemText.length / CHARS_PER_LINE));
-          
-          if (linesUsed + itemLines <= remainingLines) {
-            linesUsed += itemLines;
-            itemsForCurrentSlide++;
-          } else {
-            break;
-          }
-        }
-        
-        if (itemsForCurrentSlide > 0 && itemsForCurrentSlide < items.length) {
-          // Split list
-          const firstItems = items.slice(0, itemsForCurrentSlide);
-          const remainingItems = items.slice(itemsForCurrentSlide);
-          
-          // Add first part to current slide
-          currentSlideHtml += `<${tagName}>${firstItems.map(li => (li as HTMLElement).outerHTML).join('')}</${tagName}>`;
-          saveCurrentSlide();
-          
-          // Put remaining items in new slide
-          currentSlideHtml = `<${tagName}>${remainingItems.map(li => (li as HTMLElement).outerHTML).join('')}</${tagName}>`;
-          currentLines = remainingItems.reduce((sum, li) => {
-            const text = li.textContent || '';
-            return sum + Math.max(1, Math.ceil(text.length / CHARS_PER_LINE));
-          }, 1);
-          continue;
-        }
-      }
-      
-      // CASE 4: Headings - never split, push to next slide
-      if (isHeading(tagName)) {
-        saveCurrentSlide();
-        currentSlideHtml = element.outerHTML;
-        currentLines = elementLines;
-        continue;
-      }
-      
-      // CASE 5: Other elements - push to next slide
-      saveCurrentSlide();
-      currentSlideHtml = element.outerHTML;
-      currentLines = elementLines;
+      currentSlideHtml += element.outerHTML;
+      currentLines += elementLines;
     }
     
-    // Save last slide
-    saveCurrentSlide();
+    // Guardar última slide
+    saveSlide();
     
-    // Ensure at least one slide
-    if (slides.length === 0 && html.trim()) {
-      slides.push(html);
-    }
-    
-    return slides;
+    // Asegurar al menos una slide
+    return slides.length > 0 ? slides : ['<p></p>'];
   }, []);
 
   // Handle blur - redistribute content and remove empty slides
@@ -914,13 +936,13 @@ export default function SimplePptEditor() {
                 right: `${CONTENT_RIGHT}px`,
                 bottom: `${CONTENT_BOTTOM}px`,
                 padding: `${CONTENT_PADDING}px`,
-                maxHeight: `${TEXT_AREA_HEIGHT}px`,  // Fixed max height
-                overflow: 'auto',  // Show scroll if overflow (for debugging)
+                height: `${TEXT_AREA_HEIGHT}px`,  // Fixed height - strict limit
+                overflow: 'hidden',  // NO scroll - content must fit within lines
                 color: '#1a1a1a',
                 backgroundColor: 'transparent',
                 fontFamily: 'Arial, sans-serif',
-                fontSize: `${FONT_SIZE_PX}px`,
-                lineHeight: LINE_HEIGHT_MULTIPLIER,
+                fontSize: '11pt',
+                lineHeight: 1.5,
               }}
               dangerouslySetInnerHTML={{ __html: slideHtml }}
             />
