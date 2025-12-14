@@ -17,21 +17,21 @@ const SLIDE_HEIGHT = 720;  // 16:9 HD height
 
 // Content area margins (respecting logo and bottom strips)
 const CONTENT_TOP = 30;
-const CONTENT_BOTTOM = 100;  // Reduced to maximize text area
+const CONTENT_BOTTOM = 70;   // Reduced to extend text area closer to bottom strips
 const CONTENT_LEFT = 60;
 const CONTENT_RIGHT = 180;
-const CONTENT_PADDING = 16;  // Slightly reduced padding
+const CONTENT_PADDING = 16;
 
-// Calculated text area dimensions - OPTIMIZED for maximum visible area
-const TEXT_AREA_HEIGHT = 560;  // 720 - 30 - 100 - 30 = 560px visible
-const TEXT_AREA_WIDTH = 1024;  // Slightly wider for more text
+// Calculated text area dimensions - MAXIMIZED for visible content
+const TEXT_AREA_HEIGHT = 620;  // 720 - 30 - 70 = 620px (maximum before strips)
+const TEXT_AREA_WIDTH = 1024;
 
 // Font and line constants for precise calculation
 const LINE_HEIGHT_PX = 24;  // 11pt * 1.6 line spacing
 const CHAR_WIDTH_PX = 7;    // Average char width at 11pt Arial
 
-// OPTIMIZED LIMITS - Maximum lines while staying visible
-const MAX_LINES_PER_SLIDE = 23;  // 560 / 24 ≈ 23 lines
+// MAXIMIZED LIMITS - More lines per slide
+const MAX_LINES_PER_SLIDE = 25;  // 620 / 24 ≈ 25 lines
 const CHARS_PER_LINE = 146;      // 1024 / 7 ≈ 146 chars per line
 
 // Helper para verificar si un elemento es un título
