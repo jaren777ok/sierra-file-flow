@@ -1000,19 +1000,23 @@ export default function SimplePptEditor() {
               {index + 2} / {slidesContent.length + 2}
             </div>
             
-            {/* Slide content - editable with padding for logo */}
+            {/* Slide content - editable directly on background (no white box) */}
             <div 
               ref={el => slideRefs.current[index] = el}
-              className="slide-content bg-white/95"
+              className="slide-content"
               contentEditable
               suppressContentEditableWarning
               onBlur={handleSlideBlur}
               style={{
-                margin: '70px 50px 50px 50px',
+                position: 'absolute',
+                top: '30px',
+                left: '60px',
+                right: '180px',  // Space for logo on right
+                bottom: '80px',  // Space for bottom strips
                 padding: '20px',
-                height: 'calc(100% - 120px)',
                 overflow: 'hidden',
-                borderRadius: '4px',
+                color: '#1a1a1a',
+                backgroundColor: 'transparent',
               }}
               dangerouslySetInnerHTML={{ __html: slideHtml }}
             />
