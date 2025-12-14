@@ -117,38 +117,36 @@ const isPageEmpty = (html: string): boolean => {
   return textContent.trim().length === 0;
 };
 
-// COUNT LINES for an element based on text content (simple character counting)
+// COUNT LINES for an element based on text content (OPTIMIZED - minimal artificial margins)
 const countElementLines = (element: HTMLElement, charsPerLine: number): number => {
   const tagName = element.tagName.toLowerCase();
   
-  // Headings: fixed lines including margins
-  if (tagName === 'h1') return 5; // large title + margins
-  if (tagName === 'h2') return 4;
-  if (tagName === 'h3') return 3;
-  if (tagName === 'h4') return 2;
+  // Headings: reduced margins (only +1 for spacing)
+  if (tagName === 'h1') return 3; // title + 1 margin
+  if (tagName === 'h2') return 2;
+  if (tagName === 'h3') return 2;
+  if (tagName === 'h4') return 1;
   
-  // Tables: count rows + header + margins
+  // Tables: rows + 1 for header (NO extra margins)
   if (tagName === 'table') {
     const rows = element.querySelectorAll('tr');
-    const hasHeader = element.querySelector('thead') !== null;
-    return rows.length + (hasHeader ? 1 : 0) + 2; // rows + header weight + margins
+    return rows.length + 1; // rows + minimal header space
   }
   
-  // Lists: count items, estimating lines per item
+  // Lists: sum of item lines ONLY (no extra margins)
   if (tagName === 'ul' || tagName === 'ol') {
     const items = element.querySelectorAll('li');
-    let totalLines = 1; // margin top
+    let totalLines = 0;
     items.forEach(item => {
       const text = item.textContent || '';
       totalLines += Math.max(1, Math.ceil(text.length / charsPerLine));
     });
-    return totalLines + 1; // + margin bottom
+    return totalLines + 1; // +1 margin only
   }
   
-  // Paragraphs and others: calculate by character count
+  // Paragraphs: pure character count (no extra margin)
   const text = element.textContent || '';
-  const lines = Math.ceil(text.length / charsPerLine);
-  return Math.max(1, lines) + 1; // +1 for paragraph margin
+  return Math.max(1, Math.ceil(text.length / charsPerLine));
 };
 
 // Split paragraph text to fit available lines
@@ -293,7 +291,7 @@ const divideContentIntoPages = (
 
   const CONTENT_WIDTH = PAGE_WIDTH - leftMargin - rightMargin;
   const CHARS_PER_LINE = Math.floor(CONTENT_WIDTH / CHAR_WIDTH_PX);
-  const MAX_LINES = MAX_LINES_PER_PAGE - 2; // Small safety margin (~34 lines)
+  const MAX_LINES = MAX_LINES_PER_PAGE; // Use 100% of available lines (~36)
 
   // Parse HTML into elements
   const tempContainer = document.createElement('div');
@@ -320,8 +318,8 @@ const divideContentIntoPages = (
     // CASE 2: Element doesn't fit - calculate remaining space
     const remainingLines = MAX_LINES - currentLines;
 
-    // 2A: Tables - ALWAYS put what fits (split by rows)
-    if (tagName === 'table' && remainingLines >= 3) {
+    // 2A: Tables - put what fits if at least 2 rows can go (reduced threshold)
+    if (tagName === 'table' && remainingLines >= 2) {
       const { firstPart, secondPart } = splitTableByRowCount(element, remainingLines);
       
       if (firstPart) {
@@ -336,8 +334,8 @@ const divideContentIntoPages = (
       }
     }
 
-    // 2B: Lists - split by items
-    if ((tagName === 'ul' || tagName === 'ol') && remainingLines >= 2) {
+    // 2B: Lists - split by items (reduced threshold to 1 line)
+    if ((tagName === 'ul' || tagName === 'ol') && remainingLines >= 1) {
       const { firstPart, secondPart } = splitListByItemCount(element, remainingLines, CHARS_PER_LINE);
       
       if (firstPart) {
