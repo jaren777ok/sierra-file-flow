@@ -15,24 +15,24 @@ import slideBackgroundImage from '@/assets/hojas_de_en_medio.png';
 const SLIDE_WIDTH = 1280;  // 16:9 HD width
 const SLIDE_HEIGHT = 720;  // 16:9 HD height
 
-// Content area margins (respecting logo and bottom orange strips)
+// Content area margins (respecting logo and bottom strips)
 const CONTENT_TOP = 30;
-const CONTENT_BOTTOM = 150;  // INCREASED to respect bottom strips
+const CONTENT_BOTTOM = 100;  // Reduced to maximize text area
 const CONTENT_LEFT = 60;
 const CONTENT_RIGHT = 180;
-const CONTENT_PADDING = 20;
+const CONTENT_PADDING = 16;  // Slightly reduced padding
 
-// Calculated text area dimensions - CORRECTED for visible area
-const TEXT_AREA_HEIGHT = 500;  // 720 - 30 - 150 - 40 = 500px visible
-const TEXT_AREA_WIDTH = 1000;  // 1280 - 60 - 180 - 40 = 1000px
+// Calculated text area dimensions - OPTIMIZED for maximum visible area
+const TEXT_AREA_HEIGHT = 560;  // 720 - 30 - 100 - 30 = 560px visible
+const TEXT_AREA_WIDTH = 1024;  // Slightly wider for more text
 
 // Font and line constants for precise calculation
-const LINE_HEIGHT_PX = 26;  // 11pt * 1.6 + extra spacing for readability
+const LINE_HEIGHT_PX = 24;  // 11pt * 1.6 line spacing
 const CHAR_WIDTH_PX = 7;    // Average char width at 11pt Arial
 
-// STRICT LIMITS - CORRECTED for visible area only
-const MAX_LINES_PER_SLIDE = 19;  // 500 / 26 ≈ 19 lines (CORRECTED)
-const CHARS_PER_LINE = 142;      // 1000 / 7 ≈ 142 chars per line
+// OPTIMIZED LIMITS - Maximum lines while staying visible
+const MAX_LINES_PER_SLIDE = 23;  // 560 / 24 ≈ 23 lines
+const CHARS_PER_LINE = 146;      // 1024 / 7 ≈ 146 chars per line
 
 // Helper para verificar si un elemento es un título
 const isHeading = (tagName: string): boolean => {
@@ -344,7 +344,59 @@ export default function SimplePptEditor() {
         continue;
       }
       
-      // === OTROS ELEMENTOS (párrafos, etc.): Agregar o mover ===
+      // === PÁRRAFOS: Dividir por oraciones si no caben completos ===
+      if (tagName === 'p') {
+        const text = element.textContent || '';
+        const totalLines = countTextLines(text);
+        
+        // Si cabe completo, agregar normalmente
+        if (currentLines + totalLines <= MAX_LINES_PER_SLIDE) {
+          currentSlideHtml += element.outerHTML;
+          currentLines += totalLines;
+          continue;
+        }
+        
+        // Si NO cabe pero hay espacio, dividir por oraciones
+        const remainingLines = MAX_LINES_PER_SLIDE - currentLines;
+        if (remainingLines >= 2) {
+          // Calcular cuántos caracteres caben
+          const charsForFirstPart = remainingLines * CHARS_PER_LINE;
+          
+          // Buscar punto de corte natural (punto, coma, espacio)
+          let cutPoint = charsForFirstPart;
+          const breakPatterns = ['. ', ', ', ' '];
+          for (const pattern of breakPatterns) {
+            const idx = text.lastIndexOf(pattern, charsForFirstPart);
+            if (idx > charsForFirstPart * 0.5) {
+              cutPoint = idx + pattern.length;
+              break;
+            }
+          }
+          
+          // Dividir el párrafo
+          const firstPart = text.slice(0, cutPoint).trim();
+          const secondPart = text.slice(cutPoint).trim();
+          
+          if (firstPart && secondPart) {
+            // Primera parte en slide actual
+            currentSlideHtml += `<p>${firstPart}</p>`;
+            saveSlide();
+            
+            // Segunda parte en nueva slide
+            currentSlideHtml = `<p>${secondPart}</p>`;
+            currentLines = countTextLines(secondPart);
+            continue;
+          }
+        }
+        
+        // Si no hay espacio suficiente, mover todo a nueva slide
+        saveSlide();
+        currentSlideHtml = element.outerHTML;
+        currentLines = totalLines;
+        continue;
+      }
+      
+      // === OTROS ELEMENTOS: Agregar o mover completo ===
       const elementLines = countElementLines(element);
       
       if (currentLines + elementLines > MAX_LINES_PER_SLIDE) {
