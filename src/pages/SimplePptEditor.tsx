@@ -26,13 +26,14 @@ const CONTENT_PADDING = 14;  // Slightly reduced padding
 const TEXT_AREA_HEIGHT = 600;  // 720 - 30 - 60 - 30 = 600px visible (24 lines × 25px)
 const TEXT_AREA_WIDTH = 1024;
 
-// Font and line constants - EXACT spacing for 24 visible lines
+// Font and line constants - CONSERVATIVE for accurate counting
 const LINE_HEIGHT_PX = 25;  // 600px / 24 lines = 25px per line
 const CHAR_WIDTH_PX = 7;    // Average char width at 11pt Arial
 
-// EXACT LIMITS - 24 lines visible, fill completely
-const MAX_LINES_PER_SLIDE = 24;  // Exactly 24 lines per slide
-const CHARS_PER_LINE = 130;      // Conservative for accurate counting
+// CONSERVATIVE LIMITS - Avoid hidden text
+const MAX_LINES_PER_SLIDE = 22;  // 22 lines max (buffer for safety)
+const CHARS_PER_LINE = 100;      // Normal text: ~100 chars per line
+const CHARS_PER_LINE_LIST = 90;  // List items: fewer chars due to indentation + bullet
 
 // Helper para verificar si un elemento es un título
 const isHeading = (tagName: string): boolean => {
@@ -182,12 +183,13 @@ export default function SimplePptEditor() {
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
   // Count text lines based on characters (not DOM)
-  const countTextLines = (text: string): number => {
+  const countTextLines = (text: string, isListItem: boolean = false): number => {
     if (!text.trim()) return 0;
-    return Math.max(1, Math.ceil(text.length / CHARS_PER_LINE));
+    const charsPerLine = isListItem ? CHARS_PER_LINE_LIST : CHARS_PER_LINE;
+    return Math.max(1, Math.ceil(text.length / charsPerLine));
   };
 
-  // Count lines for an element - MINIMAL multipliers for maximum space usage
+  // Count lines for an element - CONSERVATIVE multipliers to avoid hidden text
   const countElementLines = (element: HTMLElement): number => {
     const tagName = element.tagName.toLowerCase();
     
@@ -203,16 +205,16 @@ export default function SimplePptEditor() {
       return rows.length + 1;
     }
     
-    // Listas: calcular líneas REALES de cada item (sin padding artificial)
+    // Listas: usar CHARS_PER_LINE_LIST para items con indentación
     if (tagName === 'ul' || tagName === 'ol') {
       const items = element.querySelectorAll(':scope > li');
       let lines = 0;
       items.forEach(item => {
         const itemText = item.textContent || '';
-        // Cada item ocupa al menos 1 línea, más líneas adicionales si es largo
-        lines += Math.max(1, Math.ceil(itemText.length / CHARS_PER_LINE));
+        // Usar CHARS_PER_LINE_LIST (90) para items de lista - más conservador
+        lines += Math.max(1, Math.ceil(itemText.length / CHARS_PER_LINE_LIST));
       });
-      return lines; // Sin padding artificial
+      return lines;
     }
     
     // Otros: calcular por caracteres
@@ -293,7 +295,7 @@ export default function SimplePptEditor() {
         continue;
       }
       
-      // === LISTAS: Procesar ITEM POR ITEM ===
+      // === LISTAS: Procesar ITEM POR ITEM con CHARS_PER_LINE_LIST ===
       if (tagName === 'ul' || tagName === 'ol') {
         const items = Array.from(element.querySelectorAll(':scope > li'));
         let listStarted = false;
@@ -301,7 +303,8 @@ export default function SimplePptEditor() {
         for (const item of items) {
           const itemHtml = (item as HTMLElement).outerHTML;
           const itemText = item.textContent || '';
-          const itemLines = countTextLines(itemText);
+          // Usar CHARS_PER_LINE_LIST (90) para items de lista - más conservador
+          const itemLines = Math.max(1, Math.ceil(itemText.length / CHARS_PER_LINE_LIST));
           
           // ¿Cabe este item en la slide actual?
           if (currentLines + itemLines > MAX_LINES_PER_SLIDE) {
