@@ -183,10 +183,11 @@
   }
 
   /* Simple Word Editor - Page Content Styles */
+  /* SYNCHRONIZED WITH SimpleWordEditor.tsx: FONT_SIZE_PX=14.67, LINE_HEIGHT_PX=24 */
   .page-content-area {
     font-family: Arial, sans-serif;
-    font-size: 11pt;
-    line-height: 1.6;
+    font-size: 11pt;  /* = 14.67px */
+    line-height: 1.6; /* 14.67 × 1.6 ≈ 24px per line */
     color: #000;
     overflow-wrap: break-word;
     word-wrap: break-word;
@@ -194,6 +195,16 @@
     hyphens: none;
     -webkit-hyphens: none;
     -ms-hyphens: none;
+    /* Visual guide lines every 24px (LINE_HEIGHT_PX) for debugging */
+    background-image: repeating-linear-gradient(
+      to bottom,
+      transparent 0px,
+      transparent 22px,
+      rgba(180, 180, 180, 0.12) 22px,
+      rgba(180, 180, 180, 0.12) 24px
+    );
+    background-size: 100% 24px;
+    background-position: 0 0;
   }
 
   .page-content-area p,
