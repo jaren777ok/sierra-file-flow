@@ -23,16 +23,16 @@ const CONTENT_RIGHT = 180;
 const CONTENT_PADDING = 14;  // Slightly reduced padding
 
 // Calculated text area dimensions - MAXIMIZED for visible content
-const TEXT_AREA_HEIGHT = 602;  // 720 - 30 - 60 - 28 = 602px visible
+const TEXT_AREA_HEIGHT = 600;  // 720 - 30 - 60 - 30 = 600px visible (24 lines × 25px)
 const TEXT_AREA_WIDTH = 1024;
 
-// Font and line constants - PRECISE spacing
-const LINE_HEIGHT_PX = 24;  // Realistic line spacing for 11pt
+// Font and line constants - EXACT spacing for 24 visible lines
+const LINE_HEIGHT_PX = 25;  // 600px / 24 lines = 25px per line
 const CHAR_WIDTH_PX = 7;    // Average char width at 11pt Arial
 
-// MAXIMIZED LIMITS - Fill slides efficiently
-const MAX_LINES_PER_SLIDE = 22;  // 602 / 24 ≈ 25, but 22 for safety
-const CHARS_PER_LINE = 145;      // Slightly increased for efficiency
+// EXACT LIMITS - 24 lines visible, fill completely
+const MAX_LINES_PER_SLIDE = 24;  // Exactly 24 lines per slide
+const CHARS_PER_LINE = 130;      // Conservative for accurate counting
 
 // Helper para verificar si un elemento es un título
 const isHeading = (tagName: string): boolean => {
@@ -187,30 +187,32 @@ export default function SimplePptEditor() {
     return Math.max(1, Math.ceil(text.length / CHARS_PER_LINE));
   };
 
-  // Count lines for an element - REDUCED multipliers to maximize space usage
+  // Count lines for an element - MINIMAL multipliers for maximum space usage
   const countElementLines = (element: HTMLElement): number => {
     const tagName = element.tagName.toLowerCase();
     
-    // Títulos: líneas reales (reducidas para evitar desperdicio)
-    if (tagName === 'h1') return 2;    // Large title
-    if (tagName === 'h2') return 1.5;  // Section title
-    if (tagName === 'h3') return 1.2;  // Subsection title
-    if (tagName === 'h4') return 1;    // Small title
+    // Títulos: líneas reales (mínimo extra para márgenes)
+    if (tagName === 'h1') return 1.5;  // Large title (1 line + small margin)
+    if (tagName === 'h2') return 1.3;  // Section title
+    if (tagName === 'h3') return 1.1;  // Subsection title
+    if (tagName === 'h4') return 1;    // Small title (no extra)
     
-    // Tablas: 1 línea por fila
+    // Tablas: 1 línea por fila + 1 para header
     if (tagName === 'table') {
       const rows = element.querySelectorAll('tr');
-      return rows.length + 1; // +1 para header/margen
+      return rows.length + 1;
     }
     
-    // Listas: calcular líneas de cada item + minimal padding
+    // Listas: calcular líneas REALES de cada item (sin padding artificial)
     if (tagName === 'ul' || tagName === 'ol') {
       const items = element.querySelectorAll(':scope > li');
       let lines = 0;
       items.forEach(item => {
-        lines += countTextLines(item.textContent || '') + 0.15; // +0.15 per item for padding
+        const itemText = item.textContent || '';
+        // Cada item ocupa al menos 1 línea, más líneas adicionales si es largo
+        lines += Math.max(1, Math.ceil(itemText.length / CHARS_PER_LINE));
       });
-      return Math.ceil(lines);
+      return lines; // Sin padding artificial
     }
     
     // Otros: calcular por caracteres
