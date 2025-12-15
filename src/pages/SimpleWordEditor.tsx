@@ -23,7 +23,7 @@ const LINE_HEIGHT_PX = 24;    // 11pt × 1.6 ≈ 24px per line (synchronized)
 const CHAR_WIDTH_PX = 7.5;    // ~7.5px per character at 11pt Arial
 
 // SAFE LIMITS with buffer for margins (h1, h2, li have extra margins)
-const MAX_LINES_PER_PAGE = 35; // 942px / 24px ≈ 39 lines, minus 4 buffer for margins
+const MAX_LINES_PER_PAGE = 28; // CONSERVATIVE - better more pages than hidden content
 
 // REAL DOM HEIGHT MEASUREMENT - synchronized with EXACT CSS styles from .page-content-area
 const measureElementHeight = (element: HTMLElement, contentWidth: number): number => {
@@ -50,12 +50,29 @@ const measureElementHeight = (element: HTMLElement, contentWidth: number): numbe
   const clone = element.cloneNode(true) as HTMLElement;
   tempContainer.appendChild(clone);
   
+  // FORCE REFLOW to get accurate height after styles apply
+  void tempContainer.offsetHeight;
+  
   // Measure TOTAL height including margins
   const height = clone.offsetHeight;
   document.body.removeChild(tempContainer);
   
   // Convert height in pixels to lines using synchronized LINE_HEIGHT_PX
-  return Math.ceil(height / LINE_HEIGHT_PX);
+  const baseLines = Math.ceil(height / LINE_HEIGHT_PX);
+  
+  // ADD BUFFER for nested elements (li with nested ul/ol)
+  const tagName = element.tagName.toLowerCase();
+  let bufferLines = 0;
+  if (tagName === 'li') {
+    const nestedLists = element.querySelectorAll('ul, ol');
+    bufferLines = nestedLists.length * 2; // 2 extra lines per nested list
+  }
+  if (tagName === 'ul' || tagName === 'ol') {
+    const nestedLists = element.querySelectorAll('ul ul, ul ol, ol ul, ol ol');
+    bufferLines = nestedLists.length * 2;
+  }
+  
+  return baseLines + bufferLines;
 };
 
 // Function to clean HTML - extract only body content and remove \n literals
@@ -311,7 +328,7 @@ const splitTableByRowCount = (
   return { firstPart, secondPart };
 };
 
-// MEASURE LIST ITEM with REAL DOM - includes nested lists
+// MEASURE LIST ITEM with REAL DOM - includes nested lists with proper wrapper
 const measureListItemLines = (item: HTMLElement, contentWidth: number): number => {
   const tempContainer = document.createElement('div');
   tempContainer.style.cssText = `
@@ -322,18 +339,28 @@ const measureListItemLines = (item: HTMLElement, contentWidth: number): number =
     font-family: Arial, sans-serif;
     font-size: 11pt;
     line-height: 1.6;
-    padding-left: 24pt;
   `;
   tempContainer.className = 'page-content-area';
   document.body.appendChild(tempContainer);
   
+  // Create list wrapper for accurate measurement (includes bullets/margins)
+  const listWrapper = document.createElement('ul');
+  listWrapper.style.cssText = 'margin: 0; padding-left: 24pt;';
   const clone = item.cloneNode(true) as HTMLElement;
-  tempContainer.appendChild(clone);
+  listWrapper.appendChild(clone);
+  tempContainer.appendChild(listWrapper);
   
-  const height = clone.offsetHeight;
+  // Force reflow for accurate measurement
+  void tempContainer.offsetHeight;
+  
+  const height = listWrapper.offsetHeight;
   document.body.removeChild(tempContainer);
   
-  return Math.ceil(height / LINE_HEIGHT_PX);
+  // Add buffer for nested lists inside this item
+  const nestedLists = item.querySelectorAll('ul, ol');
+  const buffer = nestedLists.length * 2; // 2 extra lines per nested list
+  
+  return Math.ceil(height / LINE_HEIGHT_PX) + buffer;
 };
 
 // Split list by measuring REAL item heights with DOM (includes nested lists)
@@ -349,15 +376,25 @@ const splitListByItemCount = (
     return { firstPart: '', secondPart: list.outerHTML };
   }
   
+  // NESTING REDUCTION: reduce width for nested lists (accounts for padding-left)
+  const NESTING_REDUCTION = 32; // pixels per nesting level
+  
   // Measure each item with DOM and find split point
   let linesUsed = 0;
   let splitIndex = 0;
   
   for (let i = 0; i < items.length; i++) {
-    // REAL DOM measurement - includes nested <ul>/<ol> inside <li>
-    const itemLines = measureListItemLines(items[i] as HTMLElement, contentWidth);
+    const item = items[i] as HTMLElement;
     
-    if (linesUsed + itemLines > maxLines) {
+    // Check for nested lists and adjust width
+    const nestedLists = item.querySelectorAll('ul, ol');
+    const adjustedWidth = contentWidth - (nestedLists.length > 0 ? NESTING_REDUCTION : 0);
+    
+    // REAL DOM measurement - includes nested <ul>/<ol> inside <li>
+    const itemLines = measureListItemLines(item, adjustedWidth);
+    
+    // CONSERVATIVE: Use 90% of maxLines to prevent any overflow
+    if (linesUsed + itemLines > maxLines * 0.9) {
       break;
     }
     linesUsed += itemLines;

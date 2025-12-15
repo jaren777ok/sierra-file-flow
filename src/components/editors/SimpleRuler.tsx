@@ -25,8 +25,8 @@ export const SimpleRuler = ({
   // Conversión: ~37.8px = 1cm en pantalla a 96 DPI
   const CM_IN_PX = 37.8;
   
-  // Generar marcas de 0 a 20cm
-  const marks = Array.from({ length: 21 }, (_, i) => i);
+  // Generar marcas de 0.5 a 20.5cm
+  const marks = Array.from({ length: 21 }, (_, i) => i + 0.5);
   
   useEffect(() => {
     if (!isDragging) return;
