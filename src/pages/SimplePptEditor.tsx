@@ -26,18 +26,44 @@ const CONTENT_PADDING = 14;  // Slightly reduced padding
 const TEXT_AREA_HEIGHT = 600;  // 720 - 30 - 60 - 30 = 600px visible (24 lines × 25px)
 const TEXT_AREA_WIDTH = 1024;
 
-// Font and line constants - CONSERVATIVE for accurate counting
+// Font and line constants - for DOM measurement
 const LINE_HEIGHT_PX = 25;  // 600px / 24 lines = 25px per line
-const CHAR_WIDTH_PX = 7;    // Average char width at 11pt Arial
 
-// CONSERVATIVE LIMITS - Avoid hidden text
-const MAX_LINES_PER_SLIDE = 22;  // 22 lines max (buffer for safety)
-const CHARS_PER_LINE = 100;      // Normal text: ~100 chars per line
-const CHARS_PER_LINE_LIST = 90;  // List items: fewer chars due to indentation + bullet
+// CONSERVATIVE LIMITS - Avoid hidden text with real DOM measurement
+const MAX_LINES_PER_SLIDE = 20;  // 20 lines max (buffer for safety)
 
 // Helper para verificar si un elemento es un título
 const isHeading = (tagName: string): boolean => {
   return ['h1', 'h2', 'h3', 'h4'].includes(tagName);
+};
+
+// MEDIR ALTURA REAL de un elemento en el DOM - SOLUCIÓN DEFINITIVA
+const measureElementHeight = (element: HTMLElement): number => {
+  // Crear contenedor temporal con las mismas dimensiones del slide
+  const tempContainer = document.createElement('div');
+  tempContainer.style.cssText = `
+    position: absolute;
+    visibility: hidden;
+    left: -9999px;
+    width: ${TEXT_AREA_WIDTH - CONTENT_PADDING * 2}px;
+    font-family: Arial, sans-serif;
+    font-size: 11pt;
+    line-height: ${LINE_HEIGHT_PX}px;
+    padding: 0;
+    margin: 0;
+  `;
+  tempContainer.className = 'ppt-content-area';
+  document.body.appendChild(tempContainer);
+  
+  // Clonar el elemento y medir su altura real
+  const clone = element.cloneNode(true) as HTMLElement;
+  tempContainer.appendChild(clone);
+  
+  const height = clone.offsetHeight;
+  document.body.removeChild(tempContainer);
+  
+  // Convertir altura en píxeles a líneas (redondear hacia arriba)
+  return Math.ceil(height / LINE_HEIGHT_PX);
 };
 
 // Convert image to base64 for PPTX export
@@ -182,43 +208,10 @@ export default function SimplePptEditor() {
   const slidesContainerRef = useRef<HTMLDivElement>(null);
   const slideRefs = useRef<(HTMLDivElement | null)[]>([]);
 
-  // Count text lines based on characters (not DOM)
-  const countTextLines = (text: string, isListItem: boolean = false): number => {
-    if (!text.trim()) return 0;
-    const charsPerLine = isListItem ? CHARS_PER_LINE_LIST : CHARS_PER_LINE;
-    return Math.max(1, Math.ceil(text.length / charsPerLine));
-  };
-
-  // Count lines for an element - CONSERVATIVE multipliers to avoid hidden text
+  // Count lines for an element using REAL DOM MEASUREMENT
   const countElementLines = (element: HTMLElement): number => {
-    const tagName = element.tagName.toLowerCase();
-    
-    // Títulos: líneas reales (mínimo extra para márgenes)
-    if (tagName === 'h1') return 1.5;  // Large title (1 line + small margin)
-    if (tagName === 'h2') return 1.3;  // Section title
-    if (tagName === 'h3') return 1.1;  // Subsection title
-    if (tagName === 'h4') return 1;    // Small title (no extra)
-    
-    // Tablas: 1 línea por fila + 1 para header
-    if (tagName === 'table') {
-      const rows = element.querySelectorAll('tr');
-      return rows.length + 1;
-    }
-    
-    // Listas: usar CHARS_PER_LINE_LIST para items con indentación
-    if (tagName === 'ul' || tagName === 'ol') {
-      const items = element.querySelectorAll(':scope > li');
-      let lines = 0;
-      items.forEach(item => {
-        const itemText = item.textContent || '';
-        // Usar CHARS_PER_LINE_LIST (90) para items de lista - más conservador
-        lines += Math.max(1, Math.ceil(itemText.length / CHARS_PER_LINE_LIST));
-      });
-      return lines;
-    }
-    
-    // Otros: calcular por caracteres
-    return countTextLines(element.textContent || '');
+    // MEDIR ALTURA REAL en el DOM - garantiza precisión
+    return measureElementHeight(element);
   };
 
   // ALGORITMO PRINCIPAL: Divide contenido FILA POR FILA y ITEM POR ITEM
@@ -250,7 +243,8 @@ export default function SimplePptEditor() {
       if (tagName === 'table') {
         const thead = element.querySelector('thead');
         const theadHtml = thead?.outerHTML || '';
-        const headerLines = thead ? 1 : 0;
+        // MEDIR altura real del header
+        const headerLines = thead ? measureElementHeight(thead as HTMLElement) : 0;
         
         // Obtener todas las filas del tbody o directas
         const tbody = element.querySelector('tbody');
@@ -260,7 +254,8 @@ export default function SimplePptEditor() {
         
         for (const row of rows) {
           const rowHtml = (row as HTMLElement).outerHTML;
-          const rowLines = 1; // Cada fila = 1 línea
+          // MEDIR altura real de la fila (no asumir 1 línea)
+          const rowLines = measureElementHeight(row as HTMLElement);
           
           // ¿Cabe esta fila en la slide actual?
           const linesNeeded = tableStarted ? rowLines : (headerLines + rowLines + 1);
@@ -295,16 +290,15 @@ export default function SimplePptEditor() {
         continue;
       }
       
-      // === LISTAS: Procesar ITEM POR ITEM con CHARS_PER_LINE_LIST ===
+      // === LISTAS: Procesar ITEM POR ITEM con MEDICIÓN REAL ===
       if (tagName === 'ul' || tagName === 'ol') {
         const items = Array.from(element.querySelectorAll(':scope > li'));
         let listStarted = false;
         
         for (const item of items) {
           const itemHtml = (item as HTMLElement).outerHTML;
-          const itemText = item.textContent || '';
-          // Usar CHARS_PER_LINE_LIST (90) para items de lista - más conservador
-          const itemLines = Math.max(1, Math.ceil(itemText.length / CHARS_PER_LINE_LIST));
+          // MEDIR altura real del item en el DOM
+          const itemLines = measureElementHeight(item as HTMLElement);
           
           // ¿Cabe este item en la slide actual?
           if (currentLines + itemLines > MAX_LINES_PER_SLIDE) {
@@ -349,10 +343,9 @@ export default function SimplePptEditor() {
         continue;
       }
       
-      // === PÁRRAFOS: Dividir por oraciones si no caben completos ===
+      // === PÁRRAFOS: Medir con DOM y dividir si no caben ===
       if (tagName === 'p') {
-        const text = element.textContent || '';
-        const totalLines = countTextLines(text);
+        const totalLines = measureElementHeight(element);
         
         // Si cabe completo, agregar normalmente
         if (currentLines + totalLines <= MAX_LINES_PER_SLIDE) {
@@ -361,40 +354,7 @@ export default function SimplePptEditor() {
           continue;
         }
         
-        // Si NO cabe pero hay espacio, dividir por oraciones
-        const remainingLines = MAX_LINES_PER_SLIDE - currentLines;
-        if (remainingLines >= 2) {
-          // Calcular cuántos caracteres caben
-          const charsForFirstPart = remainingLines * CHARS_PER_LINE;
-          
-          // Buscar punto de corte natural (punto, coma, espacio)
-          let cutPoint = charsForFirstPart;
-          const breakPatterns = ['. ', ', ', ' '];
-          for (const pattern of breakPatterns) {
-            const idx = text.lastIndexOf(pattern, charsForFirstPart);
-            if (idx > charsForFirstPart * 0.5) {
-              cutPoint = idx + pattern.length;
-              break;
-            }
-          }
-          
-          // Dividir el párrafo
-          const firstPart = text.slice(0, cutPoint).trim();
-          const secondPart = text.slice(cutPoint).trim();
-          
-          if (firstPart && secondPart) {
-            // Primera parte en slide actual
-            currentSlideHtml += `<p>${firstPart}</p>`;
-            saveSlide();
-            
-            // Segunda parte en nueva slide
-            currentSlideHtml = `<p>${secondPart}</p>`;
-            currentLines = countTextLines(secondPart);
-            continue;
-          }
-        }
-        
-        // Si no hay espacio suficiente, mover todo a nueva slide
+        // Si NO cabe, mover completo a nueva slide (simplificado)
         saveSlide();
         currentSlideHtml = element.outerHTML;
         currentLines = totalLines;
