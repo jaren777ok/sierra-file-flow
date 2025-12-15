@@ -26,20 +26,20 @@ const CONTENT_PADDING = 14;  // Slightly reduced padding
 const TEXT_AREA_HEIGHT = 600;  // 720 - 30 - 60 - 30 = 600px visible (24 lines × 25px)
 const TEXT_AREA_WIDTH = 1024;
 
-// Font and line constants - for DOM measurement
-const LINE_HEIGHT_PX = 25;  // 600px / 24 lines = 25px per line
+// Font and line constants - for DOM measurement (12pt × 1.5 line-height = 24px)
+const LINE_HEIGHT_PX = 24;  // 12pt × 1.5 = ~24px per line
 
-// CONSERVATIVE LIMITS - Avoid hidden text with real DOM measurement
-const MAX_LINES_PER_SLIDE = 20;  // 20 lines max (buffer for safety)
+// OPTIMIZED LIMITS - Fill slides to maximum capacity
+const MAX_LINES_PER_SLIDE = 24;  // 24 lines max (600px / 25px)
 
 // Helper para verificar si un elemento es un título
 const isHeading = (tagName: string): boolean => {
   return ['h1', 'h2', 'h3', 'h4'].includes(tagName);
 };
 
-// MEDIR ALTURA REAL de un elemento en el DOM - SOLUCIÓN DEFINITIVA
+// MEDIR ALTURA REAL de un elemento en el DOM - USANDO ESTILOS CSS EXACTOS
 const measureElementHeight = (element: HTMLElement): number => {
-  // Crear contenedor temporal con las mismas dimensiones del slide
+  // Crear contenedor temporal con los MISMOS estilos que el slide real
   const tempContainer = document.createElement('div');
   tempContainer.style.cssText = `
     position: absolute;
@@ -47,8 +47,8 @@ const measureElementHeight = (element: HTMLElement): number => {
     left: -9999px;
     width: ${TEXT_AREA_WIDTH - CONTENT_PADDING * 2}px;
     font-family: Arial, sans-serif;
-    font-size: 11pt;
-    line-height: ${LINE_HEIGHT_PX}px;
+    font-size: 12pt;
+    line-height: 1.5;
     padding: 0;
     margin: 0;
   `;
@@ -60,10 +60,15 @@ const measureElementHeight = (element: HTMLElement): number => {
   tempContainer.appendChild(clone);
   
   const height = clone.offsetHeight;
+  
+  // Obtener line-height computado del estilo real
+  const computedStyle = getComputedStyle(clone);
+  const computedLineHeight = parseFloat(computedStyle.lineHeight) || LINE_HEIGHT_PX;
+  
   document.body.removeChild(tempContainer);
   
   // Convertir altura en píxeles a líneas (redondear hacia arriba)
-  return Math.ceil(height / LINE_HEIGHT_PX);
+  return Math.ceil(height / computedLineHeight);
 };
 
 // Convert image to base64 for PPTX export
@@ -343,7 +348,7 @@ export default function SimplePptEditor() {
         continue;
       }
       
-      // === PÁRRAFOS: Medir con DOM y dividir si no caben ===
+      // === PÁRRAFOS: Medir con DOM y dividir por oraciones si hay espacio ===
       if (tagName === 'p') {
         const totalLines = measureElementHeight(element);
         
@@ -354,7 +359,57 @@ export default function SimplePptEditor() {
           continue;
         }
         
-        // Si NO cabe, mover completo a nueva slide (simplificado)
+        // Calcular líneas disponibles
+        const linesAvailable = MAX_LINES_PER_SLIDE - currentLines;
+        
+        // Si hay espacio suficiente (>= 3 líneas), dividir por oraciones
+        if (linesAvailable >= 3) {
+          const text = element.textContent || '';
+          const sentences = text.split(/(?<=[.!?])\s+/);
+          
+          if (sentences.length > 1) {
+            let firstPart = '';
+            let remainingPart = '';
+            let firstPartLines = 0;
+            
+            // Agregar oraciones hasta llenar el espacio disponible
+            for (let i = 0; i < sentences.length; i++) {
+              const testPart = firstPart + (firstPart ? ' ' : '') + sentences[i];
+              
+              // Crear elemento temporal para medir
+              const testElement = document.createElement('p');
+              testElement.textContent = testPart;
+              const testLines = measureElementHeight(testElement);
+              
+              if (testLines <= linesAvailable) {
+                firstPart = testPart;
+                firstPartLines = testLines;
+              } else {
+                // El resto va a la siguiente slide
+                remainingPart = sentences.slice(i).join(' ');
+                break;
+              }
+            }
+            
+            // Agregar primera parte a slide actual
+            if (firstPart) {
+              currentSlideHtml += `<p>${firstPart}</p>`;
+              currentLines += firstPartLines;
+            }
+            
+            // Guardar slide y agregar resto a nueva slide
+            if (remainingPart) {
+              saveSlide();
+              const remainingElement = document.createElement('p');
+              remainingElement.textContent = remainingPart;
+              currentSlideHtml = `<p>${remainingPart}</p>`;
+              currentLines = measureElementHeight(remainingElement);
+            }
+            continue;
+          }
+        }
+        
+        // Si muy poco espacio o no se puede dividir, mover completo
         saveSlide();
         currentSlideHtml = element.outerHTML;
         currentLines = totalLines;
