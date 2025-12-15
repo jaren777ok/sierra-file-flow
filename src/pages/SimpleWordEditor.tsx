@@ -14,7 +14,7 @@ const PAGE_WIDTH = 793;   // 21cm at 96 DPI
 const PAGE_HEIGHT = 1122; // 29.7cm at 96 DPI
 const PADDING_TOP = 120;       // Top margin - space for logos
 const PADDING_BOTTOM = 60;     // Bottom margin - footer space
-const DEFAULT_PADDING_HORIZONTAL = 80; // Default left/right (adjustable via ruler)
+const DEFAULT_PADDING_HORIZONTAL = 40; // Minimum margins - triangles at max width (0 to 20)
 const CONTENT_HEIGHT = PAGE_HEIGHT - PADDING_TOP - PADDING_BOTTOM; // 942px
 
 // FONT AND LINE CONSTANTS - SYNCHRONIZED WITH CSS .page-content-area
@@ -88,7 +88,7 @@ const applyInlineStylesForCopy = (element: HTMLElement): HTMLElement => {
   });
   
   clone.querySelectorAll('th').forEach(th => {
-    th.setAttribute('style', 'border: 1px solid #000; padding: 2pt 3pt; text-align: left; background-color: #f0f0f0; font-weight: 700;');
+    th.setAttribute('style', 'border: 1px solid #000; padding: 2pt 3pt; text-align: left; background-color: #205059; color: white; font-weight: 700;');
   });
   
   clone.querySelectorAll('td').forEach(td => {
@@ -223,41 +223,85 @@ const splitParagraphByLines = (
   };
 };
 
-// Split table by row count (not height)
+// MEASURE TABLE ROW with REAL DOM - includes multi-line cells
+const measureTableRowLines = (row: HTMLElement, contentWidth: number): number => {
+  const tempContainer = document.createElement('div');
+  tempContainer.style.cssText = `
+    position: absolute;
+    visibility: hidden;
+    left: -9999px;
+    width: ${contentWidth}px;
+    font-size: 9pt;
+    line-height: 1.4;
+  `;
+  tempContainer.className = 'page-content-area';
+  
+  // Create temp table with the row to measure accurately
+  const tempTable = document.createElement('table');
+  tempTable.style.cssText = 'width: 100%; table-layout: fixed; border-collapse: collapse;';
+  const clone = row.cloneNode(true) as HTMLElement;
+  tempTable.appendChild(clone);
+  tempContainer.appendChild(tempTable);
+  document.body.appendChild(tempContainer);
+  
+  const height = tempTable.offsetHeight;
+  document.body.removeChild(tempContainer);
+  
+  return Math.ceil(height / LINE_HEIGHT_PX);
+};
+
+// Split table by measuring REAL row heights with DOM
 const splitTableByRowCount = (
   table: HTMLElement,
-  maxRows: number
+  maxLines: number,
+  contentWidth: number
 ): { firstPart: string; secondPart: string } => {
   const thead = table.querySelector('thead');
   const theadHtml = thead?.outerHTML || '';
   
   // Get all data rows (not header rows)
-  const allRows = Array.from(table.querySelectorAll('tbody > tr'));
-  if (allRows.length === 0) {
-    // Try direct tr children if no tbody
-    const directRows = Array.from(table.querySelectorAll(':scope > tr'));
-    if (directRows.length === 0) {
-      return { firstPart: '', secondPart: table.outerHTML };
+  let rows = Array.from(table.querySelectorAll('tbody > tr'));
+  if (rows.length === 0) {
+    rows = Array.from(table.querySelectorAll(':scope > tr')).filter(
+      r => !r.closest('thead')
+    );
+  }
+  
+  if (rows.length === 0) {
+    return { firstPart: '', secondPart: table.outerHTML };
+  }
+  
+  // Measure header lines if exists
+  let headerLines = 0;
+  if (thead) {
+    headerLines = measureTableRowLines(thead as HTMLElement, contentWidth);
+  }
+  
+  const availableLines = maxLines - headerLines;
+  if (availableLines <= 0) {
+    return { firstPart: '', secondPart: table.outerHTML };
+  }
+  
+  // Measure each row and find split point
+  let linesUsed = 0;
+  let splitIndex = 0;
+  
+  for (let i = 0; i < rows.length; i++) {
+    const rowLines = measureTableRowLines(rows[i] as HTMLElement, contentWidth);
+    
+    if (linesUsed + rowLines > availableLines) {
+      break;
     }
+    linesUsed += rowLines;
+    splitIndex = i + 1;
   }
   
-  const rows = allRows.length > 0 ? allRows : Array.from(table.querySelectorAll(':scope > tr:not(thead tr)'));
-  
-  // Account for header taking 1 row
-  const effectiveMaxRows = thead ? Math.max(1, maxRows - 1) : maxRows;
-  
-  if (effectiveMaxRows <= 0 || rows.length === 0) {
+  if (splitIndex === 0) {
     return { firstPart: '', secondPart: table.outerHTML };
   }
   
-  const splitAt = Math.min(effectiveMaxRows, rows.length);
-  
-  if (splitAt === 0) {
-    return { firstPart: '', secondPart: table.outerHTML };
-  }
-  
-  const firstRows = rows.slice(0, splitAt);
-  const secondRows = rows.slice(splitAt);
+  const firstRows = rows.slice(0, splitIndex);
+  const secondRows = rows.slice(splitIndex);
   
   const firstPart = `<table>${theadHtml}<tbody>${firstRows.map(r => r.outerHTML).join('')}</tbody></table>`;
   const secondPart = secondRows.length > 0
@@ -267,28 +311,53 @@ const splitTableByRowCount = (
   return { firstPart, secondPart };
 };
 
-// Split list by item count
+// MEASURE LIST ITEM with REAL DOM - includes nested lists
+const measureListItemLines = (item: HTMLElement, contentWidth: number): number => {
+  const tempContainer = document.createElement('div');
+  tempContainer.style.cssText = `
+    position: absolute;
+    visibility: hidden;
+    left: -9999px;
+    width: ${contentWidth}px;
+    font-family: Arial, sans-serif;
+    font-size: 11pt;
+    line-height: 1.6;
+    padding-left: 24pt;
+  `;
+  tempContainer.className = 'page-content-area';
+  document.body.appendChild(tempContainer);
+  
+  const clone = item.cloneNode(true) as HTMLElement;
+  tempContainer.appendChild(clone);
+  
+  const height = clone.offsetHeight;
+  document.body.removeChild(tempContainer);
+  
+  return Math.ceil(height / LINE_HEIGHT_PX);
+};
+
+// Split list by measuring REAL item heights with DOM (includes nested lists)
 const splitListByItemCount = (
   list: HTMLElement,
-  maxItems: number,
-  charsPerLine: number
+  maxLines: number,
+  contentWidth: number
 ): { firstPart: string; secondPart: string } => {
   const tagName = list.tagName.toLowerCase();
   const items = Array.from(list.querySelectorAll(':scope > li'));
   
-  if (items.length === 0 || maxItems <= 0) {
+  if (items.length === 0 || maxLines <= 0) {
     return { firstPart: '', secondPart: list.outerHTML };
   }
   
-  // Count how many items fit in available lines
+  // Measure each item with DOM and find split point
   let linesUsed = 0;
   let splitIndex = 0;
   
   for (let i = 0; i < items.length; i++) {
-    const itemText = items[i].textContent || '';
-    const itemLines = Math.max(1, Math.ceil(itemText.length / charsPerLine));
+    // REAL DOM measurement - includes nested <ul>/<ol> inside <li>
+    const itemLines = measureListItemLines(items[i] as HTMLElement, contentWidth);
     
-    if (linesUsed + itemLines > maxItems) {
+    if (linesUsed + itemLines > maxLines) {
       break;
     }
     linesUsed += itemLines;
@@ -350,9 +419,9 @@ const divideContentIntoPages = (
     // CASE 2: Element doesn't fit - calculate remaining space
     const remainingLines = MAX_LINES - currentLines;
 
-    // 2A: Tables - put what fits if at least 2 rows can go
+    // 2A: Tables - use REAL DOM measurement to split by rows
     if (tagName === 'table' && remainingLines >= 2) {
-      const { firstPart, secondPart } = splitTableByRowCount(element, remainingLines);
+      const { firstPart, secondPart } = splitTableByRowCount(element, remainingLines, CONTENT_WIDTH);
       
       if (firstPart) {
         currentPageHtml += firstPart;
@@ -369,9 +438,9 @@ const divideContentIntoPages = (
       }
     }
 
-    // 2B: Lists - split by items
+    // 2B: Lists - use REAL DOM measurement to split by items (includes nested lists)
     if ((tagName === 'ul' || tagName === 'ol') && remainingLines >= 1) {
-      const { firstPart, secondPart } = splitListByItemCount(element, remainingLines, CHARS_PER_LINE);
+      const { firstPart, secondPart } = splitListByItemCount(element, remainingLines, CONTENT_WIDTH);
       
       if (firstPart) {
         currentPageHtml += firstPart;

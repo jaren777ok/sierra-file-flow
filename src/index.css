@@ -320,8 +320,9 @@
   }
 
   .page-content-area th {
-    background-color: #f0f0f0;
-    font-weight: 700;
+    background-color: hsl(var(--sierra-teal)) !important;
+    color: white !important;
+    font-weight: 700 !important;
   }
 
   .page-content-area tr {
