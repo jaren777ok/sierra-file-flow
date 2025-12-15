@@ -25,6 +25,11 @@ const CHAR_WIDTH_PX = 7.5;    // ~7.5px per character at 11pt Arial
 // SAFE LIMITS with buffer for margins (h1, h2, li have extra margins)
 const MAX_LINES_PER_PAGE = 28; // CONSERVATIVE - better more pages than hidden content
 
+// INTELLIGENT SPLIT THRESHOLDS - avoid half-empty pages
+const MIN_ROWS_TO_SPLIT_TABLE = 3;     // Don't split table if only 1-2 rows fit
+const MIN_ITEMS_TO_SPLIT_LIST = 2;     // Don't split list if only 1 item fits
+const MIN_PERCENT_TO_SPLIT = 0.30;     // Split only if at least 30% of element fits
+
 // REAL DOM HEIGHT MEASUREMENT - synchronized with EXACT CSS styles from .page-content-area
 const measureElementHeight = (element: HTMLElement, contentWidth: number): number => {
   // Create temp container with EXACT SAME styles as .page-content-area in CSS
@@ -240,7 +245,7 @@ const splitParagraphByLines = (
   };
 };
 
-// MEASURE TABLE ROW with REAL DOM - includes multi-line cells
+// MEASURE TABLE ROW with REAL DOM - includes multi-line cells with buffer for long text
 const measureTableRowLines = (row: HTMLElement, contentWidth: number): number => {
   const tempContainer = document.createElement('div');
   tempContainer.style.cssText = `
@@ -261,13 +266,24 @@ const measureTableRowLines = (row: HTMLElement, contentWidth: number): number =>
   tempContainer.appendChild(tempTable);
   document.body.appendChild(tempContainer);
   
+  // Force reflow for accurate measurement
+  void tempContainer.offsetHeight;
+  
   const height = tempTable.offsetHeight;
   document.body.removeChild(tempContainer);
   
-  return Math.ceil(height / LINE_HEIGHT_PX);
+  // Add buffer for cells with long text content
+  const cells = row.querySelectorAll('td, th');
+  let extraBuffer = 0;
+  cells.forEach(cell => {
+    const text = cell.textContent || '';
+    if (text.length > 50) extraBuffer += 1; // Extra line for long cell content
+  });
+  
+  return Math.ceil(height / LINE_HEIGHT_PX) + extraBuffer;
 };
 
-// Split table by measuring REAL row heights with DOM
+// Split table by measuring REAL row heights with DOM - with intelligent threshold
 const splitTableByRowCount = (
   table: HTMLElement,
   maxLines: number,
@@ -313,7 +329,13 @@ const splitTableByRowCount = (
     splitIndex = i + 1;
   }
   
-  if (splitIndex === 0) {
+  // INTELLIGENT THRESHOLD: Check if split is worthwhile
+  const totalRows = rows.length;
+  const rowsInFirstPart = splitIndex;
+  
+  // If too few rows fit OR less than 30% of table fits, don't split - push entire table to next page
+  if (rowsInFirstPart < MIN_ROWS_TO_SPLIT_TABLE || 
+      (totalRows > 0 && rowsInFirstPart / totalRows < MIN_PERCENT_TO_SPLIT)) {
     return { firstPart: '', secondPart: table.outerHTML };
   }
   
@@ -363,7 +385,7 @@ const measureListItemLines = (item: HTMLElement, contentWidth: number): number =
   return Math.ceil(height / LINE_HEIGHT_PX) + buffer;
 };
 
-// Split list by measuring REAL item heights with DOM (includes nested lists)
+// Split list by measuring REAL item heights with DOM (includes nested lists) - with intelligent threshold
 const splitListByItemCount = (
   list: HTMLElement,
   maxLines: number,
@@ -401,7 +423,13 @@ const splitListByItemCount = (
     splitIndex = i + 1;
   }
   
-  if (splitIndex === 0) {
+  // INTELLIGENT THRESHOLD: Check if split is worthwhile
+  const totalItems = items.length;
+  const itemsInFirstPart = splitIndex;
+  
+  // If too few items fit OR less than 30% of list fits, don't split - push entire list to next page
+  if (itemsInFirstPart < MIN_ITEMS_TO_SPLIT_LIST || 
+      (totalItems > 0 && itemsInFirstPart / totalItems < MIN_PERCENT_TO_SPLIT)) {
     return { firstPart: '', secondPart: list.outerHTML };
   }
   
@@ -456,11 +484,12 @@ const divideContentIntoPages = (
     // CASE 2: Element doesn't fit - calculate remaining space
     const remainingLines = MAX_LINES - currentLines;
 
-    // 2A: Tables - use REAL DOM measurement to split by rows
+    // 2A: Tables - use REAL DOM measurement to split by rows with intelligent threshold
     if (tagName === 'table' && remainingLines >= 2) {
       const { firstPart, secondPart } = splitTableByRowCount(element, remainingLines, CONTENT_WIDTH);
       
       if (firstPart) {
+        // Split was worthwhile - proceed with split
         currentPageHtml += firstPart;
         pages.push(currentPageHtml);
         currentPageHtml = secondPart;
@@ -472,14 +501,39 @@ const divideContentIntoPages = (
           currentLines = 0;
         }
         continue;
+      } else {
+        // Split not worthwhile - push entire table to new page
+        if (currentPageHtml.trim()) {
+          pages.push(currentPageHtml);
+        }
+        // Check if element fits entirely in a fresh page
+        if (elementLines <= MAX_LINES) {
+          currentPageHtml = element.outerHTML;
+          currentLines = elementLines;
+        } else {
+          // Element too big even for fresh page - force split at max capacity
+          const { firstPart: fp, secondPart: sp } = splitTableByRowCount(element, MAX_LINES, CONTENT_WIDTH);
+          if (fp) {
+            pages.push(fp);
+            currentPageHtml = sp;
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = sp;
+            currentLines = tempDiv.firstChild ? countElementLines(tempDiv.firstChild as HTMLElement, CONTENT_WIDTH) : 0;
+          } else {
+            currentPageHtml = element.outerHTML;
+            currentLines = elementLines;
+          }
+        }
+        continue;
       }
     }
 
-    // 2B: Lists - use REAL DOM measurement to split by items (includes nested lists)
+    // 2B: Lists - use REAL DOM measurement to split by items with intelligent threshold
     if ((tagName === 'ul' || tagName === 'ol') && remainingLines >= 1) {
       const { firstPart, secondPart } = splitListByItemCount(element, remainingLines, CONTENT_WIDTH);
       
       if (firstPart) {
+        // Split was worthwhile - proceed with split
         currentPageHtml += firstPart;
         pages.push(currentPageHtml);
         currentPageHtml = secondPart;
@@ -489,6 +543,30 @@ const divideContentIntoPages = (
           currentLines = tempDiv.firstChild ? countElementLines(tempDiv.firstChild as HTMLElement, CONTENT_WIDTH) : 0;
         } else {
           currentLines = 0;
+        }
+        continue;
+      } else {
+        // Split not worthwhile - push entire list to new page
+        if (currentPageHtml.trim()) {
+          pages.push(currentPageHtml);
+        }
+        // Check if element fits entirely in a fresh page
+        if (elementLines <= MAX_LINES) {
+          currentPageHtml = element.outerHTML;
+          currentLines = elementLines;
+        } else {
+          // Element too big even for fresh page - force split at max capacity
+          const { firstPart: fp, secondPart: sp } = splitListByItemCount(element, MAX_LINES, CONTENT_WIDTH);
+          if (fp) {
+            pages.push(fp);
+            currentPageHtml = sp;
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = sp;
+            currentLines = tempDiv.firstChild ? countElementLines(tempDiv.firstChild as HTMLElement, CONTENT_WIDTH) : 0;
+          } else {
+            currentPageHtml = element.outerHTML;
+            currentLines = elementLines;
+          }
         }
         continue;
       }
