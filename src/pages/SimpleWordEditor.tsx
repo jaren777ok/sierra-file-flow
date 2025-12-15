@@ -25,7 +25,7 @@ const CHAR_WIDTH_PX = 7.5;    // ~7.5px per character at 11pt Arial
 // SAFE LIMITS with buffer for margins (h1, h2, li have extra margins)
 const MAX_LINES_PER_PAGE = 35; // 942px / 24px ≈ 39 lines, minus 4 buffer for margins
 
-// REAL DOM HEIGHT MEASUREMENT - synchronized with CSS styles
+// REAL DOM HEIGHT MEASUREMENT - synchronized with EXACT CSS styles from .page-content-area
 const measureElementHeight = (element: HTMLElement, contentWidth: number): number => {
   // Create temp container with EXACT SAME styles as .page-content-area in CSS
   const tempContainer = document.createElement('div');
@@ -35,8 +35,11 @@ const measureElementHeight = (element: HTMLElement, contentWidth: number): numbe
     left: -9999px;
     width: ${contentWidth}px;
     font-family: Arial, sans-serif;
-    font-size: ${FONT_SIZE_PX}px;
+    font-size: 11pt;
     line-height: 1.6;
+    text-align: justify;
+    word-break: normal;
+    hyphens: none;
     padding: 0;
     margin: 0;
   `;
@@ -790,34 +793,36 @@ export default function SimpleWordEditor() {
                 }}
               />
               
-              {/* Visual guide lines for content limits */}
+              {/* Visual text box boundary - like PPT editor */}
               <div 
-                className="absolute left-0 right-0 border-t border-dashed border-gray-400 z-5 pointer-events-none opacity-30"
-                style={{ top: PADDING_TOP }}
-              />
-              <div 
-                className="absolute left-0 right-0 border-t border-dashed border-gray-400 z-5 pointer-events-none opacity-30"
-                style={{ bottom: PADDING_BOTTOM }}
+                className="absolute pointer-events-none z-5"
+                style={{
+                  top: PADDING_TOP,
+                  left: leftMargin,
+                  right: rightMargin,
+                  height: CONTENT_HEIGHT,
+                  border: '1px solid rgba(0, 0, 0, 0.15)',
+                  boxSizing: 'border-box',
+                }}
               />
               
-              {/* Page content area - on top of background */}
+              {/* Page content area - FIXED BOX with absolute position like PPT */}
               <div
                 ref={el => pageRefs.current[index] = el}
                 contentEditable
                 suppressContentEditableWarning
                 className="page-content-area focus:outline-none"
                 style={{
-                  position: 'relative',
+                  position: 'absolute',
+                  top: PADDING_TOP,
+                  left: leftMargin,
+                  right: rightMargin,
+                  height: CONTENT_HEIGHT,
                   zIndex: 1,
-                  paddingTop: PADDING_TOP,
-                  paddingBottom: PADDING_BOTTOM,
-                  paddingLeft: leftMargin,
-                  paddingRight: rightMargin,
-                  height: CONTENT_HEIGHT + PADDING_TOP + PADDING_BOTTOM,
-                  maxHeight: CONTENT_HEIGHT + PADDING_TOP + PADDING_BOTTOM,
                   overflow: 'hidden',
                   boxSizing: 'border-box',
                   backgroundColor: 'transparent',
+                  padding: '8px',
                 }}
                 onBlur={handlePageBlur}
                 dangerouslySetInnerHTML={{ __html: pageHtml }}
