@@ -26,20 +26,21 @@ const CONTENT_PADDING = 14;  // Slightly reduced padding
 const TEXT_AREA_HEIGHT = 600;  // 720 - 30 - 60 - 30 = 600px visible (24 lines × 25px)
 const TEXT_AREA_WIDTH = 1024;
 
-// Font and line constants - for DOM measurement (12pt × 1.5 line-height = 24px)
-const LINE_HEIGHT_PX = 24;  // 12pt × 1.5 = ~24px per line
+// Font and line constants - SYNCHRONIZED WITH CSS .ppt-content-area
+const LINE_HEIGHT_PX = 25;    // Matches CSS: lines every 25px (line 556 in index.css)
+const FONT_SIZE_PX = 14.67;   // Matches CSS: font-size: 14.67px (line 454 in index.css)
 
-// OPTIMIZED LIMITS - Fill slides to maximum capacity
-const MAX_LINES_PER_SLIDE = 24;  // 24 lines max (600px / 25px)
+// SAFE LIMITS with buffer for margins (h1, h2, li have extra margins)
+const MAX_LINES_PER_SLIDE = 22;  // 24 - 2 buffer for element margins
 
 // Helper para verificar si un elemento es un título
 const isHeading = (tagName: string): boolean => {
   return ['h1', 'h2', 'h3', 'h4'].includes(tagName);
 };
 
-// MEDIR ALTURA REAL de un elemento en el DOM - USANDO ESTILOS CSS EXACTOS
+// MEDIR ALTURA REAL de un elemento en el DOM - SINCRONIZADO CON CSS
 const measureElementHeight = (element: HTMLElement): number => {
-  // Crear contenedor temporal con los MISMOS estilos que el slide real
+  // Crear contenedor temporal con los MISMOS estilos que .ppt-content-area en CSS
   const tempContainer = document.createElement('div');
   tempContainer.style.cssText = `
     position: absolute;
@@ -47,28 +48,24 @@ const measureElementHeight = (element: HTMLElement): number => {
     left: -9999px;
     width: ${TEXT_AREA_WIDTH - CONTENT_PADDING * 2}px;
     font-family: Arial, sans-serif;
-    font-size: 12pt;
-    line-height: 1.5;
+    font-size: ${FONT_SIZE_PX}px;
+    line-height: 1.7;
     padding: 0;
     margin: 0;
   `;
+  // Aplicar clase CSS real para heredar estilos exactos
   tempContainer.className = 'ppt-content-area';
   document.body.appendChild(tempContainer);
   
-  // Clonar el elemento y medir su altura real
   const clone = element.cloneNode(true) as HTMLElement;
   tempContainer.appendChild(clone);
   
+  // Medir altura TOTAL incluyendo márgenes del elemento
   const height = clone.offsetHeight;
-  
-  // Obtener line-height computado del estilo real
-  const computedStyle = getComputedStyle(clone);
-  const computedLineHeight = parseFloat(computedStyle.lineHeight) || LINE_HEIGHT_PX;
-  
   document.body.removeChild(tempContainer);
   
-  // Convertir altura en píxeles a líneas (redondear hacia arriba)
-  return Math.ceil(height / computedLineHeight);
+  // Convertir altura en píxeles a líneas usando LINE_HEIGHT_PX sincronizado
+  return Math.ceil(height / LINE_HEIGHT_PX);
 };
 
 // Convert image to base64 for PPTX export
