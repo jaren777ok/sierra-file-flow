@@ -17,22 +17,22 @@ const SLIDE_HEIGHT = 720;  // 16:9 HD height
 
 // Content area margins (respecting logo and bottom strips)
 const CONTENT_TOP = 30;
-const CONTENT_BOTTOM = 90;   // Increased for safety margin before color strips
+const CONTENT_BOTTOM = 60;   // Reduced to extend text area closer to bottom strips
 const CONTENT_LEFT = 60;
 const CONTENT_RIGHT = 180;
-const CONTENT_PADDING = 16;
+const CONTENT_PADDING = 14;  // Slightly reduced padding
 
-// Calculated text area dimensions - CORRECTED for visible content
-const TEXT_AREA_HEIGHT = 570;  // 720 - 30 - 90 - 30 = 570px visible
+// Calculated text area dimensions - MAXIMIZED for visible content
+const TEXT_AREA_HEIGHT = 602;  // 720 - 30 - 60 - 28 = 602px visible
 const TEXT_AREA_WIDTH = 1024;
 
-// Font and line constants - REALISTIC spacing
-const LINE_HEIGHT_PX = 28;  // Increased for realistic line spacing with margins
+// Font and line constants - PRECISE spacing
+const LINE_HEIGHT_PX = 24;  // Realistic line spacing for 11pt
 const CHAR_WIDTH_PX = 7;    // Average char width at 11pt Arial
 
-// CORRECTED LIMITS - Never exceed visible area
-const MAX_LINES_PER_SLIDE = 20;  // 570 / 28 ≈ 20 lines maximum
-const CHARS_PER_LINE = 140;      // Slightly reduced for safety
+// MAXIMIZED LIMITS - Fill slides efficiently
+const MAX_LINES_PER_SLIDE = 22;  // 602 / 24 ≈ 25, but 22 for safety
+const CHARS_PER_LINE = 145;      // Slightly increased for efficiency
 
 // Helper para verificar si un elemento es un título
 const isHeading = (tagName: string): boolean => {
@@ -187,15 +187,15 @@ export default function SimplePptEditor() {
     return Math.max(1, Math.ceil(text.length / CHARS_PER_LINE));
   };
 
-  // Count lines for an element - WITH MULTIPLIERS for headings and spacing
+  // Count lines for an element - REDUCED multipliers to maximize space usage
   const countElementLines = (element: HTMLElement): number => {
     const tagName = element.tagName.toLowerCase();
     
-    // Títulos: líneas equivalentes (incluyendo margin/padding extra)
-    if (tagName === 'h1') return 3;    // Large title with margins
-    if (tagName === 'h2') return 2.5;  // Section title
-    if (tagName === 'h3') return 2;    // Subsection title
-    if (tagName === 'h4') return 1.5;  // Small title
+    // Títulos: líneas reales (reducidas para evitar desperdicio)
+    if (tagName === 'h1') return 2;    // Large title
+    if (tagName === 'h2') return 1.5;  // Section title
+    if (tagName === 'h3') return 1.2;  // Subsection title
+    if (tagName === 'h4') return 1;    // Small title
     
     // Tablas: 1 línea por fila
     if (tagName === 'table') {
@@ -203,12 +203,12 @@ export default function SimplePptEditor() {
       return rows.length + 1; // +1 para header/margen
     }
     
-    // Listas: calcular líneas de cada item + padding extra
+    // Listas: calcular líneas de cada item + minimal padding
     if (tagName === 'ul' || tagName === 'ol') {
       const items = element.querySelectorAll(':scope > li');
       let lines = 0;
       items.forEach(item => {
-        lines += countTextLines(item.textContent || '') + 0.3; // +0.3 per item for padding
+        lines += countTextLines(item.textContent || '') + 0.15; // +0.15 per item for padding
       });
       return Math.ceil(lines);
     }
