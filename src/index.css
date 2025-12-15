@@ -195,13 +195,13 @@
     hyphens: none;
     -webkit-hyphens: none;
     -ms-hyphens: none;
-    /* Visual guide lines every 24px (LINE_HEIGHT_PX) for debugging */
+    /* Visual guide lines every 24px (LINE_HEIGHT_PX) - more visible like PPT */
     background-image: repeating-linear-gradient(
       to bottom,
       transparent 0px,
       transparent 22px,
-      rgba(180, 180, 180, 0.12) 22px,
-      rgba(180, 180, 180, 0.12) 24px
+      rgba(0, 0, 0, 0.08) 22px,
+      rgba(0, 0, 0, 0.08) 24px
     );
     background-size: 100% 24px;
     background-position: 0 0;
