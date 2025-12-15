@@ -543,15 +543,15 @@
   font-weight: 700;
 }
 
-/* PPT Content Area - Dotted line guides for 22 lines at 24px each */
+/* PPT Content Area - Dotted line guides for 24 lines at 25px each */
 .ppt-content-area {
   position: relative;
   background-image: repeating-linear-gradient(
     to bottom,
     transparent 0px,
-    transparent 22px,
-    rgba(180, 180, 180, 0.2) 22px,
-    rgba(180, 180, 180, 0.2) 24px
+    transparent 23px,
+    rgba(180, 180, 180, 0.2) 23px,
+    rgba(180, 180, 180, 0.2) 25px
   );
-  background-size: 100% 24px;
+  background-size: 100% 25px;
 }
