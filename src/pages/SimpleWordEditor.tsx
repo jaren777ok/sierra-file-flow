@@ -51,10 +51,15 @@ const measureElementHeightPx = (element: HTMLElement, contentWidth: number): num
   
   void tempContainer.offsetHeight;
   
-  const height = clone.offsetHeight;
+  // Include CSS margins in measurement (offsetHeight doesn't include margins)
+  const style = window.getComputedStyle(clone);
+  const marginTop = parseFloat(style.marginTop) || 0;
+  const marginBottom = parseFloat(style.marginBottom) || 0;
+  
+  const height = clone.offsetHeight + marginTop + marginBottom;
   document.body.removeChild(tempContainer);
   
-  return height; // Return PIXELS directly
+  return height; // Return PIXELS including margins
 };
 
 // Function to clean HTML - extract only body content and remove \n literals
@@ -156,7 +161,7 @@ const getElementHeightPx = (element: HTMLElement, contentWidth: number): number 
   return measureElementHeightPx(element, contentWidth);
 };
 
-// MEASURE TABLE ROW - returns PIXELS directly
+// MEASURE TABLE ROW - returns PIXELS directly including margins
 const measureTableRowHeightPx = (row: HTMLElement, contentWidth: number): number => {
   const tempContainer = document.createElement('div');
   tempContainer.style.cssText = `
@@ -178,13 +183,18 @@ const measureTableRowHeightPx = (row: HTMLElement, contentWidth: number): number
   
   void tempContainer.offsetHeight;
   
-  const height = tempTable.offsetHeight;
+  // Include CSS margins in measurement
+  const style = window.getComputedStyle(tempTable);
+  const marginTop = parseFloat(style.marginTop) || 0;
+  const marginBottom = parseFloat(style.marginBottom) || 0;
+  
+  const height = tempTable.offsetHeight + marginTop + marginBottom;
   document.body.removeChild(tempContainer);
   
-  return height; // Return PIXELS directly
+  return height; // Return PIXELS including margins
 };
 
-// MEASURE LIST ITEM - returns PIXELS directly
+// MEASURE LIST ITEM - returns PIXELS directly including margins
 const measureListItemHeightPx = (item: HTMLElement, contentWidth: number): number => {
   const tempContainer = document.createElement('div');
   tempContainer.style.cssText = `
@@ -207,10 +217,19 @@ const measureListItemHeightPx = (item: HTMLElement, contentWidth: number): numbe
   
   void tempContainer.offsetHeight;
   
-  const height = listWrapper.offsetHeight;
+  // Include CSS margins in measurement (list and item margins)
+  const listStyle = window.getComputedStyle(listWrapper);
+  const listMarginTop = parseFloat(listStyle.marginTop) || 0;
+  const listMarginBottom = parseFloat(listStyle.marginBottom) || 0;
+  
+  const itemStyle = window.getComputedStyle(clone);
+  const itemMarginTop = parseFloat(itemStyle.marginTop) || 0;
+  const itemMarginBottom = parseFloat(itemStyle.marginBottom) || 0;
+  
+  const height = listWrapper.offsetHeight + listMarginTop + listMarginBottom + itemMarginTop + itemMarginBottom;
   document.body.removeChild(tempContainer);
   
-  return height; // Return PIXELS directly
+  return height; // Return PIXELS including margins
 };
 
 // MAIN PAGINATION ALGORITHM - ROW BY ROW / ITEM BY ITEM (copied from SimplePptEditor)
