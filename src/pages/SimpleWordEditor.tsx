@@ -22,7 +22,9 @@ const LINE_HEIGHT_PX = 24;    // 11pt × 1.6 ≈ 24px per line (for reference on
 
 // Page capacity in PIXELS - direct comparison without conversion
 const CONTAINER_PADDING = 16; // 8px top + 8px bottom of actual container padding
-const MAX_HEIGHT_PX = CONTENT_HEIGHT - CONTAINER_PADDING; // 942 - 16 = 926px real capacity
+const HORIZONTAL_PADDING = 16; // 8px left + 8px right of actual container padding
+const SAFETY_BUFFER = 30; // Extra buffer for rendering discrepancies
+const MAX_HEIGHT_PX = CONTENT_HEIGHT - CONTAINER_PADDING - SAFETY_BUFFER; // 942 - 16 - 30 = 896px real capacity
 
 // REAL DOM HEIGHT MEASUREMENT - returns PIXELS directly (not lines)
 const measureElementHeightPx = (element: HTMLElement, contentWidth: number): number => {
@@ -221,7 +223,7 @@ const divideContentIntoPages = (
     return [''];
   }
 
-  const CONTENT_WIDTH = PAGE_WIDTH - leftMargin - rightMargin;
+  const CONTENT_WIDTH = PAGE_WIDTH - leftMargin - rightMargin - HORIZONTAL_PADDING;
   const MIN_SPACE_PX = 72; // ~3 lines of text (24px * 3) - minimum to split paragraphs
 
   // Parse HTML into elements
