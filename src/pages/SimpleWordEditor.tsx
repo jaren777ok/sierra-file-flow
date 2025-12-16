@@ -20,10 +20,11 @@ const CONTENT_HEIGHT = PAGE_HEIGHT - PADDING_TOP - PADDING_BOTTOM; // 942px
 // FONT AND LINE CONSTANTS - SYNCHRONIZED WITH CSS .page-content-area
 const FONT_SIZE_PX = 14.67;   // 11pt = 14.67px (matches CSS)
 const LINE_HEIGHT_PX = 24;    // 11pt × 1.6 ≈ 24px per line (synchronized)
+const TABLE_LINE_HEIGHT_PX = 17; // 9pt × 1.4 ≈ 17px for tables (smaller font)
 const CHAR_WIDTH_PX = 7.5;    // ~7.5px per character at 11pt Arial
 
-// SAFE LIMITS with buffer for margins (h1, h2, li have extra margins)
-const MAX_LINES_PER_PAGE = 28; // CONSERVATIVE - better more pages than hidden content
+// Page capacity based on content height
+const MAX_LINES_PER_PAGE = 35; // 942px / ~27px average = ~35 lines
 
 // REAL DOM HEIGHT MEASUREMENT - synchronized with EXACT CSS styles from .page-content-area
 const measureElementHeight = (element: HTMLElement, contentWidth: number): number => {
@@ -224,15 +225,8 @@ const measureTableRowLines = (row: HTMLElement, contentWidth: number): number =>
   const height = tempTable.offsetHeight;
   document.body.removeChild(tempContainer);
   
-  // Add buffer for cells with long text content
-  const cells = row.querySelectorAll('td, th');
-  let extraBuffer = 0;
-  cells.forEach(cell => {
-    const text = cell.textContent || '';
-    if (text.length > 50) extraBuffer += 1; // Extra line for long cell content
-  });
-  
-  return Math.ceil(height / LINE_HEIGHT_PX) + extraBuffer;
+  // Use TABLE_LINE_HEIGHT_PX (17px) - DOM measurement already includes multi-line content
+  return Math.ceil(height / TABLE_LINE_HEIGHT_PX);
 };
 
 // MEASURE LIST ITEM with REAL DOM - includes nested lists with proper wrapper
