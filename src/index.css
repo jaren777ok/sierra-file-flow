@@ -290,14 +290,46 @@
     list-style-type: lower-roman;
   }
 
+  .page-content-area ul {
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .page-content-area ol {
+    list-style: none;
+    padding-left: 0;
+    counter-reset: list-counter;
+  }
+
   .page-content-area li {
     margin-bottom: 4pt;
-    line-height: 1.5;
-    display: list-item;
-    vertical-align: baseline;
+    line-height: 1.6;
+    display: flex;
+    align-items: baseline;
+    padding-left: 24pt;
+    position: relative;
   }
-  
-  .page-content-area li::marker {
+
+  .page-content-area ul > li::before {
+    content: "•";
+    position: absolute;
+    left: 8pt;
+    flex-shrink: 0;
+    font-size: inherit;
+    line-height: inherit;
+  }
+
+  .page-content-area ol > li {
+    counter-increment: list-counter;
+  }
+
+  .page-content-area ol > li::before {
+    content: counter(list-counter) ".";
+    position: absolute;
+    left: 4pt;
+    min-width: 16pt;
+    text-align: right;
+    flex-shrink: 0;
     font-size: inherit;
     line-height: inherit;
   }
@@ -462,14 +494,46 @@
   list-style-type: decimal;
 }
 
-.slide-content li {
-  margin-bottom: 6px;
-  line-height: 1.5;
-  display: list-item;
-  vertical-align: baseline;
+.slide-content ul {
+  list-style: none;
+  padding-left: 0;
 }
 
-.slide-content li::marker {
+.slide-content ol {
+  list-style: none;
+  padding-left: 0;
+  counter-reset: slide-list-counter;
+}
+
+.slide-content li {
+  margin-bottom: 6px;
+  line-height: 1.6;
+  display: flex;
+  align-items: baseline;
+  padding-left: 24px;
+  position: relative;
+}
+
+.slide-content ul > li::before {
+  content: "•";
+  position: absolute;
+  left: 8px;
+  flex-shrink: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.slide-content ol > li {
+  counter-increment: slide-list-counter;
+}
+
+.slide-content ol > li::before {
+  content: counter(slide-list-counter) ".";
+  position: absolute;
+  left: 2px;
+  min-width: 18px;
+  text-align: right;
+  flex-shrink: 0;
   font-size: inherit;
   line-height: inherit;
 }
@@ -504,14 +568,46 @@
   margin-bottom: 8px;
 }
 
-.ppt-content-area li {
-  margin-bottom: 4px;
-  line-height: 1.5;
-  display: list-item;
-  vertical-align: baseline;
+.ppt-content-area ul {
+  list-style: none;
+  padding-left: 0;
 }
 
-.ppt-content-area li::marker {
+.ppt-content-area ol {
+  list-style: none;
+  padding-left: 0;
+  counter-reset: ppt-list-counter;
+}
+
+.ppt-content-area li {
+  margin-bottom: 4px;
+  line-height: 1.6;
+  display: flex;
+  align-items: baseline;
+  padding-left: 24px;
+  position: relative;
+}
+
+.ppt-content-area ul > li::before {
+  content: "•";
+  position: absolute;
+  left: 8px;
+  flex-shrink: 0;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.ppt-content-area ol > li {
+  counter-increment: ppt-list-counter;
+}
+
+.ppt-content-area ol > li::before {
+  content: counter(ppt-list-counter) ".";
+  position: absolute;
+  left: 2px;
+  min-width: 18px;
+  text-align: right;
+  flex-shrink: 0;
   font-size: inherit;
   line-height: inherit;
 }
