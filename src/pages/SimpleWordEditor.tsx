@@ -18,17 +18,13 @@ const DEFAULT_PADDING_HORIZONTAL = 40; // Minimum margins - triangles at max wid
 const CONTENT_HEIGHT = PAGE_HEIGHT - PADDING_TOP - PADDING_BOTTOM; // 942px
 
 // FONT AND LINE CONSTANTS - SYNCHRONIZED WITH CSS .page-content-area
-const FONT_SIZE_PX = 14.67;   // 11pt = 14.67px (matches CSS)
-const LINE_HEIGHT_PX = 24;    // 11pt × 1.6 ≈ 24px per line (synchronized)
-const TABLE_LINE_HEIGHT_PX = 17; // 9pt × 1.4 ≈ 17px for tables (smaller font)
-const CHAR_WIDTH_PX = 7.5;    // ~7.5px per character at 11pt Arial
+const LINE_HEIGHT_PX = 24;    // 11pt × 1.6 ≈ 24px per line (for reference only)
 
-// Page capacity based on content height
-const MAX_LINES_PER_PAGE = 35; // 942px / ~27px average = ~35 lines
+// Page capacity in PIXELS - direct comparison without conversion
+const MAX_HEIGHT_PX = CONTENT_HEIGHT; // 942px - actual pixel capacity
 
-// REAL DOM HEIGHT MEASUREMENT - synchronized with EXACT CSS styles from .page-content-area
-const measureElementHeight = (element: HTMLElement, contentWidth: number): number => {
-  // Create temp container with EXACT SAME styles as .page-content-area in CSS
+// REAL DOM HEIGHT MEASUREMENT - returns PIXELS directly (not lines)
+const measureElementHeightPx = (element: HTMLElement, contentWidth: number): number => {
   const tempContainer = document.createElement('div');
   tempContainer.style.cssText = `
     position: absolute;
@@ -44,36 +40,18 @@ const measureElementHeight = (element: HTMLElement, contentWidth: number): numbe
     padding: 0;
     margin: 0;
   `;
-  // Apply the CSS class for exact style inheritance
   tempContainer.className = 'page-content-area';
   document.body.appendChild(tempContainer);
   
   const clone = element.cloneNode(true) as HTMLElement;
   tempContainer.appendChild(clone);
   
-  // FORCE REFLOW to get accurate height after styles apply
   void tempContainer.offsetHeight;
   
-  // Measure TOTAL height including margins
   const height = clone.offsetHeight;
   document.body.removeChild(tempContainer);
   
-  // Convert height in pixels to lines using synchronized LINE_HEIGHT_PX
-  const baseLines = Math.ceil(height / LINE_HEIGHT_PX);
-  
-  // ADD BUFFER for nested elements (li with nested ul/ol)
-  const tagName = element.tagName.toLowerCase();
-  let bufferLines = 0;
-  if (tagName === 'li') {
-    const nestedLists = element.querySelectorAll('ul, ol');
-    bufferLines = nestedLists.length * 2; // 2 extra lines per nested list
-  }
-  if (tagName === 'ul' || tagName === 'ol') {
-    const nestedLists = element.querySelectorAll('ul ul, ul ol, ol ul, ol ol');
-    bufferLines = nestedLists.length * 2;
-  }
-  
-  return baseLines + bufferLines;
+  return height; // Return PIXELS directly
 };
 
 // Function to clean HTML - extract only body content and remove \n literals
@@ -170,36 +148,13 @@ const isPageEmpty = (html: string): boolean => {
   return textContent.trim().length === 0;
 };
 
-// COUNT LINES for an element using REAL DOM MEASUREMENT (synchronized with CSS)
-const countElementLines = (element: HTMLElement, contentWidth: number): number => {
-  const tagName = element.tagName.toLowerCase();
-  
-  // TABLES: ALWAYS measure real (cells can have multi-line text)
-  if (tagName === 'table') {
-    return measureElementHeight(element, contentWidth);
-  }
-  
-  // HEADINGS H1: measure real (includes border-bottom, large margins)
-  if (tagName === 'h1') {
-    return measureElementHeight(element, contentWidth);
-  }
-  
-  // HEADINGS H2-H4: measure real (includes margins)
-  if (isHeading(tagName)) {
-    return measureElementHeight(element, contentWidth);
-  }
-  
-  // LISTS: measure real (items can wrap to multiple lines)
-  if (tagName === 'ul' || tagName === 'ol') {
-    return measureElementHeight(element, contentWidth);
-  }
-  
-  // PARAGRAPHS and others: measure real
-  return measureElementHeight(element, contentWidth);
+// Get element height in PIXELS using REAL DOM MEASUREMENT
+const getElementHeightPx = (element: HTMLElement, contentWidth: number): number => {
+  return measureElementHeightPx(element, contentWidth);
 };
 
-// MEASURE TABLE ROW with REAL DOM - includes multi-line cells with buffer for long text
-const measureTableRowLines = (row: HTMLElement, contentWidth: number): number => {
+// MEASURE TABLE ROW - returns PIXELS directly
+const measureTableRowHeightPx = (row: HTMLElement, contentWidth: number): number => {
   const tempContainer = document.createElement('div');
   tempContainer.style.cssText = `
     position: absolute;
@@ -211,7 +166,6 @@ const measureTableRowLines = (row: HTMLElement, contentWidth: number): number =>
   `;
   tempContainer.className = 'page-content-area';
   
-  // Create temp table with the row to measure accurately
   const tempTable = document.createElement('table');
   tempTable.style.cssText = 'width: 100%; table-layout: fixed; border-collapse: collapse;';
   const clone = row.cloneNode(true) as HTMLElement;
@@ -219,18 +173,16 @@ const measureTableRowLines = (row: HTMLElement, contentWidth: number): number =>
   tempContainer.appendChild(tempTable);
   document.body.appendChild(tempContainer);
   
-  // Force reflow for accurate measurement
   void tempContainer.offsetHeight;
   
   const height = tempTable.offsetHeight;
   document.body.removeChild(tempContainer);
   
-  // Use TABLE_LINE_HEIGHT_PX (17px) - DOM measurement already includes multi-line content
-  return Math.ceil(height / TABLE_LINE_HEIGHT_PX);
+  return height; // Return PIXELS directly
 };
 
-// MEASURE LIST ITEM with REAL DOM - includes nested lists with proper wrapper
-const measureListItemLines = (item: HTMLElement, contentWidth: number): number => {
+// MEASURE LIST ITEM - returns PIXELS directly
+const measureListItemHeightPx = (item: HTMLElement, contentWidth: number): number => {
   const tempContainer = document.createElement('div');
   tempContainer.style.cssText = `
     position: absolute;
@@ -244,24 +196,18 @@ const measureListItemLines = (item: HTMLElement, contentWidth: number): number =
   tempContainer.className = 'page-content-area';
   document.body.appendChild(tempContainer);
   
-  // Create list wrapper for accurate measurement (includes bullets/margins)
   const listWrapper = document.createElement('ul');
   listWrapper.style.cssText = 'margin: 0; padding-left: 24pt;';
   const clone = item.cloneNode(true) as HTMLElement;
   listWrapper.appendChild(clone);
   tempContainer.appendChild(listWrapper);
   
-  // Force reflow for accurate measurement
   void tempContainer.offsetHeight;
   
   const height = listWrapper.offsetHeight;
   document.body.removeChild(tempContainer);
   
-  // Add buffer for nested lists inside this item
-  const nestedLists = item.querySelectorAll('ul, ol');
-  const buffer = nestedLists.length * 2; // 2 extra lines per nested list
-  
-  return Math.ceil(height / LINE_HEIGHT_PX) + buffer;
+  return height; // Return PIXELS directly
 };
 
 // MAIN PAGINATION ALGORITHM - ROW BY ROW / ITEM BY ITEM (copied from SimplePptEditor)
@@ -275,8 +221,7 @@ const divideContentIntoPages = (
   }
 
   const CONTENT_WIDTH = PAGE_WIDTH - leftMargin - rightMargin;
-  const CHARS_PER_LINE = Math.floor(CONTENT_WIDTH / CHAR_WIDTH_PX);
-  const MAX_LINES = MAX_LINES_PER_PAGE;
+  const MIN_SPACE_PX = 72; // ~3 lines of text (24px * 3) - minimum to split paragraphs
 
   // Parse HTML into elements
   const tempContainer = document.createElement('div');
@@ -284,7 +229,7 @@ const divideContentIntoPages = (
 
   const pages: string[] = [];
   let currentPageHtml = '';
-  let currentLines = 0;
+  let currentHeightPx = 0; // Track in PIXELS directly
 
   // Save current page and reset
   const savePage = () => {
@@ -292,7 +237,7 @@ const divideContentIntoPages = (
       pages.push(currentPageHtml);
     }
     currentPageHtml = '';
-    currentLines = 0;
+    currentHeightPx = 0;
   };
 
   const children = Array.from(tempContainer.children);
@@ -301,13 +246,12 @@ const divideContentIntoPages = (
     const element = child as HTMLElement;
     const tagName = element.tagName.toLowerCase();
 
-    // === TABLES: Process ROW BY ROW (like PPT) ===
+    // === TABLES: Process ROW BY ROW ===
     if (tagName === 'table') {
       const thead = element.querySelector('thead');
       const theadHtml = thead?.outerHTML || '';
-      const headerLines = thead ? measureElementHeight(thead as HTMLElement, CONTENT_WIDTH) : 0;
+      const headerHeightPx = thead ? measureElementHeightPx(thead as HTMLElement, CONTENT_WIDTH) : 0;
 
-      // Get all tbody rows or direct rows
       const tbody = element.querySelector('tbody');
       const rows = Array.from(tbody ? tbody.querySelectorAll('tr') : element.querySelectorAll(':scope > tr:not(thead tr)'));
 
@@ -315,73 +259,64 @@ const divideContentIntoPages = (
 
       for (const row of rows) {
         const rowHtml = (row as HTMLElement).outerHTML;
-        const rowLines = measureTableRowLines(row as HTMLElement, CONTENT_WIDTH);
+        const rowHeightPx = measureTableRowHeightPx(row as HTMLElement, CONTENT_WIDTH);
 
-        // How many lines needed for this row?
-        const linesNeeded = tableStarted ? rowLines : (headerLines + rowLines + 1);
+        const heightNeeded = tableStarted ? rowHeightPx : (headerHeightPx + rowHeightPx);
 
-        if (currentLines + linesNeeded > MAX_LINES) {
-          // Close table if open
+        if (currentHeightPx + heightNeeded > MAX_HEIGHT_PX) {
           if (tableStarted) {
             currentPageHtml += '</tbody></table>';
           }
           savePage();
 
-          // New page with header + this row
           currentPageHtml = `<table>${theadHtml}<tbody>${rowHtml}`;
-          currentLines = headerLines + rowLines;
+          currentHeightPx = headerHeightPx + rowHeightPx;
           tableStarted = true;
         } else {
-          // Add row to current page
           if (!tableStarted) {
             currentPageHtml += `<table>${theadHtml}<tbody>`;
-            currentLines += headerLines;
+            currentHeightPx += headerHeightPx;
             tableStarted = true;
           }
           currentPageHtml += rowHtml;
-          currentLines += rowLines;
+          currentHeightPx += rowHeightPx;
         }
       }
 
-      // Close table when done
       if (tableStarted) {
         currentPageHtml += '</tbody></table>';
       }
       continue;
     }
 
-    // === LISTS: Process ITEM BY ITEM (like PPT) ===
+    // === LISTS: Process ITEM BY ITEM ===
     if (tagName === 'ul' || tagName === 'ol') {
       const items = Array.from(element.querySelectorAll(':scope > li'));
       let listStarted = false;
 
       for (const item of items) {
         const itemHtml = (item as HTMLElement).outerHTML;
-        const itemLines = measureListItemLines(item as HTMLElement, CONTENT_WIDTH);
+        const itemHeightPx = measureListItemHeightPx(item as HTMLElement, CONTENT_WIDTH);
 
-        if (currentLines + itemLines > MAX_LINES) {
-          // Close list if open
+        if (currentHeightPx + itemHeightPx > MAX_HEIGHT_PX) {
           if (listStarted) {
             currentPageHtml += `</${tagName}>`;
           }
           savePage();
 
-          // New page with new list + this item
           currentPageHtml = `<${tagName}>${itemHtml}`;
-          currentLines = itemLines;
+          currentHeightPx = itemHeightPx;
           listStarted = true;
         } else {
-          // Add item to current page
           if (!listStarted) {
             currentPageHtml += `<${tagName}>`;
             listStarted = true;
           }
           currentPageHtml += itemHtml;
-          currentLines += itemLines;
+          currentHeightPx += itemHeightPx;
         }
       }
 
-      // Close list when done
       if (listStarted) {
         currentPageHtml += `</${tagName}>`;
       }
@@ -390,94 +325,84 @@ const divideContentIntoPages = (
 
     // === HEADINGS: Never split, move complete if doesn't fit ===
     if (isHeading(tagName)) {
-      const elementLines = countElementLines(element, CONTENT_WIDTH);
+      const elementHeightPx = getElementHeightPx(element, CONTENT_WIDTH);
 
-      if (currentLines + elementLines > MAX_LINES) {
+      if (currentHeightPx + elementHeightPx > MAX_HEIGHT_PX) {
         savePage();
       }
 
       currentPageHtml += element.outerHTML;
-      currentLines += elementLines;
+      currentHeightPx += elementHeightPx;
       continue;
     }
 
-    // === PARAGRAPHS: Measure with DOM and split by sentences if space available ===
+    // === PARAGRAPHS: Measure and split by sentences if space available ===
     if (tagName === 'p') {
-      const totalLines = measureElementHeight(element, CONTENT_WIDTH);
+      const totalHeightPx = measureElementHeightPx(element, CONTENT_WIDTH);
 
-      // If fits completely, add normally
-      if (currentLines + totalLines <= MAX_LINES) {
+      if (currentHeightPx + totalHeightPx <= MAX_HEIGHT_PX) {
         currentPageHtml += element.outerHTML;
-        currentLines += totalLines;
+        currentHeightPx += totalHeightPx;
         continue;
       }
 
-      // Calculate available lines
-      const linesAvailable = MAX_LINES - currentLines;
+      const spaceAvailablePx = MAX_HEIGHT_PX - currentHeightPx;
 
-      // If enough space (>= 3 lines), split by sentences
-      if (linesAvailable >= 3) {
+      if (spaceAvailablePx >= MIN_SPACE_PX) {
         const text = element.textContent || '';
         const sentences = text.split(/(?<=[.!?])\s+/);
 
         if (sentences.length > 1) {
           let firstPart = '';
           let remainingPart = '';
-          let firstPartLines = 0;
+          let firstPartHeightPx = 0;
 
-          // Add sentences until filling available space
           for (let i = 0; i < sentences.length; i++) {
             const testPart = firstPart + (firstPart ? ' ' : '') + sentences[i];
-
-            // Create temp element to measure
             const testElement = document.createElement('p');
             testElement.textContent = testPart;
-            const testLines = measureElementHeight(testElement, CONTENT_WIDTH);
+            const testHeightPx = measureElementHeightPx(testElement, CONTENT_WIDTH);
 
-            if (testLines <= linesAvailable) {
+            if (testHeightPx <= spaceAvailablePx) {
               firstPart = testPart;
-              firstPartLines = testLines;
+              firstPartHeightPx = testHeightPx;
             } else {
-              // Rest goes to next page
               remainingPart = sentences.slice(i).join(' ');
               break;
             }
           }
 
-          // Add first part to current page
           if (firstPart) {
             currentPageHtml += `<p>${firstPart}</p>`;
-            currentLines += firstPartLines;
+            currentHeightPx += firstPartHeightPx;
           }
 
-          // Save page and add rest to new page
           if (remainingPart) {
             savePage();
             const remainingElement = document.createElement('p');
             remainingElement.textContent = remainingPart;
             currentPageHtml = `<p>${remainingPart}</p>`;
-            currentLines = measureElementHeight(remainingElement, CONTENT_WIDTH);
+            currentHeightPx = measureElementHeightPx(remainingElement, CONTENT_WIDTH);
           }
           continue;
         }
       }
 
-      // If too little space or can't split, move complete
       savePage();
       currentPageHtml = element.outerHTML;
-      currentLines = totalLines;
+      currentHeightPx = totalHeightPx;
       continue;
     }
 
     // === OTHER ELEMENTS: Add or move complete ===
-    const elementLines = countElementLines(element, CONTENT_WIDTH);
+    const elementHeightPx = getElementHeightPx(element, CONTENT_WIDTH);
 
-    if (currentLines + elementLines > MAX_LINES) {
+    if (currentHeightPx + elementHeightPx > MAX_HEIGHT_PX) {
       savePage();
     }
 
     currentPageHtml += element.outerHTML;
-    currentLines += elementLines;
+    currentHeightPx += elementHeightPx;
   }
 
   // Save last page
