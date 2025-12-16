@@ -446,6 +446,8 @@ export default function SimpleWordEditor() {
   const [projectTitle, setProjectTitle] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [pdfProgress, setPdfProgress] = useState(0);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   
   // Refs for page elements
   const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
@@ -650,10 +652,8 @@ export default function SimpleWordEditor() {
   // Handle PDF download - capture entire container with background
   const handleDownloadPdf = async () => {
     try {
-      toast({
-        title: "Generando PDF...",
-        description: "Por favor espera mientras se genera el archivo",
-      });
+      setIsGeneratingPdf(true);
+      setPdfProgress(0);
 
       const pageContainers = document.querySelectorAll('.word-page-container');
       if (pageContainers.length === 0) {
@@ -681,6 +681,18 @@ export default function SimpleWordEditor() {
       // Process each page
       for (let i = 0; i < pageContainers.length; i++) {
         const container = pageContainers[i] as HTMLElement;
+        
+        // Update progress
+        setPdfProgress(Math.round(((i + 0.5) / pageContainers.length) * 100));
+        
+        // HIDE visual guides before capture
+        const boundaryBox = container.querySelector('.pdf-hide-boundary') as HTMLElement;
+        const contentArea = container.querySelector('.page-content-area') as HTMLElement;
+        const originalBg = contentArea?.style.backgroundImage;
+        
+        if (boundaryBox) boundaryBox.style.visibility = 'hidden';
+        if (contentArea) contentArea.style.backgroundImage = 'none';
+        
         const bgImg = container.querySelector('img') as HTMLImageElement;
         const originalSrc = bgImg?.src;
 
@@ -712,9 +724,16 @@ export default function SimpleWordEditor() {
         if (bgImg && originalSrc) {
           bgImg.src = originalSrc;
         }
+        
+        // RESTORE visual guides after capture
+        if (boundaryBox) boundaryBox.style.visibility = 'visible';
+        if (contentArea) contentArea.style.backgroundImage = originalBg || '';
 
         const imgData = canvas.toDataURL('image/jpeg', 0.95);
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        
+        // Update progress after page complete
+        setPdfProgress(Math.round(((i + 1) / pageContainers.length) * 100));
       }
 
       pdf.save(`${projectTitle || 'documento'}.pdf`);
@@ -730,6 +749,9 @@ export default function SimpleWordEditor() {
         description: "No se pudo generar el PDF. Intenta de nuevo.",
         variant: "destructive",
       });
+    } finally {
+      setIsGeneratingPdf(false);
+      setPdfProgress(0);
     }
   };
 
@@ -746,6 +768,27 @@ export default function SimpleWordEditor() {
 
   return (
     <div className="min-h-screen bg-[#f5f5f5]">
+      {/* PDF Generation Progress Modal */}
+      {isGeneratingPdf && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[100]">
+          <div className="bg-white rounded-lg p-8 shadow-2xl max-w-md w-full mx-4">
+            <div className="text-center space-y-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-sierra-teal mx-auto"></div>
+              <h3 className="text-lg font-semibold text-gray-800">Generando PDF...</h3>
+              <p className="text-sm text-gray-600">
+                Procesando página {Math.ceil((pdfProgress / 100) * pagesContent.length)} de {pagesContent.length}
+              </p>
+              <div className="w-full bg-gray-200 rounded-full h-3">
+                <div 
+                  className="bg-sierra-teal h-3 rounded-full transition-all duration-300"
+                  style={{ width: `${pdfProgress}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-500">{pdfProgress}% completado</p>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Toolbar sticky */}
       <SimpleToolbar
         onFormat={handleFormat}
@@ -803,9 +846,9 @@ export default function SimpleWordEditor() {
                 }}
               />
               
-              {/* Visual text box boundary - like PPT editor */}
+              {/* Visual text box boundary - like PPT editor (hidden in PDF export) */}
               <div 
-                className="absolute pointer-events-none z-5"
+                className="absolute pointer-events-none z-5 pdf-hide-boundary"
                 style={{
                   top: PADDING_TOP,
                   left: leftMargin,

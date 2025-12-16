@@ -293,6 +293,13 @@
   .page-content-area li {
     margin-bottom: 4pt;
     line-height: 1.5;
+    display: list-item;
+    vertical-align: baseline;
+  }
+  
+  .page-content-area li::marker {
+    font-size: inherit;
+    line-height: inherit;
   }
 
   .page-content-area table {
@@ -457,7 +464,14 @@
 
 .slide-content li {
   margin-bottom: 6px;
-  line-height: 1.4;
+  line-height: 1.5;
+  display: list-item;
+  vertical-align: baseline;
+}
+
+.slide-content li::marker {
+  font-size: inherit;
+  line-height: inherit;
 }
 
 /* PPT content area - fixed line-based layout */
@@ -492,6 +506,14 @@
 
 .ppt-content-area li {
   margin-bottom: 4px;
+  line-height: 1.5;
+  display: list-item;
+  vertical-align: baseline;
+}
+
+.ppt-content-area li::marker {
+  font-size: inherit;
+  line-height: inherit;
 }
 
 .slide-content table {

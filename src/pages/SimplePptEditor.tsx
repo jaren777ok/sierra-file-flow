@@ -607,34 +607,36 @@ export default function SimplePptEditor() {
     }
   };
 
+  // PDF generation progress state
+  const [pdfProgress, setPdfProgress] = useState(0);
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+
   // Download as PDF (16:9 format to match slides exactly)
   const handleDownloadPdf = async () => {
     try {
-      toast({
-        title: "Generando PDF...",
-        description: "Por favor espera mientras se genera el archivo",
-      });
+      setIsGeneratingPdf(true);
+      setPdfProgress(0);
 
       const slides = document.querySelectorAll('.ppt-slide');
       if (slides.length === 0) {
         throw new Error('No hay slides para exportar');
       }
 
-      // Use custom 16:9 format (same ratio as 1920x1080 / 1280x720)
-      // 13.33" x 7.5" converted to mm = 338.67mm x 190.5mm
-      const pdfWidth = 338.67;  // 16:9 width in mm
-      const pdfHeight = 190.5;  // 16:9 height in mm
+      const pdfWidth = 338.67;
+      const pdfHeight = 190.5;
 
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',
-        format: [pdfWidth, pdfHeight] // Custom 16:9 format
+        format: [pdfWidth, pdfHeight]
       });
 
       for (let i = 0; i < slides.length; i++) {
         const slide = slides[i] as HTMLElement;
         
-        // Improved html2canvas options for better image capture
+        // Update progress
+        setPdfProgress(Math.round(((i + 0.5) / slides.length) * 100));
+        
         const canvas = await html2canvas(slide, {
           scale: 2,
           useCORS: true,
@@ -652,8 +654,10 @@ export default function SimplePptEditor() {
           pdf.addPage([pdfWidth, pdfHeight], 'landscape');
         }
         
-        // Image fills exactly the PDF page (same aspect ratio)
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+        
+        // Update progress after slide complete
+        setPdfProgress(Math.round(((i + 1) / slides.length) * 100));
       }
 
       pdf.save(`${projectTitle || 'presentacion'}.pdf`);
@@ -669,6 +673,9 @@ export default function SimplePptEditor() {
         description: "No se pudo generar el PDF",
         variant: "destructive",
       });
+    } finally {
+      setIsGeneratingPdf(false);
+      setPdfProgress(0);
     }
   };
 
@@ -871,6 +878,27 @@ export default function SimplePptEditor() {
 
   return (
     <div className="min-h-screen bg-[#2d2d2d]">
+      {/* PDF Generation Progress Modal */}
+      {isGeneratingPdf && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[100]">
+          <div className="bg-[#1a1a1a] border border-[#404040] rounded-lg p-8 shadow-2xl max-w-md w-full mx-4">
+            <div className="text-center space-y-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[hsl(var(--sierra-teal))] mx-auto"></div>
+              <h3 className="text-lg font-semibold text-white">Generando PDF...</h3>
+              <p className="text-sm text-gray-400">
+                Procesando slide {Math.ceil((pdfProgress / 100) * (slidesContent.length + 2))} de {slidesContent.length + 2}
+              </p>
+              <div className="w-full bg-[#404040] rounded-full h-3">
+                <div 
+                  className="bg-[hsl(var(--sierra-teal))] h-3 rounded-full transition-all duration-300"
+                  style={{ width: `${pdfProgress}%` }}
+                />
+              </div>
+              <p className="text-xs text-gray-500">{pdfProgress}% completado</p>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Toolbar */}
       <div className="sticky top-0 z-50 bg-[#1a1a1a] border-b border-[#404040] shadow-lg">
         <div className="flex items-center justify-between px-4 py-3">
@@ -897,42 +925,46 @@ export default function SimplePptEditor() {
           </div>
 
           {/* Right: Action buttons */}
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={handleSave}
-              disabled={isSaving}
-              variant="outline"
-              size="sm"
-              className="border-[#404040] text-gray-300 hover:text-white hover:bg-[#404040]"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {isSaving ? 'Guardando...' : 'Guardar'}
-            </Button>
+          <div className="flex items-center gap-3">
+            {/* Guardar - HIDDEN but functionality preserved */}
+            {false && (
+              <Button
+                onClick={handleSave}
+                disabled={isSaving}
+                variant="outline"
+                size="sm"
+                className="border-[#404040] text-gray-300 hover:text-white hover:bg-[#404040]"
+              >
+                <Save className="h-4 w-4 mr-2" />
+                {isSaving ? 'Guardando...' : 'Guardar'}
+              </Button>
+            )}
             <Button
               onClick={handleCopyAll}
-              variant="outline"
               size="sm"
-              className="border-[#404040] text-gray-300 hover:text-white hover:bg-[#404040]"
+              className="bg-white/90 text-gray-800 hover:bg-white border border-gray-300 shadow-sm font-medium"
             >
               <Copy className="h-4 w-4 mr-2" />
               Copiar Todo
             </Button>
-            <Button
-              onClick={handleDownloadPptx}
-              size="sm"
-              className="sierra-teal-gradient text-white border-0"
-            >
-              <FileText className="h-4 w-4 mr-2" />
-              Descargar PPTX
-            </Button>
+            {/* Descargar PPTX - HIDDEN but functionality preserved */}
+            {false && (
+              <Button
+                onClick={handleDownloadPptx}
+                size="sm"
+                className="sierra-teal-gradient text-white border-0"
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Descargar PPTX
+              </Button>
+            )}
             <Button
               onClick={handleDownloadPdf}
-              variant="outline"
               size="sm"
-              className="border-[#404040] text-gray-300 hover:text-white hover:bg-[#404040]"
+              className="bg-[hsl(var(--sierra-teal))] hover:bg-[hsl(var(--sierra-teal-light))] text-white shadow-sm font-medium border-0"
             >
               <Download className="h-4 w-4 mr-2" />
-              PDF
+              Descargar PDF
             </Button>
           </div>
         </div>
