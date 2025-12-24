@@ -257,59 +257,50 @@
     text-align: justify;
   }
 
-  /* Lists with flexbox alignment for perfect bullet positioning */
-  .page-content-area ul,
-  .page-content-area ol {
+  /* Lists - Native list-style for proper text flow like Word */
+  .page-content-area ul {
     margin: 8pt 0;
-    padding-left: 0;
-    list-style: none;
+    padding-left: 24pt;
+    list-style-type: disc;
+    list-style-position: outside;
   }
 
   .page-content-area ol {
-    counter-reset: list-counter;
+    margin: 8pt 0;
+    padding-left: 24pt;
+    list-style-type: decimal;
+    list-style-position: outside;
   }
 
   .page-content-area li {
     margin-bottom: 4pt;
     line-height: 1.6;
-    display: flex;
-    align-items: baseline;
-    padding-left: 24pt;
-    position: relative;
+    text-align: justify;
+    display: list-item;
   }
 
-  .page-content-area ul > li::before {
-    content: "•";
-    position: absolute;
-    left: 8pt;
-    flex-shrink: 0;
-    font-size: inherit;
-    line-height: inherit;
-  }
-
-  .page-content-area ol > li {
-    counter-increment: list-counter;
-  }
-
-  .page-content-area ol > li::before {
-    content: counter(list-counter) ".";
-    position: absolute;
-    left: 4pt;
-    min-width: 16pt;
-    text-align: right;
-    flex-shrink: 0;
-    font-size: inherit;
-    line-height: inherit;
-  }
-
-  /* Nested lists */
+  /* Nested lists - second level */
   .page-content-area ul ul,
-  .page-content-area ol ol,
-  .page-content-area ul ol,
   .page-content-area ol ul {
+    list-style-type: circle;
     margin-top: 4pt;
     margin-bottom: 4pt;
-    margin-left: 12pt;
+    padding-left: 20pt;
+  }
+
+  /* Nested lists - third level */
+  .page-content-area ul ul ul,
+  .page-content-area ol ul ul {
+    list-style-type: square;
+  }
+
+  /* Nested ordered lists */
+  .page-content-area ol ol,
+  .page-content-area ul ol {
+    list-style-type: lower-alpha;
+    margin-top: 4pt;
+    margin-bottom: 4pt;
+    padding-left: 20pt;
   }
 
   .page-content-area table {
@@ -458,59 +449,50 @@
   line-height: 1.5;
 }
 
-/* Lists with flexbox alignment for perfect bullet positioning */
-.slide-content ul,
-.slide-content ol {
+/* Lists - Native list-style for proper text flow */
+.slide-content ul {
   margin: 10px 0;
-  padding-left: 0;
-  list-style: none;
+  padding-left: 24px;
+  list-style-type: disc;
+  list-style-position: outside;
 }
 
 .slide-content ol {
-  counter-reset: slide-list-counter;
+  margin: 10px 0;
+  padding-left: 24px;
+  list-style-type: decimal;
+  list-style-position: outside;
 }
 
 .slide-content li {
   margin-bottom: 6px;
   line-height: 1.6;
-  display: flex;
-  align-items: baseline;
-  padding-left: 24px;
-  position: relative;
+  text-align: justify;
+  display: list-item;
 }
 
-.slide-content ul > li::before {
-  content: "•";
-  position: absolute;
-  left: 8px;
-  flex-shrink: 0;
-  font-size: inherit;
-  line-height: inherit;
-}
-
-.slide-content ol > li {
-  counter-increment: slide-list-counter;
-}
-
-.slide-content ol > li::before {
-  content: counter(slide-list-counter) ".";
-  position: absolute;
-  left: 2px;
-  min-width: 18px;
-  text-align: right;
-  flex-shrink: 0;
-  font-size: inherit;
-  line-height: inherit;
-}
-
-/* Nested lists */
+/* Nested lists - second level */
 .slide-content ul ul,
-.slide-content ol ol,
-.slide-content ul ol,
 .slide-content ol ul {
+  list-style-type: circle;
   margin-top: 4px;
   margin-bottom: 4px;
-  margin-left: 12px;
+  padding-left: 20px;
+}
+
+/* Nested lists - third level */
+.slide-content ul ul ul,
+.slide-content ol ul ul {
+  list-style-type: square;
+}
+
+/* Nested ordered lists */
+.slide-content ol ol,
+.slide-content ul ol {
+  list-style-type: lower-alpha;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  padding-left: 20px;
 }
 
 /* PPT content area - fixed line-based layout */
@@ -543,59 +525,49 @@
   margin-bottom: 8px;
 }
 
-/* Lists with flexbox alignment */
-.ppt-content-area ul,
-.ppt-content-area ol {
+/* Lists - Native list-style for proper text flow */
+.ppt-content-area ul {
   margin: 8px 0;
-  padding-left: 0;
-  list-style: none;
+  padding-left: 24px;
+  list-style-type: disc;
+  list-style-position: outside;
 }
 
 .ppt-content-area ol {
-  counter-reset: ppt-list-counter;
+  margin: 8px 0;
+  padding-left: 24px;
+  list-style-type: decimal;
+  list-style-position: outside;
 }
 
 .ppt-content-area li {
   margin-bottom: 4px;
   line-height: 1.6;
-  display: flex;
-  align-items: baseline;
-  padding-left: 24px;
-  position: relative;
+  display: list-item;
 }
 
-.ppt-content-area ul > li::before {
-  content: "•";
-  position: absolute;
-  left: 8px;
-  flex-shrink: 0;
-  font-size: inherit;
-  line-height: inherit;
-}
-
-.ppt-content-area ol > li {
-  counter-increment: ppt-list-counter;
-}
-
-.ppt-content-area ol > li::before {
-  content: counter(ppt-list-counter) ".";
-  position: absolute;
-  left: 2px;
-  min-width: 18px;
-  text-align: right;
-  flex-shrink: 0;
-  font-size: inherit;
-  line-height: inherit;
-}
-
-/* Nested lists */
+/* Nested lists - second level */
 .ppt-content-area ul ul,
-.ppt-content-area ol ol,
-.ppt-content-area ul ol,
 .ppt-content-area ol ul {
+  list-style-type: circle;
   margin-top: 4px;
   margin-bottom: 4px;
-  margin-left: 12px;
+  padding-left: 20px;
+}
+
+/* Nested lists - third level */
+.ppt-content-area ul ul ul,
+.ppt-content-area ol ul ul {
+  list-style-type: square;
+}
+
+/* Nested ordered lists */
+.ppt-content-area ol ol,
+.ppt-content-area ul ol {
+  list-style-type: lower-alpha;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  padding-left: 20px;
 }
 
 /* Tables */
