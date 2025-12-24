@@ -8,6 +8,7 @@ import { Trash2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import fondoA4Image from '@/assets/FONDO_A4.png';
+import { markdownToHtml } from '@/services/markdownService';
 
 // A4 Portrait dimensions (standard document format)
 const PAGE_WIDTH = 793;   // 21cm at 96 DPI
@@ -478,11 +479,14 @@ export default function SimpleWordEditor() {
         if (error) throw error;
 
         if (data?.result_html) {
-          const cleanedHtml = cleanHtml(data.result_html);
+          // Convert Markdown to HTML using the markdown service
+          const htmlContent = markdownToHtml(data.result_html);
           setProjectTitle(data.project_title || 'Documento Sin Título');
           
+          console.log('📝 Markdown convertido a HTML');
+          
           // Divide content into pages
-          const pages = divideContentIntoPages(cleanedHtml, leftMargin, rightMargin);
+          const pages = divideContentIntoPages(htmlContent, leftMargin, rightMargin);
           setPagesContent(pages);
           
           console.log('✅ HTML cargado y dividido en', pages.length, 'páginas');
