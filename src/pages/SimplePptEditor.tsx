@@ -10,6 +10,7 @@ import PptxGenJS from 'pptxgenjs';
 import portadaImage from '@/assets/presentacion_1_2.png';
 import graciasImage from '@/assets/presentacion_1_3.png';
 import slideBackgroundImage from '@/assets/hojas_de_en_medio.png';
+import { markdownToHtml } from '@/services/markdownService';
 
 // 16:9 HD dimensions (standard presentation format)
 const SLIDE_WIDTH = 1280;  // 16:9 HD width
@@ -528,15 +529,18 @@ export default function SimplePptEditor() {
         if (error) throw error;
         
         // Use result_html_ppt with fallback to result_html for backwards compatibility
-        const htmlContent = (data as any)?.result_html_ppt || data?.result_html;
+        const rawContent = (data as any)?.result_html_ppt || data?.result_html;
         
-        if (htmlContent) {
-          const cleanedHtml = cleanHtml(htmlContent);
+        if (rawContent) {
+          // Convert Markdown to HTML using the markdown service
+          const htmlContent = markdownToHtml(rawContent);
           setProjectTitle(data.project_title || 'Presentación');
+          
+          console.log('📝 Markdown convertido a HTML para PPT');
           
           // Wait for DOM to be ready, then divide content
           setTimeout(() => {
-            const slides = divideContentIntoSlides(cleanedHtml);
+            const slides = divideContentIntoSlides(htmlContent);
             setSlidesContent(slides);
             setLoading(false);
           }, 100);

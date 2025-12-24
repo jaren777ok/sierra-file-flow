@@ -257,47 +257,15 @@
     text-align: justify;
   }
 
+  /* Lists with flexbox alignment for perfect bullet positioning */
   .page-content-area ul,
   .page-content-area ol {
     margin: 8pt 0;
-    padding-left: 24pt;
-  }
-
-  .page-content-area ul {
-    list-style-type: disc;
-  }
-
-  .page-content-area ul ul {
-    list-style-type: circle;
-    margin-top: 4pt;
-    margin-bottom: 4pt;
-  }
-
-  .page-content-area ul ul ul {
-    list-style-type: square;
+    padding-left: 0;
+    list-style: none;
   }
 
   .page-content-area ol {
-    list-style-type: decimal;
-  }
-
-  .page-content-area ol ol {
-    list-style-type: lower-alpha;
-    margin-top: 4pt;
-  }
-
-  .page-content-area ol ol ol {
-    list-style-type: lower-roman;
-  }
-
-  .page-content-area ul {
-    list-style: none;
-    padding-left: 0;
-  }
-
-  .page-content-area ol {
-    list-style: none;
-    padding-left: 0;
     counter-reset: list-counter;
   }
 
@@ -332,6 +300,16 @@
     flex-shrink: 0;
     font-size: inherit;
     line-height: inherit;
+  }
+
+  /* Nested lists */
+  .page-content-area ul ul,
+  .page-content-area ol ol,
+  .page-content-area ul ol,
+  .page-content-area ol ul {
+    margin-top: 4pt;
+    margin-bottom: 4pt;
+    margin-left: 12pt;
   }
 
   .page-content-area table {
@@ -480,28 +458,15 @@
   line-height: 1.5;
 }
 
+/* Lists with flexbox alignment for perfect bullet positioning */
 .slide-content ul,
 .slide-content ol {
   margin: 10px 0;
-  padding-left: 24px;
-}
-
-.slide-content ul {
-  list-style-type: disc;
+  padding-left: 0;
+  list-style: none;
 }
 
 .slide-content ol {
-  list-style-type: decimal;
-}
-
-.slide-content ul {
-  list-style: none;
-  padding-left: 0;
-}
-
-.slide-content ol {
-  list-style: none;
-  padding-left: 0;
   counter-reset: slide-list-counter;
 }
 
@@ -538,6 +503,16 @@
   line-height: inherit;
 }
 
+/* Nested lists */
+.slide-content ul ul,
+.slide-content ol ol,
+.slide-content ul ol,
+.slide-content ol ul {
+  margin-top: 4px;
+  margin-bottom: 4px;
+  margin-left: 12px;
+}
+
 /* PPT content area - fixed line-based layout */
 .ppt-content-area {
   font-family: Arial, sans-serif;
@@ -568,14 +543,15 @@
   margin-bottom: 8px;
 }
 
-.ppt-content-area ul {
-  list-style: none;
+/* Lists with flexbox alignment */
+.ppt-content-area ul,
+.ppt-content-area ol {
+  margin: 8px 0;
   padding-left: 0;
+  list-style: none;
 }
 
 .ppt-content-area ol {
-  list-style: none;
-  padding-left: 0;
   counter-reset: ppt-list-counter;
 }
 
@@ -610,6 +586,41 @@
   flex-shrink: 0;
   font-size: inherit;
   line-height: inherit;
+}
+
+/* Nested lists */
+.ppt-content-area ul ul,
+.ppt-content-area ol ol,
+.ppt-content-area ul ol,
+.ppt-content-area ol ul {
+  margin-top: 4px;
+  margin-bottom: 4px;
+  margin-left: 12px;
+}
+
+/* Tables */
+.ppt-content-area table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 11px;
+}
+
+.ppt-content-area th,
+.ppt-content-area td {
+  border: 1px solid #333;
+  padding: 4px 6px;
+  text-align: left;
+}
+
+.ppt-content-area th {
+  background-color: hsl(var(--sierra-teal));
+  color: white;
+  font-weight: 700;
+}
+
+.ppt-content-area tr:nth-child(even) {
+  background-color: #f8f8f8;
 }
 
 .slide-content table {
