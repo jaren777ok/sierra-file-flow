@@ -244,24 +244,41 @@ export default function SimplePptEditor() {
       
       // === TABLAS: Procesar FILA POR FILA ===
       if (tagName === 'table') {
-        const thead = element.querySelector('thead');
-        const theadHtml = thead?.outerHTML || '';
-        // MEDIR altura real del header
-        const headerLines = thead ? measureElementHeight(thead as HTMLElement) : 0;
+        // Buscar thead, o crear uno virtual desde la primera fila si no existe
+        let thead = element.querySelector('thead');
+        let theadHtml = '';
+        let headerLines = 0;
+        let dataRows: Element[] = [];
         
-        // Obtener todas las filas del tbody o directas
-        const tbody = element.querySelector('tbody');
-        const rows = Array.from(tbody ? tbody.querySelectorAll('tr') : element.querySelectorAll(':scope > tr:not(thead tr)'));
+        if (thead) {
+          // Tabla con thead normal
+          theadHtml = thead.outerHTML;
+          headerLines = measureElementHeight(thead as HTMLElement);
+          const tbody = element.querySelector('tbody');
+          dataRows = Array.from(tbody ? tbody.querySelectorAll('tr') : element.querySelectorAll(':scope > tr'));
+        } else {
+          // Tabla SIN thead - usar primera fila como header
+          const allRows = Array.from(element.querySelectorAll('tr'));
+          if (allRows.length > 0) {
+            const firstRow = allRows[0] as HTMLElement;
+            // Convertir la primera fila a thead con th en lugar de td
+            const cells = Array.from(firstRow.querySelectorAll('td, th'));
+            const thCells = cells.map(cell => `<th>${cell.innerHTML}</th>`).join('');
+            theadHtml = `<thead><tr>${thCells}</tr></thead>`;
+            headerLines = measureElementHeight(firstRow) + 1; // +1 para margen
+            dataRows = allRows.slice(1); // Resto son datos
+          }
+        }
         
         let tableStarted = false;
         
-        for (const row of rows) {
+        for (const row of dataRows) {
           const rowHtml = (row as HTMLElement).outerHTML;
           // MEDIR altura real de la fila (no asumir 1 línea)
           const rowLines = measureElementHeight(row as HTMLElement);
           
           // ¿Cabe esta fila en la slide actual?
-          const linesNeeded = tableStarted ? rowLines : (headerLines + rowLines + 1);
+          const linesNeeded = tableStarted ? rowLines : (headerLines + rowLines + 2);
           
           if (currentLines + linesNeeded > MAX_LINES_PER_SLIDE) {
             // Cerrar tabla si está abierta

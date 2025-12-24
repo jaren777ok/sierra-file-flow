@@ -15,13 +15,15 @@ export const markdownToHtml = (markdown: string): string => {
     return '<p>No hay contenido disponible.</p>';
   }
 
-  // Step 1: Clean escaped characters
+  // Step 1: Clean escaped characters - ORDER MATTERS!
   let cleaned = markdown
-    // Replace literal \n with actual newlines
+    // First: Replace double-escaped newlines (\\n -> \n literal, then to real newline)
+    .replace(/\\\\n/g, '\n')
+    // Then: Replace single-escaped newlines (\n -> real newline)
     .replace(/\\n/g, '\n')
     // Replace escaped quotes
     .replace(/\\"/g, '"')
-    // Replace escaped backslashes
+    // Replace remaining escaped backslashes
     .replace(/\\\\/g, '\\');
 
   // Step 2: Clean any HTML wrapper if present (for backwards compatibility)
@@ -37,14 +39,8 @@ export const markdownToHtml = (markdown: string): string => {
       .trim();
   }
 
-  // Step 3: If content is already HTML (has common HTML tags), return as-is
-  const hasHtmlTags = /<(h[1-6]|p|ul|ol|li|table|div|span|strong|em|a|br)[^>]*>/i.test(cleaned);
-  if (hasHtmlTags && !cleaned.includes('##') && !cleaned.includes('**')) {
-    // Already HTML, just clean up whitespace
-    return cleaned.replace(/>\s*\n\s*</g, '><');
-  }
-
-  // Step 4: Convert Markdown to HTML using marked
+  // Step 3: ALWAYS convert Markdown to HTML using marked
+  // Removed the "already HTML" detection that was incorrectly skipping conversion
   try {
     const html = marked.parse(cleaned);
     
