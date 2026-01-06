@@ -232,7 +232,7 @@ const ReviewStep = ({
           <Button
             variant="outline"
             onClick={onAddCustomArea}
-            className="border-purple-500 text-purple-600 hover:bg-purple-50"
+            className="border-purple-500 text-purple-600 hover:bg-purple-50 active:bg-purple-200 active:border-purple-600"
           >
             <Plus className="mr-2 h-4 w-4" />
             Agregar Área Personalizada

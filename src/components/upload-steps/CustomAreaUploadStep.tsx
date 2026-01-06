@@ -279,7 +279,7 @@ const CustomAreaUploadStep = ({
             <Button
               variant="outline"
               onClick={onAddAnotherArea}
-              className="px-6 py-3 border-purple-500 text-purple-600 hover:bg-purple-100 hover:border-purple-600 hover:text-purple-700"
+              className="px-6 py-3 border-purple-500 text-purple-600 hover:bg-purple-100 hover:border-purple-600 hover:text-purple-700 active:bg-purple-200 active:border-purple-600"
             >
               <Plus className="mr-2 h-4 w-4" />
               Agregar Otra Área
