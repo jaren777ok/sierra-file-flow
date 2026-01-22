@@ -1,4 +1,3 @@
-
 import React, { useEffect, useCallback, useMemo } from 'react';
 import { useMultiStepUpload } from '@/hooks/useMultiStepUpload';
 import ProjectNameStep from './upload-steps/ProjectNameStep';
@@ -19,6 +18,7 @@ import { Button } from '@/components/ui/button';
 const MultiStepUploader = () => {
   const {
     currentStep,
+    currentStepKey,
     projectName,
     setProjectName,
     companyInfo,
@@ -37,6 +37,7 @@ const MultiStepUploader = () => {
     processingStatus,
     areas,
     totalSteps,
+    stepConfig,
     nextStep,
     prevStep,
     processAllFiles,
@@ -47,6 +48,7 @@ const MultiStepUploader = () => {
     getActiveJobInfo,
     forceCleanup,
     setCurrentStep,
+    goToStep,
     jumpToProcessing,
     hideConfetti,
     resultHtml,
@@ -55,23 +57,22 @@ const MultiStepUploader = () => {
   // Función para manejar el siguiente paso después de empresa
   const handleCompanyNext = useCallback(async () => {
     if (companyInfo.length === 0) {
-      // No hay archivos, saltar análisis e ir a áreas fijas
-      nextStep();
+      // No hay archivos, saltar análisis e ir directamente a comercial
+      goToStep('comercial');
       return;
     }
     
-    // Ir a pantalla de procesamiento
-    nextStep();
+    // Ir a pantalla de procesamiento de análisis
+    goToStep('analysis_processing');
     
     // Iniciar análisis en background
     const success = await analyzeCompanyInfo();
     if (success) {
-      nextStep(); // Ir a pantalla de revisión
+      goToStep('analysis_review');
     } else {
-      // Volver al paso de empresa si falló
-      setCurrentStep(1);
+      goToStep('company');
     }
-  }, [companyInfo.length, nextStep, analyzeCompanyInfo, setCurrentStep]);
+  }, [companyInfo.length, goToStep, analyzeCompanyInfo]);
 
   // Verificar trabajo activo al cargar
   useEffect(() => {
@@ -89,10 +90,8 @@ const MultiStepUploader = () => {
     }
   }, [hasActiveJob, getActiveJobInfo, projectName, setProjectName, jumpToProcessing]);
 
-  // Navigation removed - users access editors from Saved Files
-
   const activeJobAlert = useMemo(() => {
-    if (!hasActiveJob() || currentStep >= totalSteps - 1) return null;
+    if (!hasActiveJob() || currentStepKey === 'processing') return null;
 
     const activeInfo = getActiveJobInfo();
     if (!activeInfo) return null;
@@ -129,178 +128,162 @@ const MultiStepUploader = () => {
         </AlertDescription>
       </Alert>
     );
-  }, [hasActiveJob, getActiveJobInfo, currentStep, totalSteps, jumpToProcessing, forceCleanup]);
+  }, [hasActiveJob, getActiveJobInfo, currentStepKey, jumpToProcessing, forceCleanup]);
 
-  // Templates removed - users access editors from Saved Files
-
+  // Renderizar paso basado en stepKey - FUENTE ÚNICA DE VERDAD
   const renderStep = () => {
-    if (currentStep === 0) {
-      return (
-        <div>
-          {hasActiveJob() && (
-            <Alert className="mb-6 border-amber-200 bg-amber-50">
-              <AlertCircle className="h-4 w-4 text-amber-600" />
-              <AlertDescription className="text-amber-800">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    <span>
-                      Tienes un trabajo en procesamiento: "<strong>{getActiveJobInfo()?.projectName}</strong>". 
-                      Debes esperar a que termine antes de iniciar uno nuevo.
-                    </span>
+    switch (currentStepKey) {
+      case 'project':
+        return (
+          <div>
+            {hasActiveJob() && (
+              <Alert className="mb-6 border-amber-200 bg-amber-50">
+                <AlertCircle className="h-4 w-4 text-amber-600" />
+                <AlertDescription className="text-amber-800">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Clock className="h-4 w-4" />
+                      <span>
+                        Tienes un trabajo en procesamiento: "<strong>{getActiveJobInfo()?.projectName}</strong>". 
+                        Debes esperar a que termine antes de iniciar uno nuevo.
+                      </span>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={forceCleanup}
+                      className="text-red-600 border-red-200 hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4 mr-1" />
+                      Forzar Limpieza
+                    </Button>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={forceCleanup}
-                    className="text-red-600 border-red-200 hover:bg-red-50"
-                  >
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Forzar Limpieza
-                  </Button>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          <ProjectNameStep
-            projectName={projectName}
-            setProjectName={setProjectName}
-            onNext={nextStep}
+                </AlertDescription>
+              </Alert>
+            )}
+            
+            <ProjectNameStep
+              projectName={projectName}
+              setProjectName={setProjectName}
+              onNext={nextStep}
+              disabled={hasActiveJob()}
+            />
+          </div>
+        );
+
+      case 'company':
+        return (
+          <CompanyInfoStep
+            files={companyInfo}
+            onFilesChange={updateCompanyInfo}
+            onNext={handleCompanyNext}
+            onPrev={prevStep}
             disabled={hasActiveJob()}
           />
-        </div>
-      );
-    }
+        );
 
-    // Paso 1: Información de la empresa
-    if (currentStep === 1) {
-      return (
-        <CompanyInfoStep
-          files={companyInfo}
-          onFilesChange={updateCompanyInfo}
-          onNext={handleCompanyNext}
-          onPrev={prevStep}
-          disabled={hasActiveJob()}
-        />
-      );
-    }
+      case 'analysis_processing':
+        return <CompanyAnalysisProcessingScreen projectName={projectName} />;
 
-    // Paso 2: Procesando análisis de empresa
-    if (currentStep === 2 && isAnalyzingCompany) {
-      return <CompanyAnalysisProcessingScreen projectName={projectName} />;
-    }
-
-    // Paso 3: Revisión y edición del análisis (solo si hay análisis)
-    if (currentStep === 3 && companyAnalysis) {
-      return (
-        <CompanyAnalysisReviewStep
-          analysis={companyAnalysis}
-          onAnalysisChange={updateCompanyAnalysis}
-          onNext={nextStep}
-          onRegenerate={async () => {
-            setCurrentStep(2);
-            const success = await analyzeCompanyInfo();
-            if (success) {
-              setCurrentStep(3);
-            } else {
-              setCurrentStep(1);
-            }
-          }}
-        />
-      );
-    }
-
-    // Calcular offset para pasos siguientes basado en si hay análisis o no
-    const analysisOffset = companyInfo.length > 0 && companyAnalysis ? 3 : 1;
-
-    // Áreas fijas (4 áreas)
-    const fixedAreasStart = 1 + analysisOffset;
-    const fixedAreasEnd = fixedAreasStart + 3;
-    
-    if (currentStep >= fixedAreasStart && currentStep <= fixedAreasEnd) {
-      const areaIndex = currentStep - fixedAreasStart;
-      const area = areas[areaIndex];
-      return (
-        <FileUploadStep
-          area={area}
-          files={areaFiles[area.key]}
-          onFilesChange={(files) => updateAreaFiles(area.key, files)}
-          onNext={nextStep}
-          onPrev={prevStep}
-          disabled={hasActiveJob()}
-        />
-      );
-    }
-
-    // Áreas personalizadas
-    const customAreasStart = fixedAreasEnd + 1;
-    const customAreasEnd = customAreasStart + customAreas.length - 1;
-    
-    if (currentStep >= customAreasStart && currentStep <= customAreasEnd) {
-      const customIndex = currentStep - customAreasStart;
-      const customArea = customAreas[customIndex];
-      return (
-        <CustomAreaUploadStep
-          area={customArea}
-          onNameChange={updateCustomAreaName}
-          onFilesChange={updateCustomAreaFiles}
-          onRemoveArea={removeCustomArea}
-          onAddAnotherArea={addCustomArea}
-          onNext={nextStep}
-          onPrev={prevStep}
-          disabled={hasActiveJob()}
-          showAddAnother={true}
-        />
-      );
-    }
-
-    // Paso de revisión
-    const reviewStep = customAreasEnd + 1;
-    if (currentStep === reviewStep) {
-      return (
-        <ReviewStep
-          projectName={projectName}
-          companyInfo={companyInfo}
-          companyAnalysis={companyAnalysis}
-          areaFiles={areaFiles}
-          customAreas={customAreas}
-          areas={areas}
-          totalFiles={getTotalFiles()}
-          onNext={processAllFiles}
-          onPrev={prevStep}
-          onAddCustomArea={addCustomArea}
-          disabled={hasActiveJob()}
-          activeJob={null}
-        />
-      );
-    }
-
-    // Paso final: Procesamiento/Resultado
-    if (currentStep === totalSteps - 1) {
-      if (processingStatus.status === 'completed') {
+      case 'analysis_review':
         return (
-          <ResultScreen
-            projectTitle={projectName}
-            onStartNew={resetFlow}
+          <CompanyAnalysisReviewStep
+            analysis={companyAnalysis}
+            onAnalysisChange={updateCompanyAnalysis}
+            onNext={nextStep}
+            onRegenerate={async () => {
+              goToStep('analysis_processing');
+              const success = await analyzeCompanyInfo();
+              if (success) {
+                goToStep('analysis_review');
+              } else {
+                goToStep('company');
+              }
+            }}
+          />
+        );
+
+      case 'comercial':
+      case 'operaciones':
+      case 'pricing':
+      case 'administracion': {
+        const area = areas.find(a => a.key === currentStepKey);
+        if (!area) return null;
+        return (
+          <FileUploadStep
+            area={area}
+            files={areaFiles[area.key]}
+            onFilesChange={(files) => updateAreaFiles(area.key, files)}
+            onNext={nextStep}
+            onPrev={prevStep}
+            disabled={hasActiveJob()}
           />
         );
       }
-      return (
-        <FuturisticAIProcessingScreen
-          processingStatus={processingStatus}
-          projectName={projectName || getActiveJobInfo()?.projectName || ''}
-          activeJob={null}
-          onStartNew={startNewJob}
-          onHideConfetti={hideConfetti}
-        />
-      );
-    }
 
-    return null;
+      case 'review':
+        return (
+          <ReviewStep
+            projectName={projectName}
+            companyInfo={companyInfo}
+            companyAnalysis={companyAnalysis}
+            areaFiles={areaFiles}
+            customAreas={customAreas}
+            areas={areas}
+            totalFiles={getTotalFiles()}
+            onNext={processAllFiles}
+            onPrev={prevStep}
+            onAddCustomArea={addCustomArea}
+            disabled={hasActiveJob()}
+            activeJob={null}
+          />
+        );
+
+      case 'processing':
+        if (processingStatus.status === 'completed') {
+          return (
+            <ResultScreen
+              projectTitle={projectName}
+              onStartNew={resetFlow}
+            />
+          );
+        }
+        return (
+          <FuturisticAIProcessingScreen
+            processingStatus={processingStatus}
+            projectName={projectName || getActiveJobInfo()?.projectName || ''}
+            activeJob={null}
+            onStartNew={startNewJob}
+            onHideConfetti={hideConfetti}
+          />
+        );
+
+      default:
+        // Manejar áreas personalizadas (keys que empiezan con 'custom_')
+        if (currentStepKey.startsWith('custom_')) {
+          const customAreaId = currentStepKey.replace('custom_', '');
+          const customArea = customAreas.find(a => a.id === customAreaId);
+          if (customArea) {
+            return (
+              <CustomAreaUploadStep
+                area={customArea}
+                onNameChange={updateCustomAreaName}
+                onFilesChange={updateCustomAreaFiles}
+                onRemoveArea={removeCustomArea}
+                onAddAnotherArea={addCustomArea}
+                onNext={nextStep}
+                onPrev={prevStep}
+                disabled={hasActiveJob()}
+                showAddAnother={true}
+              />
+            );
+          }
+        }
+        return null;
+    }
   };
 
-  const isProcessingStep = currentStep === totalSteps - 1 && (
+  const isProcessingStep = currentStepKey === 'processing' && (
     processingStatus.status === 'processing' || 
     processingStatus.status === 'sending' || 
     processingStatus.status === 'timeout' ||
@@ -315,8 +298,7 @@ const MultiStepUploader = () => {
         <div className="mb-8">
           <StepIndicator 
             currentStep={currentStep} 
-            totalSteps={totalSteps}
-            customAreasCount={customAreas.length}
+            stepConfig={stepConfig}
           />
         </div>
       )}

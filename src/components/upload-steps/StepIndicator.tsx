@@ -1,37 +1,38 @@
-
 import React from 'react';
 import { CheckCircle, Circle, Sparkles } from 'lucide-react';
+import type { StepConfig } from '@/hooks/useMultiStepUpload';
 
 interface StepIndicatorProps {
   currentStep: number;
-  totalSteps: number;
-  customAreasCount: number;
+  stepConfig: StepConfig[];
 }
 
-const StepIndicator = ({ currentStep, totalSteps, customAreasCount }: StepIndicatorProps) => {
-  // Construir pasos dinámicamente
-  const steps = [
-    { name: 'Proyecto', icon: '📝' },
-    { name: 'Empresa', icon: '🏢' },
-    { name: 'Análisis', icon: '📊' },
-    { name: 'Comercial', icon: '💼' },
-    { name: 'Operaciones', icon: '⚙️' },
-    { name: 'Pricing', icon: '💰' },
-    { name: 'Admin', icon: '📊' },
-    // Agregar áreas personalizadas dinámicamente
-    ...Array.from({ length: customAreasCount }, (_, i) => ({
-      name: `Área ${i + 1}`,
-      icon: '📁'
-    })),
-    { name: 'Revisión', icon: '👁️' }
-  ];
+const StepIndicator = ({ currentStep, stepConfig }: StepIndicatorProps) => {
+  // Filtrar pasos de procesamiento para el indicador visual
+  const visibleSteps = stepConfig.filter(step => 
+    step.key !== 'analysis_processing' && step.key !== 'processing'
+  );
+
+  // Calcular el índice visual correcto
+  const getVisualIndex = (actualStep: number) => {
+    let visualIndex = 0;
+    for (let i = 0; i < actualStep && i < stepConfig.length; i++) {
+      const step = stepConfig[i];
+      if (step.key !== 'analysis_processing' && step.key !== 'processing') {
+        visualIndex++;
+      }
+    }
+    return visualIndex;
+  };
+
+  const currentVisualIndex = getVisualIndex(currentStep);
 
   // Mostrar solo un subconjunto de pasos si hay demasiados
-  const displaySteps = steps.length > 8 ? [
-    ...steps.slice(0, 6),
-    { name: `+${steps.length - 7}`, icon: '📂' },
-    steps[steps.length - 1]
-  ] : steps;
+  const displaySteps = visibleSteps.length > 8 ? [
+    ...visibleSteps.slice(0, 6),
+    { key: 'more', name: `+${visibleSteps.length - 7}`, icon: '📂' },
+    visibleSteps[visibleSteps.length - 1]
+  ] : visibleSteps;
 
   return (
     <div className="w-full">
@@ -41,20 +42,27 @@ const StepIndicator = ({ currentStep, totalSteps, customAreasCount }: StepIndica
           <div className="w-full h-1 bg-sierra-teal/20 rounded-full">
             <div 
               className="h-full bg-gradient-to-r from-sierra-teal to-sierra-teal/80 rounded-full transition-all duration-500 ease-out"
-              style={{ width: `${(currentStep / (totalSteps - 2)) * 100}%` }}
+              style={{ width: `${Math.min((currentVisualIndex / (visibleSteps.length - 1)) * 100, 100)}%` }}
             />
           </div>
         </div>
         
         <div className="relative flex justify-between">
-          {displaySteps.map((step, index) => {
-            const actualIndex = steps.length > 8 && index === 6 ? steps.length - 1 : index;
-            const isCompleted = actualIndex < currentStep;
-            const isCurrent = actualIndex === currentStep;
-            const isPending = actualIndex > currentStep;
+          {displaySteps.map((step, displayIndex) => {
+            // Para el indicador "+N", usar el índice real del último paso
+            const isMoreIndicator = step.key === 'more';
+            const actualVisibleIndex = isMoreIndicator 
+              ? visibleSteps.length - 2 
+              : displaySteps.length > 8 && displayIndex === displaySteps.length - 1
+                ? visibleSteps.length - 1
+                : displayIndex;
+            
+            const isCompleted = actualVisibleIndex < currentVisualIndex;
+            const isCurrent = actualVisibleIndex === currentVisualIndex;
+            const isPending = actualVisibleIndex > currentVisualIndex;
             
             return (
-              <div key={index} className="flex flex-col items-center">
+              <div key={step.key} className="flex flex-col items-center">
                 <div 
                   className={`relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300 ${
                     isCompleted
@@ -76,7 +84,7 @@ const StepIndicator = ({ currentStep, totalSteps, customAreasCount }: StepIndica
                 <div className="mt-3 text-center">
                   <div className="text-lg mb-1">{step.icon}</div>
                   <p className={`text-xs font-medium transition-colors ${
-                    actualIndex <= currentStep ? 'text-sierra-teal' : 'text-sierra-teal/50'
+                    isCompleted || isCurrent ? 'text-sierra-teal' : 'text-sierra-teal/50'
                   }`}>
                     {step.name}
                   </p>
