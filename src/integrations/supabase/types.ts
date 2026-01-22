@@ -14,16 +14,151 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      processed_files: {
+        Row: {
+          area: string
+          created_at: string
+          drive_url: string
+          id: string
+          notes: string | null
+          project_title: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          area: string
+          created_at?: string
+          drive_url: string
+          id?: string
+          notes?: string | null
+          project_title: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          area?: string
+          created_at?: string
+          drive_url?: string
+          id?: string
+          notes?: string | null
+          project_title?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      processing_jobs: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          progress: number
+          project_title: string
+          request_id: string
+          result_html: string | null
+          result_html_ppt: string | null
+          result_url: string | null
+          started_at: string
+          status: Database["public"]["Enums"]["processing_status"]
+          total_files: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          progress?: number
+          project_title: string
+          request_id: string
+          result_html?: string | null
+          result_html_ppt?: string | null
+          result_url?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["processing_status"]
+          total_files: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          progress?: number
+          project_title?: string
+          request_id?: string
+          result_html?: string | null
+          result_html_ppt?: string | null
+          result_url?: string | null
+          started_at?: string
+          status?: Database["public"]["Enums"]["processing_status"]
+          total_files?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          account_type: string
+          company_code: string | null
+          created_at: string
+          display_name: string | null
+          email: string | null
+          full_name: string | null
+          ghl_user_id: string | null
+          id: string
+          profile_photo_url: string | null
+          timezone: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_type?: string
+          company_code?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          full_name?: string | null
+          ghl_user_id?: string | null
+          id: string
+          profile_photo_url?: string | null
+          timezone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_type?: string
+          company_code?: string | null
+          created_at?: string
+          display_name?: string | null
+          email?: string | null
+          full_name?: string | null
+          ghl_user_id?: string | null
+          id?: string
+          profile_photo_url?: string | null
+          timezone?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_next_request_id: { Args: never; Returns: string }
+      request_id_exists: {
+        Args: { request_id_param: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      processing_status: "processing" | "completed" | "error" | "timeout"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +285,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      processing_status: ["processing", "completed", "error", "timeout"],
+    },
   },
 } as const
