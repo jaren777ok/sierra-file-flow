@@ -12,7 +12,7 @@ export class AudioProcessingService {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), AUDIO_CONFIG.TIMEOUT);
 
-      const response = await fetch('https://jbunbmphadxmzjokwgkw.supabase.co/functions/v1/proxy-audio-upload', {
+      const response = await fetch('https://bkdbzgasphacukxjqpbh.supabase.co/functions/v1/proxy-audio-upload', {
         method: 'POST',
         body: formData,
         signal: controller.signal,

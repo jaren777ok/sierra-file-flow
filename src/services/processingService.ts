@@ -19,7 +19,7 @@ export class ProcessingService {
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 segundos para respuesta inicial
     
     try {
-      const response = await fetch('https://jbunbmphadxmzjokwgkw.supabase.co/functions/v1/proxy-processing-upload', {
+      const response = await fetch('https://bkdbzgasphacukxjqpbh.supabase.co/functions/v1/proxy-processing-upload', {
         method: 'POST',
         body: formData,
         signal: controller.signal,
@@ -59,7 +59,7 @@ export class ProcessingService {
     errorMessage?: string;
   }> {
     try {
-      const response = await fetch('https://jbunbmphadxmzjokwgkw.supabase.co/functions/v1/check-processing-status', {
+      const response = await fetch('https://bkdbzgasphacukxjqpbh.supabase.co/functions/v1/check-processing-status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

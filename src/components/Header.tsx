@@ -55,7 +55,7 @@ const Header = () => {
           {/* Logo y Titulo */}
           <div className="flex items-center space-x-4">
             <img 
-              src="https://jbunbmphadxmzjokwgkw.supabase.co/storage/v1/object/sign/fotos/logo%20sierras%20(1).png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV8zNGY4MzVlOS03N2Y3LTRiMWQtOWE0MS03NTVhYzYxNTM3NDUiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJmb3Rvcy9sb2dvIHNpZXJyYXMgKDEpLnBuZyIsImlhdCI6MTc1MTY4NDM4NSwiZXhwIjoxNzgzMjIwMzg1fQ.XwugQX71wgOioRTdXdEB7LEFguocbub7FRI62qvzmFs"
+              src="/logo-sierras.png"
               alt="Grupo Sierras Logo"
               className="h-12 w-auto"
             />
