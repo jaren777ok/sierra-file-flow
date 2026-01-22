@@ -15,7 +15,7 @@ interface FileUploadStatus {
 export const useFileUpload = (areaName: string) => {
   const [files, setFiles] = useState<FileUploadStatus[]>([]);
   const { toast } = useToast();
-  const WEBHOOK_URL = "https://cris.cloude.es/webhook/sierra";
+  const WEBHOOK_URL = "https://n8n.srv891024.hstgr.cloud/webhook/sierra";
   const TIMEOUT_DURATION = 15 * 60 * 1000; // 15 minutos
 
   const uploadFiles = async (filesToUpload: File[], projectTitle: string) => {

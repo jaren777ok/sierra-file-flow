@@ -20,7 +20,7 @@ const FileUploader = () => {
   const [isDragOver, setIsDragOver] = useState(false);
   const { toast } = useToast();
 
-  const WEBHOOK_URL = "https://cris.cloude.es/webhook/sierra";
+  const WEBHOOK_URL = "https://n8n.srv891024.hstgr.cloud/webhook/sierra";
   const TIMEOUT_DURATION = 15 * 60 * 1000; // 15 minutos
 
   const uploadFile = async (file: File) => {

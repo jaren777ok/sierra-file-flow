@@ -15,7 +15,7 @@ export class CompanyAnalysisService {
     });
     
     try {
-      const response = await fetch('https://cris.cloude.es/webhook/analisis_empresa', {
+      const response = await fetch('https://n8n.srv891024.hstgr.cloud/webhook/analisis_empresa', {
         method: 'POST',
         body: formData,
       });

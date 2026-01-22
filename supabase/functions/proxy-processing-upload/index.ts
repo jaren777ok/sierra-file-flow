@@ -1,7 +1,7 @@
 import { corsHeaders } from '../_shared/cors.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.50.3';
 
-const WEBHOOK_URL = 'https://cris.cloude.es/webhook/sierra';
+const WEBHOOK_URL = 'https://n8n.srv891024.hstgr.cloud/webhook/sierra';
 
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
