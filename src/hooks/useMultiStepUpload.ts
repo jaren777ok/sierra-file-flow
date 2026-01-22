@@ -6,6 +6,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { CompanyAnalysisService } from '@/services/companyAnalysisService';
 import type { AreaFiles, CustomArea, ProjectFiles } from '@/types/processing';
 
+export interface StepConfig {
+  key: string;
+  name: string;
+  icon: string;
+}
+
 export const useMultiStepUpload = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [projectName, setProjectName] = useState('');
@@ -22,8 +28,6 @@ export const useMultiStepUpload = () => {
   const [companyAnalysis, setCompanyAnalysis] = useState<string>('');
   const [isAnalyzingCompany, setIsAnalyzingCompany] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
-  
-  // Template state removed - editors accessed from Saved Files
 
   const { toast } = useToast();
   const {
@@ -41,12 +45,46 @@ export const useMultiStepUpload = () => {
     { key: 'administracion' as keyof AreaFiles, name: 'Administración', icon: '📊' }
   ], []);
 
-  // Calcular total de pasos dinámicamente
-  const totalSteps = useMemo(() => {
-    // 1 (nombre) + 1 (empresa) + 2 (análisis procesamiento + review) + 4 (áreas fijas) + N (custom) + 1 (review) + 1 (processing)
-    const companySteps = companyInfo.length > 0 ? 3 : 1; // Si hay archivos: subir + procesar + revisar análisis
-    return 1 + companySteps + 4 + customAreas.length + 2;
-  }, [customAreas.length, companyInfo.length]);
+  // Configuración dinámica de pasos - FUENTE ÚNICA DE VERDAD
+  const stepConfig = useMemo((): StepConfig[] => {
+    const hasAnalysis = companyInfo.length > 0;
+    
+    const steps: StepConfig[] = [
+      { key: 'project', name: 'Proyecto', icon: '📝' },
+      { key: 'company', name: 'Empresa', icon: '🏢' },
+    ];
+    
+    // Solo agregar pasos de análisis si hay archivos de empresa
+    if (hasAnalysis) {
+      steps.push({ key: 'analysis_processing', name: 'Analizando', icon: '🔄' });
+      steps.push({ key: 'analysis_review', name: 'Análisis', icon: '📊' });
+    }
+    
+    // Áreas fijas
+    steps.push(
+      { key: 'comercial', name: 'Comercial', icon: '💼' },
+      { key: 'operaciones', name: 'Operaciones', icon: '⚙️' },
+      { key: 'pricing', name: 'Pricing', icon: '💰' },
+      { key: 'administracion', name: 'Admin', icon: '📊' }
+    );
+    
+    // Áreas personalizadas
+    customAreas.forEach((area) => {
+      steps.push({ key: `custom_${area.id}`, name: area.name, icon: area.icon });
+    });
+    
+    // Revisión y procesamiento
+    steps.push({ key: 'review', name: 'Revisión', icon: '👁️' });
+    steps.push({ key: 'processing', name: 'Procesando', icon: '🚀' });
+    
+    return steps;
+  }, [companyInfo.length, customAreas]);
+
+  // Total de pasos basado en la configuración
+  const totalSteps = stepConfig.length;
+
+  // Obtener el key del paso actual
+  const currentStepKey = stepConfig[currentStep]?.key || '';
 
   const updateAreaFiles = useCallback((area: keyof AreaFiles, files: File[]) => {
     if (files.length > PROCESSING_CONSTANTS.MAX_FILES_PER_AREA) {
@@ -126,17 +164,18 @@ export const useMultiStepUpload = () => {
       };
       setCustomAreas(prev => [...prev, newArea]);
       
-      // Calcular el paso correcto dinámicamente
-      const analysisOffset = companyInfo.length > 0 && companyAnalysis ? 3 : 1;
-      const customAreasStart = 1 + analysisOffset + 4; // 1 proyecto + offset análisis + 4 áreas fijas
-      const newAreaStep = customAreasStart + customAreas.length;
-      setCurrentStep(newAreaStep);
+      // Ir al paso de la nueva área (el penúltimo antes de review)
+      // stepConfig ya incluirá esta área después del setState
+      const currentConfig = stepConfig;
+      const reviewIndex = currentConfig.findIndex(s => s.key === 'review');
+      if (reviewIndex > 0) {
+        setCurrentStep(reviewIndex); // Esto será el índice de la nueva área después de que se actualice
+      }
     }
-  }, [customAreas.length, companyInfo.length, companyAnalysis]);
+  }, [customAreas.length, stepConfig]);
 
   const removeCustomArea = useCallback((id: string) => {
     setCustomAreas(prev => prev.filter(area => area.id !== id));
-    // Volver al paso anterior
     setCurrentStep(prev => Math.max(0, prev - 1));
   }, []);
 
@@ -242,7 +281,7 @@ export const useMultiStepUpload = () => {
 
     try {
       await startProcessing(projectName, allFiles, projectFiles, companyAnalysis);
-      setCurrentStep(totalSteps - 1); // Último paso (processing)
+      setCurrentStep(totalSteps - 1);
       return true;
     } catch (error) {
       console.error('Error processing files:', error);
@@ -302,10 +341,17 @@ export const useMultiStepUpload = () => {
     setCurrentStep(totalSteps - 1);
   }, [totalSteps]);
 
-  // Template functions removed - editors accessed from Saved Files
+  // Función para navegar a un paso específico por su key
+  const goToStep = useCallback((stepKey: string) => {
+    const index = stepConfig.findIndex(s => s.key === stepKey);
+    if (index >= 0) {
+      setCurrentStep(index);
+    }
+  }, [stepConfig]);
 
   return {
     currentStep,
+    currentStepKey,
     projectName,
     setProjectName,
     companyInfo,
@@ -326,6 +372,7 @@ export const useMultiStepUpload = () => {
     resultHtml,
     areas,
     totalSteps,
+    stepConfig,
     nextStep,
     prevStep,
     processAllFiles,
@@ -337,6 +384,7 @@ export const useMultiStepUpload = () => {
     getActiveJobInfo,
     forceCleanup,
     setCurrentStep,
+    goToStep,
     jumpToProcessing,
     hideConfetti,
     isRecovering: false,
