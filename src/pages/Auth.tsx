@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -7,7 +6,16 @@ import { Label } from '@/components/ui/label';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Mail, Lock, UserPlus, LogIn } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, UserPlus, LogIn, Settings, Shield, ArrowLeft } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
+import { supabase } from '@/integrations/supabase/client';
 
 const Auth = () => {
   const [isLogin, setIsLogin] = useState(true);
@@ -16,6 +24,12 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  
+  // Admin access states
+  const [showAdminDialog, setShowAdminDialog] = useState(false);
+  const [adminPassword, setAdminPassword] = useState('');
+  const [isAdminVerified, setIsAdminVerified] = useState(false);
+  const [verifyingAdmin, setVerifyingAdmin] = useState(false);
   
   const { signIn, signUp, user } = useAuth();
   const { toast } = useToast();
@@ -26,6 +40,60 @@ const Auth = () => {
       navigate('/');
     }
   }, [user, navigate]);
+
+  // Reset admin verification when switching to login mode
+  useEffect(() => {
+    if (isLogin) {
+      setIsAdminVerified(false);
+    }
+  }, [isLogin]);
+
+  const handleAdminVerify = async () => {
+    if (!adminPassword.trim()) {
+      toast({
+        title: "Error",
+        description: "Ingresa la contraseña de administrador",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setVerifyingAdmin(true);
+    
+    try {
+      const { data, error } = await supabase.functions.invoke('verify-admin-access', {
+        body: { password: adminPassword }
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setIsAdminVerified(true);
+        setIsLogin(false);
+        setShowAdminDialog(false);
+        setAdminPassword('');
+        toast({
+          title: "Acceso Concedido",
+          description: "Ahora puedes crear una nueva cuenta.",
+        });
+      } else {
+        toast({
+          title: "Acceso Denegado",
+          description: "Contraseña de administrador incorrecta.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Error verifying admin:', error);
+      toast({
+        title: "Error",
+        description: "No se pudo verificar el acceso. Intenta de nuevo.",
+        variant: "destructive",
+      });
+    } finally {
+      setVerifyingAdmin(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,12 +115,24 @@ const Auth = () => {
           });
         }
       } else {
+        // Only allow registration if admin verified
+        if (!isAdminVerified) {
+          toast({
+            title: "Acceso No Autorizado",
+            description: "Necesitas verificar acceso de administrador para crear cuentas.",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
         if (password !== confirmPassword) {
           toast({
             title: "Error",
             description: "Las contraseñas no coinciden",
             variant: "destructive",
           });
+          setLoading(false);
           return;
         }
 
@@ -66,8 +146,14 @@ const Auth = () => {
         } else {
           toast({
             title: "¡Registro Exitoso!",
-            description: "Tu cuenta ha sido creada correctamente.",
+            description: "La cuenta ha sido creada correctamente.",
           });
+          // Reset to login after successful registration
+          setIsLogin(true);
+          setIsAdminVerified(false);
+          setEmail('');
+          setPassword('');
+          setConfirmPassword('');
         }
       }
     } catch (error) {
@@ -97,9 +183,15 @@ const Auth = () => {
           <p className="text-sierra-gray">
             {isLogin 
               ? 'Accede a tu procesador de archivos IA' 
-              : 'Regístrate para comenzar a procesar archivos'
+              : 'Crear nueva cuenta de usuario'
             }
           </p>
+          {!isLogin && isAdminVerified && (
+            <div className="mt-2 inline-flex items-center gap-1.5 text-xs text-green-600 bg-green-50 px-3 py-1 rounded-full">
+              <Shield className="h-3 w-3" />
+              Modo Administrador
+            </div>
+          )}
         </div>
 
         {/* Formulario */}
@@ -201,19 +293,90 @@ const Auth = () => {
             </form>
 
             <div className="mt-6 text-center">
-              <p className="text-sierra-gray">
-                {isLogin ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?'}
-              </p>
-              <button
-                onClick={() => setIsLogin(!isLogin)}
-                className="mt-2 text-sierra-teal hover:underline font-medium"
-              >
-                {isLogin ? 'Crear una cuenta nueva' : 'Iniciar sesión aquí'}
-              </button>
+              {isLogin ? (
+                <button
+                  onClick={() => setShowAdminDialog(true)}
+                  className="text-sm text-sierra-gray/60 hover:text-sierra-teal transition-colors flex items-center justify-center gap-1.5 mx-auto"
+                >
+                  <Settings className="h-3.5 w-3.5" />
+                  Opciones de Admin
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setIsLogin(true);
+                    setIsAdminVerified(false);
+                    setEmail('');
+                    setPassword('');
+                    setConfirmPassword('');
+                  }}
+                  className="text-sierra-teal hover:underline font-medium flex items-center justify-center gap-1 mx-auto"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                  Volver a Iniciar Sesión
+                </button>
+              )}
             </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de Acceso Admin */}
+      <Dialog open={showAdminDialog} onOpenChange={(open) => {
+        setShowAdminDialog(open);
+        if (!open) setAdminPassword('');
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-sierra-teal">
+              <Shield className="h-5 w-5" />
+              Acceso de Administrador
+            </DialogTitle>
+            <DialogDescription>
+              Ingresa la contraseña de administrador para crear nuevas cuentas de usuario.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <div className="relative">
+              <Lock className="absolute left-3 top-3 h-4 w-4 text-sierra-gray" />
+              <Input
+                type="password"
+                placeholder="Contraseña de admin"
+                value={adminPassword}
+                onChange={(e) => setAdminPassword(e.target.value)}
+                className="pl-10 h-12 border-sierra-teal/20 focus:border-sierra-teal"
+                onKeyDown={(e) => e.key === 'Enter' && handleAdminVerify()}
+                disabled={verifyingAdmin}
+              />
+            </div>
+          </div>
+          
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button 
+              variant="outline" 
+              onClick={() => setShowAdminDialog(false)}
+              disabled={verifyingAdmin}
+            >
+              Cancelar
+            </Button>
+            <Button 
+              onClick={handleAdminVerify} 
+              className="sierra-gradient"
+              disabled={verifyingAdmin}
+            >
+              {verifyingAdmin ? (
+                <div className="flex items-center gap-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                  Verificando...
+                </div>
+              ) : (
+                'Verificar Acceso'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
