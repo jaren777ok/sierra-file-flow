@@ -67,15 +67,20 @@ const Auth = () => {
 
       if (error) throw error;
 
-      if (data.success) {
-        setIsAdminVerified(true);
-        setIsLogin(false);
+      if (data?.success) {
+        // PASO 1: Cerrar el dialog PRIMERO
         setShowAdminDialog(false);
         setAdminPassword('');
-        toast({
-          title: "Acceso Concedido",
-          description: "Ahora puedes crear una nueva cuenta.",
-        });
+        
+        // PASO 2: Esperar a que la animación del Dialog termine (300ms)
+        setTimeout(() => {
+          setIsAdminVerified(true);
+          setIsLogin(false);
+          toast({
+            title: "Acceso Concedido",
+            description: "Ahora puedes crear una nueva cuenta.",
+          });
+        }, 300);
       } else {
         toast({
           title: "Acceso Denegado",
@@ -322,10 +327,15 @@ const Auth = () => {
       </div>
 
       {/* Modal de Acceso Admin */}
-      <Dialog open={showAdminDialog} onOpenChange={(open) => {
-        setShowAdminDialog(open);
-        if (!open) setAdminPassword('');
-      }}>
+      <Dialog 
+        open={showAdminDialog} 
+        onOpenChange={(open) => {
+          if (!open && !verifyingAdmin) {
+            setShowAdminDialog(false);
+            setAdminPassword('');
+          }
+        }}
+      >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-sierra-teal">
