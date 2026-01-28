@@ -11,7 +11,7 @@ import {
   Menu, 
   X,
   BarChart3,
-  Mic
+  Shield
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -109,6 +109,11 @@ const Header = () => {
                           </p>
                         </div>
                       </DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => navigate('/admin')} className="text-sierra-teal">
+                        <Shield className="mr-2 h-4 w-4" />
+                        Panel de Admin
+                      </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       <DropdownMenuItem onClick={handleSignOut} className="text-red-600">
                         <LogOut className="mr-2 h-4 w-4" />
