@@ -1,130 +1,182 @@
 
-## Plan: Corregir Sincronización de Íconos entre StepIndicator y FileUploadStep
+
+## Plan: Corregir Numeración de Listas Ordenadas al Dividir entre Páginas
 
 ### Problema Identificado
 
-Después de analizar el código, he encontrado **dos problemas**:
+Cuando el contenido Markdown con listas numeradas (1, 2, 3, 4, 5, 6...) se divide entre páginas, cada nueva página reinicia la numeración desde 1 en lugar de continuar.
 
-1. **Íconos duplicados**: Tanto "Análisis" como "Administración" usan el mismo emoji 📊, causando confusión visual.
+**Causa raíz**: En la función `divideContentIntoPages()`, cuando se crea un nuevo `<ol>` en una página siguiente, no se incluye el atributo `start` con el número correcto.
 
-2. **Posible desincronización de índices**: Cuando `stepConfig` cambia dinámicamente (al agregar/quitar archivos de empresa), el `currentStep` (número) puede desincronizarse con el contenido esperado.
+### Datos del Markdown Original (de tus capturas)
 
-### Diagnóstico Visual
-
-En la imagen que compartiste:
-- El StepIndicator muestra "Admin" con un ícono
-- El contenido muestra "Área Administración" con un ícono grande
-- El usuario reporta que estos no coinciden
-
-### Solución Propuesta
-
-#### Cambio 1: Usar íconos únicos para cada paso
-
-Actualizar los íconos para que no haya duplicados:
-
-| Paso | Ícono Actual | Ícono Nuevo |
-|------|--------------|-------------|
-| Análisis | 📊 | 📈 (gráfico de línea) |
-| Comercial | 💼 | 💼 (sin cambio) |
-| Operaciones | ⚙️ | ⚙️ (sin cambio) |
-| Pricing | 💰 | 💰 (sin cambio) |
-| Administración | 📊 | 🗂️ (archivo/carpeta) |
-
-#### Cambio 2: Garantizar sincronización usando `currentStepKey`
-
-En lugar de depender del índice numérico `currentStep` para el StepIndicator, pasar también el `currentStepKey` para una verificación más robusta:
-
-```typescript
-// StepIndicator.tsx - Nueva lógica
-const currentVisibleStep = visibleSteps.find(s => s.key === currentStepKey);
-const currentVisualIndex = currentVisibleStep 
-  ? visibleSteps.indexOf(currentVisibleStep)
-  : getVisualIndex(currentStep);
+```
+1. **Tópico: Estrategia y Planificación Comercial**
+2. **Tópico: Herramientas Tecnológicas**  
+3. **Tópico: Gestión de Cotizaciones y Precios**
+4. **Tópico: Desarrollo de Habilidades y Capacitación**
+5. **Tópico: KPIs y Medición de Desempeño**
+6. **Tópico: Marketing y Visibilidad de Marca**
 ```
 
-### Archivos a Modificar
+### Cómo se ve Actualmente (Incorrecto)
 
-| Archivo | Cambio |
-|---------|--------|
-| `src/hooks/useMultiStepUpload.ts` | Actualizar íconos en `areas` y `stepConfig` para que sean únicos |
-| `src/components/upload-steps/StepIndicator.tsx` | Agregar prop `currentStepKey` y usar para verificación de sincronización |
-| `src/components/MultiStepUploader.tsx` | Pasar `currentStepKey` al StepIndicator |
-| `src/pages/Index.tsx` | Actualizar ícono de Administración para consistencia |
+| Página 14 | Página 15 | Página 16 |
+|-----------|-----------|-----------|
+| 1. Tópico: Estrategia... | 1. Tópico: Gestión... | 1. Tópico: KPIs... |
+| 2. Tema: Herramientas... | 2. Tópico: Desarrollo... | 2. Tópico: Marketing... |
 
-### Detalles Técnicos
+### Cómo Debería Verse (Correcto)
 
-**Cambio en `useMultiStepUpload.ts`:**
+| Página 14 | Página 15 | Página 16 |
+|-----------|-----------|-----------|
+| 1. Tópico: Estrategia... | 3. Tópico: Gestión... | 5. Tópico: KPIs... |
+| 2. Tema: Herramientas... | 4. Tópico: Desarrollo... | 6. Tópico: Marketing... |
 
-```typescript
-// areas (líneas 41-46)
-const areas = useMemo(() => [
-  { key: 'comercial', name: 'Comercial', icon: '💼' },
-  { key: 'operaciones', name: 'Operaciones', icon: '⚙️' },
-  { key: 'pricing', name: 'Pricing', icon: '💰' },
-  { key: 'administracion', name: 'Administración', icon: '🗂️' } // Cambio de 📊 a 🗂️
-], []);
+---
 
-// stepConfig (líneas 59-68)
-if (hasAnalysis) {
-  steps.push({ key: 'analysis_review', name: 'Análisis', icon: '📈' }); // Cambio de 📊 a 📈
-}
-steps.push(
-  { key: 'comercial', name: 'Comercial', icon: '💼' },
-  { key: 'operaciones', name: 'Operaciones', icon: '⚙️' },
-  { key: 'pricing', name: 'Pricing', icon: '💰' },
-  { key: 'administracion', name: 'Admin', icon: '🗂️' } // Cambio de 📊 a 🗂️
-);
-```
+### Solución Técnica
 
-**Cambio en `StepIndicator.tsx`:**
+#### Archivo a Modificar: `src/pages/SimpleWordEditor.tsx`
 
-Agregar nuevo prop y lógica de verificación:
+Modificar la sección de procesamiento de listas (líneas 315-347) para:
+
+1. **Preservar el atributo `start` original** del `<ol>` si existe
+2. **Rastrear el índice del item actual** durante la iteración
+3. **Calcular el valor `start` correcto** cuando se crea un nuevo `<ol>` en página siguiente
+
+#### Código Actual (Problemático)
 
 ```typescript
-interface StepIndicatorProps {
-  currentStep: number;
-  stepConfig: StepConfig[];
-  currentStepKey?: string; // Nuevo prop
-}
+// === LISTS: Process ITEM BY ITEM ===
+if (tagName === 'ul' || tagName === 'ol') {
+  const items = Array.from(element.querySelectorAll(':scope > li'));
+  let listStarted = false;
 
-const StepIndicator = ({ currentStep, stepConfig, currentStepKey }: StepIndicatorProps) => {
-  // ...existing code...
+  for (const item of items) {
+    // ...medición de altura...
+    
+    if (currentHeightPx + itemHeightPx > MAX_HEIGHT_PX) {
+      if (listStarted) {
+        currentPageHtml += `</${tagName}>`;
+      }
+      savePage();
 
-  // Calcular índice visual usando stepKey para mayor precisión
-  const getCurrentVisualIndex = () => {
-    if (currentStepKey) {
-      const visibleIndex = visibleSteps.findIndex(s => s.key === currentStepKey);
-      if (visibleIndex >= 0) return visibleIndex;
+      // ❌ PROBLEMA: No tiene atributo start
+      currentPageHtml = `<${tagName}>${itemHtml}`;
+      // ...
+    } else {
+      if (!listStarted) {
+        // ❌ PROBLEMA: No preserva start original
+        currentPageHtml += `<${tagName}>`;
+        listStarted = true;
+      }
+      // ...
     }
-    return getVisualIndex(currentStep);
-  };
-
-  const currentVisualIndex = getCurrentVisualIndex();
-  // ...rest of component...
-};
+  }
+}
 ```
 
-**Cambio en `MultiStepUploader.tsx`:**
+#### Código Corregido
 
 ```typescript
-<StepIndicator 
-  currentStep={currentStep} 
-  stepConfig={stepConfig}
-  currentStepKey={currentStepKey} // Nuevo prop
-/>
+// === LISTS: Process ITEM BY ITEM ===
+if (tagName === 'ul' || tagName === 'ol') {
+  const items = Array.from(element.querySelectorAll(':scope > li'));
+  let listStarted = false;
+  
+  // Para <ol>: obtener el start original (default 1) y rastrear índice actual
+  const isOrderedList = tagName === 'ol';
+  const originalStart = isOrderedList 
+    ? parseInt(element.getAttribute('start') || '1', 10) 
+    : 1;
+  let currentItemIndex = 0; // Índice dentro del array de items
+
+  for (const item of items) {
+    const itemHtml = (item as HTMLElement).outerHTML;
+    const itemHeightPx = measureListItemHeightPx(item as HTMLElement, CONTENT_WIDTH);
+
+    if (currentHeightPx + itemHeightPx > MAX_HEIGHT_PX) {
+      if (listStarted) {
+        currentPageHtml += `</${tagName}>`;
+      }
+      savePage();
+
+      // ✅ SOLUCIÓN: Calcular start correcto para la nueva página
+      const startAttr = isOrderedList 
+        ? ` start="${originalStart + currentItemIndex}"` 
+        : '';
+      currentPageHtml = `<${tagName}${startAttr}>${itemHtml}`;
+      currentHeightPx = itemHeightPx;
+      listStarted = true;
+    } else {
+      if (!listStarted) {
+        // ✅ SOLUCIÓN: Preservar start original en primera página
+        const startAttr = isOrderedList && originalStart !== 1 
+          ? ` start="${originalStart}"` 
+          : '';
+        currentPageHtml += `<${tagName}${startAttr}>`;
+        listStarted = true;
+      }
+      currentPageHtml += itemHtml;
+      currentHeightPx += itemHeightPx;
+    }
+    
+    currentItemIndex++; // Incrementar después de procesar cada item
+  }
+
+  if (listStarted) {
+    currentPageHtml += `</${tagName}>`;
+  }
+  continue;
+}
 ```
+
+---
+
+### Lógica de la Solución
+
+| Variable | Propósito |
+|----------|-----------|
+| `isOrderedList` | Detecta si es `<ol>` (necesita `start`) o `<ul>` (no lo necesita) |
+| `originalStart` | Valor inicial del atributo `start` (1 por defecto) |
+| `currentItemIndex` | Contador de items procesados (0, 1, 2, 3...) |
+| `startAttr` | Atributo HTML a insertar: `start="3"` |
+
+### Ejemplo de Flujo
+
+```
+Markdown: 1. Tópico A, 2. Tópico B, 3. Tópico C, 4. Tópico D
+
+originalStart = 1
+currentItemIndex = 0, 1, 2, 3
+
+Página 1 (items 0, 1 caben):
+  <ol>              ← sin start (1 es default)
+    <li>Tópico A</li>  ← index 0, muestra "1."
+    <li>Tópico B</li>  ← index 1, muestra "2."
+  </ol>
+
+Página 2 (items 2, 3):
+  <ol start="3">    ← start = originalStart(1) + currentItemIndex(2) = 3
+    <li>Tópico C</li>  ← muestra "3."
+    <li>Tópico D</li>  ← muestra "4."
+  </ol>
+```
+
+---
+
+### Resumen de Cambios
+
+| Archivo | Líneas | Cambio |
+|---------|--------|--------|
+| `src/pages/SimpleWordEditor.tsx` | 315-347 | Agregar lógica de `start` para listas ordenadas divididas |
 
 ### Resultado Esperado
 
-1. Cada área tendrá un ícono visualmente único
-2. El StepIndicator siempre mostrará el paso correcto como "actual" incluso si los índices cambian
-3. El ícono grande en el contenido siempre coincidirá con el ícono en la barra de progreso
+Después de aplicar el fix:
+- Cada `<ol>` dividido tendrá el atributo `start` correcto
+- La numeración fluirá naturalmente entre páginas (1, 2 → 3, 4 → 5, 6...)
+- Las listas no ordenadas (`<ul>`) no se ven afectadas
+- El renderizado visual coincidirá con el Markdown original
 
-### Flujo Visual Después del Fix
-
-```
-StepIndicator:  📝 → 🏢 → 📈 → 💼 → ⚙️ → 💰 → 🗂️ → 👁️
-                Proy  Emp  Anál  Com  Oper  Pric  Admin Rev
-
-Contenido:      🗂️ Área Administración ← Siempre sincronizado
-```
