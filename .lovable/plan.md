@@ -1,53 +1,130 @@
 
-## Plan: Reemplazar Imagen de Fondo del Editor Word
+## Plan: Corregir Sincronización de Íconos entre StepIndicator y FileUploadStep
 
-### Resumen
+### Problema Identificado
 
-Reemplazaremos la imagen de fondo corporativa del SimpleWordEditor (`FONDO_A4.png`) por la nueva imagen (`FONDO_A4-3.png`) que incluye los logos OSIRIS y LOGISTIC LAW actualizados.
+Después de analizar el código, he encontrado **dos problemas**:
 
-### Cambios a Realizar
+1. **Íconos duplicados**: Tanto "Análisis" como "Administración" usan el mismo emoji 📊, causando confusión visual.
 
-| Paso | Archivo | Accion |
-|------|---------|--------|
-| 1 | `src/assets/FONDO_A4-3.png` | Copiar nueva imagen al proyecto |
-| 2 | `src/pages/SimpleWordEditor.tsx` | Actualizar import de imagen |
+2. **Posible desincronización de índices**: Cuando `stepConfig` cambia dinámicamente (al agregar/quitar archivos de empresa), el `currentStep` (número) puede desincronizarse con el contenido esperado.
 
-### Detalles Tecnicos
+### Diagnóstico Visual
 
-**Paso 1: Agregar la nueva imagen**
-```
-Copiar: user-uploads://FONDO_A4-3.png → src/assets/FONDO_A4-3.png
-```
+En la imagen que compartiste:
+- El StepIndicator muestra "Admin" con un ícono
+- El contenido muestra "Área Administración" con un ícono grande
+- El usuario reporta que estos no coinciden
 
-**Paso 2: Actualizar import en SimpleWordEditor.tsx (linea 10)**
+### Solución Propuesta
+
+#### Cambio 1: Usar íconos únicos para cada paso
+
+Actualizar los íconos para que no haya duplicados:
+
+| Paso | Ícono Actual | Ícono Nuevo |
+|------|--------------|-------------|
+| Análisis | 📊 | 📈 (gráfico de línea) |
+| Comercial | 💼 | 💼 (sin cambio) |
+| Operaciones | ⚙️ | ⚙️ (sin cambio) |
+| Pricing | 💰 | 💰 (sin cambio) |
+| Administración | 📊 | 🗂️ (archivo/carpeta) |
+
+#### Cambio 2: Garantizar sincronización usando `currentStepKey`
+
+En lugar de depender del índice numérico `currentStep` para el StepIndicator, pasar también el `currentStepKey` para una verificación más robusta:
+
 ```typescript
-// ANTES:
-import fondoA4Image from '@/assets/FONDO_A4.png';
-
-// DESPUES:
-import fondoA4Image from '@/assets/FONDO_A4-3.png';
+// StepIndicator.tsx - Nueva lógica
+const currentVisibleStep = visibleSteps.find(s => s.key === currentStepKey);
+const currentVisualIndex = currentVisibleStep 
+  ? visibleSteps.indexOf(currentVisibleStep)
+  : getVisualIndex(currentStep);
 ```
 
-### Funcionalidades Preservadas
+### Archivos a Modificar
 
-El cambio es minimo y no afecta ninguna funcionalidad:
+| Archivo | Cambio |
+|---------|--------|
+| `src/hooks/useMultiStepUpload.ts` | Actualizar íconos en `areas` y `stepConfig` para que sean únicos |
+| `src/components/upload-steps/StepIndicator.tsx` | Agregar prop `currentStepKey` y usar para verificación de sincronización |
+| `src/components/MultiStepUploader.tsx` | Pasar `currentStepKey` al StepIndicator |
+| `src/pages/Index.tsx` | Actualizar ícono de Administración para consistencia |
 
-| Funcionalidad | Estado |
-|---------------|--------|
-| Renderizado de paginas A4 | Sin cambios |
-| Exportacion PDF con fondo | Sin cambios |
-| Edicion de contenido | Sin cambios |
-| Paginacion automatica | Sin cambios |
-| Guardado en Supabase | Sin cambios |
-| Copia con formato | Sin cambios |
+### Detalles Técnicos
 
-### Resultado Visual
+**Cambio en `useMultiStepUpload.ts`:**
 
-La nueva imagen de fondo mostrara:
-- Logo OSIRIS (esquina superior izquierda)
-- Logo LOGISTIC LAW (esquina superior derecha)  
-- Fondo blanco limpio para el contenido
+```typescript
+// areas (líneas 41-46)
+const areas = useMemo(() => [
+  { key: 'comercial', name: 'Comercial', icon: '💼' },
+  { key: 'operaciones', name: 'Operaciones', icon: '⚙️' },
+  { key: 'pricing', name: 'Pricing', icon: '💰' },
+  { key: 'administracion', name: 'Administración', icon: '🗂️' } // Cambio de 📊 a 🗂️
+], []);
 
-Esto aplicara automaticamente a:
-- Todas las paginas del editor Word
-- Todos los PDFs generados
+// stepConfig (líneas 59-68)
+if (hasAnalysis) {
+  steps.push({ key: 'analysis_review', name: 'Análisis', icon: '📈' }); // Cambio de 📊 a 📈
+}
+steps.push(
+  { key: 'comercial', name: 'Comercial', icon: '💼' },
+  { key: 'operaciones', name: 'Operaciones', icon: '⚙️' },
+  { key: 'pricing', name: 'Pricing', icon: '💰' },
+  { key: 'administracion', name: 'Admin', icon: '🗂️' } // Cambio de 📊 a 🗂️
+);
+```
+
+**Cambio en `StepIndicator.tsx`:**
+
+Agregar nuevo prop y lógica de verificación:
+
+```typescript
+interface StepIndicatorProps {
+  currentStep: number;
+  stepConfig: StepConfig[];
+  currentStepKey?: string; // Nuevo prop
+}
+
+const StepIndicator = ({ currentStep, stepConfig, currentStepKey }: StepIndicatorProps) => {
+  // ...existing code...
+
+  // Calcular índice visual usando stepKey para mayor precisión
+  const getCurrentVisualIndex = () => {
+    if (currentStepKey) {
+      const visibleIndex = visibleSteps.findIndex(s => s.key === currentStepKey);
+      if (visibleIndex >= 0) return visibleIndex;
+    }
+    return getVisualIndex(currentStep);
+  };
+
+  const currentVisualIndex = getCurrentVisualIndex();
+  // ...rest of component...
+};
+```
+
+**Cambio en `MultiStepUploader.tsx`:**
+
+```typescript
+<StepIndicator 
+  currentStep={currentStep} 
+  stepConfig={stepConfig}
+  currentStepKey={currentStepKey} // Nuevo prop
+/>
+```
+
+### Resultado Esperado
+
+1. Cada área tendrá un ícono visualmente único
+2. El StepIndicator siempre mostrará el paso correcto como "actual" incluso si los índices cambian
+3. El ícono grande en el contenido siempre coincidirá con el ícono en la barra de progreso
+
+### Flujo Visual Después del Fix
+
+```
+StepIndicator:  📝 → 🏢 → 📈 → 💼 → ⚙️ → 💰 → 🗂️ → 👁️
+                Proy  Emp  Anál  Com  Oper  Pric  Admin Rev
+
+Contenido:      🗂️ Área Administración ← Siempre sincronizado
+```
