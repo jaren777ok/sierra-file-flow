@@ -5,16 +5,17 @@ import type { StepConfig } from '@/hooks/useMultiStepUpload';
 interface StepIndicatorProps {
   currentStep: number;
   stepConfig: StepConfig[];
+  currentStepKey?: string;
 }
 
-const StepIndicator = ({ currentStep, stepConfig }: StepIndicatorProps) => {
+const StepIndicator = ({ currentStep, stepConfig, currentStepKey }: StepIndicatorProps) => {
   // Filtrar pasos de procesamiento para el indicador visual
   const visibleSteps = stepConfig.filter(step => 
     step.key !== 'analysis_processing' && step.key !== 'processing'
   );
 
-  // Calcular el índice visual correcto
-  const getVisualIndex = (actualStep: number) => {
+  // Calcular el índice visual correcto basado en índice numérico (fallback)
+  const getVisualIndexByNumber = (actualStep: number) => {
     let visualIndex = 0;
     for (let i = 0; i < actualStep && i < stepConfig.length; i++) {
       const step = stepConfig[i];
@@ -25,7 +26,16 @@ const StepIndicator = ({ currentStep, stepConfig }: StepIndicatorProps) => {
     return visualIndex;
   };
 
-  const currentVisualIndex = getVisualIndex(currentStep);
+  // Calcular índice visual usando stepKey para mayor precisión (evita desincronización)
+  const getCurrentVisualIndex = () => {
+    if (currentStepKey) {
+      const visibleIndex = visibleSteps.findIndex(s => s.key === currentStepKey);
+      if (visibleIndex >= 0) return visibleIndex;
+    }
+    return getVisualIndexByNumber(currentStep);
+  };
+
+  const currentVisualIndex = getCurrentVisualIndex();
 
   // Mostrar solo un subconjunto de pasos si hay demasiados
   const displaySteps = visibleSteps.length > 8 ? [

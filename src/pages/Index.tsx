@@ -51,7 +51,7 @@ const Index = () => {
     description: 'Estrategias de precios y rentabilidad'
   }, {
     name: 'Administración',
-    icon: '📊',
+    icon: '🗂️',
     description: 'Gestión administrativa y reportes'
   }];
   return <div className="min-h-screen bg-gradient-to-br from-stone-50 via-white to-sierra-teal/5">

@@ -42,7 +42,7 @@ export const useMultiStepUpload = () => {
     { key: 'comercial' as keyof AreaFiles, name: 'Comercial', icon: '💼' },
     { key: 'operaciones' as keyof AreaFiles, name: 'Operaciones', icon: '⚙️' },
     { key: 'pricing' as keyof AreaFiles, name: 'Pricing', icon: '💰' },
-    { key: 'administracion' as keyof AreaFiles, name: 'Administración', icon: '📊' }
+    { key: 'administracion' as keyof AreaFiles, name: 'Administración', icon: '🗂️' }
   ], []);
 
   // Configuración dinámica de pasos - FUENTE ÚNICA DE VERDAD
@@ -57,7 +57,7 @@ export const useMultiStepUpload = () => {
     // Solo agregar pasos de análisis si hay archivos de empresa
     if (hasAnalysis) {
       steps.push({ key: 'analysis_processing', name: 'Analizando', icon: '🔄' });
-      steps.push({ key: 'analysis_review', name: 'Análisis', icon: '📊' });
+      steps.push({ key: 'analysis_review', name: 'Análisis', icon: '📈' });
     }
     
     // Áreas fijas
@@ -65,7 +65,7 @@ export const useMultiStepUpload = () => {
       { key: 'comercial', name: 'Comercial', icon: '💼' },
       { key: 'operaciones', name: 'Operaciones', icon: '⚙️' },
       { key: 'pricing', name: 'Pricing', icon: '💰' },
-      { key: 'administracion', name: 'Admin', icon: '📊' }
+      { key: 'administracion', name: 'Admin', icon: '🗂️' }
     );
     
     // Áreas personalizadas
