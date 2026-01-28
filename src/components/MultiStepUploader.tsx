@@ -299,6 +299,7 @@ const MultiStepUploader = () => {
           <StepIndicator 
             currentStep={currentStep} 
             stepConfig={stepConfig}
+            currentStepKey={currentStepKey}
           />
         </div>
       )}
