@@ -316,6 +316,13 @@ const divideContentIntoPages = (
     if (tagName === 'ul' || tagName === 'ol') {
       const items = Array.from(element.querySelectorAll(':scope > li'));
       let listStarted = false;
+      
+      // Para <ol>: obtener el start original (default 1) y rastrear índice actual
+      const isOrderedList = tagName === 'ol';
+      const originalStart = isOrderedList 
+        ? parseInt(element.getAttribute('start') || '1', 10) 
+        : 1;
+      let currentItemIndex = 0; // Índice dentro del array de items
 
       for (const item of items) {
         const itemHtml = (item as HTMLElement).outerHTML;
@@ -327,17 +334,27 @@ const divideContentIntoPages = (
           }
           savePage();
 
-          currentPageHtml = `<${tagName}>${itemHtml}`;
+          // Calcular start correcto para la nueva página
+          const startAttr = isOrderedList 
+            ? ` start="${originalStart + currentItemIndex}"` 
+            : '';
+          currentPageHtml = `<${tagName}${startAttr}>${itemHtml}`;
           currentHeightPx = itemHeightPx;
           listStarted = true;
         } else {
           if (!listStarted) {
-            currentPageHtml += `<${tagName}>`;
+            // Preservar start original en primera página
+            const startAttr = isOrderedList && originalStart !== 1 
+              ? ` start="${originalStart}"` 
+              : '';
+            currentPageHtml += `<${tagName}${startAttr}>`;
             listStarted = true;
           }
           currentPageHtml += itemHtml;
           currentHeightPx += itemHeightPx;
         }
+        
+        currentItemIndex++; // Incrementar después de procesar cada item
       }
 
       if (listStarted) {
