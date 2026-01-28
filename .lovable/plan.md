@@ -1,182 +1,233 @@
 
-
-## Plan: Corregir Numeración de Listas Ordenadas al Dividir entre Páginas
+## Plan: Optimizar Distribución de Contenido para Eliminar Espacios en Blanco Excesivos
 
 ### Problema Identificado
 
-Cuando el contenido Markdown con listas numeradas (1, 2, 3, 4, 5, 6...) se divide entre páginas, cada nueva página reinicia la numeración desde 1 en lugar de continuar.
+El editor Word actual deja grandes espacios en blanco entre secciones porque:
+1. **Encabezados se empujan completos** a la siguiente página cuando no caben, dejando huecos
+2. **Márgenes de elementos sobrestimados** en la medición, causando saltos prematuros
+3. **No hay "look-ahead"** para decisiones inteligentes de división
+4. **Buffer de seguridad muy conservador** (30px) que desperdicia espacio
 
-**Causa raíz**: En la función `divideContentIntoPages()`, cuando se crea un nuevo `<ol>` en una página siguiente, no se incluye el atributo `start` con el número correcto.
+### Datos del Sistema Actual
 
-### Datos del Markdown Original (de tus capturas)
-
+```text
++-----------------------------------------+
+| CONSTANTES ACTUALES                     |
++-----------------------------------------+
+| PAGE_HEIGHT    = 1122px                 |
+| PADDING_TOP    = 120px  (logos)         |
+| PADDING_BOTTOM = 60px   (footer)        |
+| CONTENT_HEIGHT = 942px                  |
+| SAFETY_BUFFER  = 30px                   |
+| MAX_HEIGHT_PX  = 896px  (capacidad)     |
++-----------------------------------------+
 ```
-1. **Tópico: Estrategia y Planificación Comercial**
-2. **Tópico: Herramientas Tecnológicas**  
-3. **Tópico: Gestión de Cotizaciones y Precios**
-4. **Tópico: Desarrollo de Habilidades y Capacitación**
-5. **Tópico: KPIs y Medición de Desempeño**
-6. **Tópico: Marketing y Visibilidad de Marca**
+
+### Flujo Visual del Problema
+
+```text
+PÁGINA ACTUAL (con problema):
++---------------------------+
+| [LOGOS]                   |
+|---------------------------|
+| Texto Texto Texto         |
+| Texto Texto Texto         |
+| ...                       |
+| [espacio disponible: 200px]|
+|                           | <- ¡ESPACIO DESPERDICIADO!
+|                           |
+|---------------------------|
+| [FOOTER]                  |
++---------------------------+
+
+PÁGINA SIGUIENTE:
++---------------------------+
+| [LOGOS]                   |
+|---------------------------|
+| ## TÍTULO GRANDE          | <- Se empujó completo
+| Texto Texto Texto         |
+| ...                       |
++---------------------------+
 ```
 
-### Cómo se ve Actualmente (Incorrecto)
+### Solución Propuesta: Algoritmo de Llenado Óptimo
 
-| Página 14 | Página 15 | Página 16 |
-|-----------|-----------|-----------|
-| 1. Tópico: Estrategia... | 1. Tópico: Gestión... | 1. Tópico: KPIs... |
-| 2. Tema: Herramientas... | 2. Tópico: Desarrollo... | 2. Tópico: Marketing... |
+#### Cambio 1: Reducir el "look-ahead" para encabezados
 
-### Cómo Debería Verse (Correcto)
-
-| Página 14 | Página 15 | Página 16 |
-|-----------|-----------|-----------|
-| 1. Tópico: Estrategia... | 3. Tópico: Gestión... | 5. Tópico: KPIs... |
-| 2. Tema: Herramientas... | 4. Tópico: Desarrollo... | 6. Tópico: Marketing... |
-
----
-
-### Solución Técnica
-
-#### Archivo a Modificar: `src/pages/SimpleWordEditor.tsx`
-
-Modificar la sección de procesamiento de listas (líneas 315-347) para:
-
-1. **Preservar el atributo `start` original** del `<ol>` si existe
-2. **Rastrear el índice del item actual** durante la iteración
-3. **Calcular el valor `start` correcto** cuando se crea un nuevo `<ol>` en página siguiente
-
-#### Código Actual (Problemático)
+Actualmente, si un H2 no cabe, se mueve completo. Propongo verificar si el encabezado **más un mínimo de contenido siguiente** caben:
 
 ```typescript
-// === LISTS: Process ITEM BY ITEM ===
-if (tagName === 'ul' || tagName === 'ol') {
-  const items = Array.from(element.querySelectorAll(':scope > li'));
-  let listStarted = false;
+// Si el heading no cabe SOLO, pero SÍ cabe con el siguiente elemento pequeño,
+// entonces es mejor mover ambos juntos a la siguiente página.
+// Si no cabe nada más, empujar el heading.
 
-  for (const item of items) {
-    // ...medición de altura...
-    
-    if (currentHeightPx + itemHeightPx > MAX_HEIGHT_PX) {
-      if (listStarted) {
-        currentPageHtml += `</${tagName}>`;
-      }
-      savePage();
+// NUEVO: Solo empujar heading si quedan menos de 150px (6 líneas)
+const MIN_USEFUL_SPACE = 150; // Mínimo para que valga la pena empujar contenido
 
-      // ❌ PROBLEMA: No tiene atributo start
-      currentPageHtml = `<${tagName}>${itemHtml}`;
-      // ...
-    } else {
-      if (!listStarted) {
-        // ❌ PROBLEMA: No preserva start original
-        currentPageHtml += `<${tagName}>`;
-        listStarted = true;
-      }
-      // ...
-    }
+if (currentHeightPx + headingHeightPx > MAX_HEIGHT_PX) {
+  // Solo cerrar página si no hay espacio útil
+  if (MAX_HEIGHT_PX - currentHeightPx < MIN_USEFUL_SPACE) {
+    savePage();
   }
 }
 ```
 
-#### Código Corregido
+#### Cambio 2: Reducir márgenes de medición duplicados
+
+Las funciones de medición **ya incluyen márgenes** pero después se agregan espacios extra. Eliminar duplicación:
 
 ```typescript
-// === LISTS: Process ITEM BY ITEM ===
-if (tagName === 'ul' || tagName === 'ol') {
-  const items = Array.from(element.querySelectorAll(':scope > li'));
-  let listStarted = false;
+// ANTES (problema):
+const marginTop = parseFloat(style.marginTop) || 0;
+const marginBottom = parseFloat(style.marginBottom) || 0;
+const height = clone.offsetHeight + marginTop + marginBottom;
+// DESPUÉS: offsetHeight YA incluye márgenes computados
+```
+
+#### Cambio 3: Reducir SAFETY_BUFFER de 30px a 16px
+
+El buffer de 30px es excesivo para un sistema que mide en DOM real:
+
+```typescript
+// ANTES:
+const SAFETY_BUFFER = 30;
+const MAX_HEIGHT_PX = 896;
+
+// DESPUÉS:
+const SAFETY_BUFFER = 16;
+const MAX_HEIGHT_PX = 910; // +14px de capacidad útil
+```
+
+#### Cambio 4: Permitir que párrafos llenen espacio pequeño
+
+Actualmente, si queda poco espacio, se empuja el párrafo completo. Propongo **siempre** intentar llenar:
+
+```typescript
+// ANTES:
+if (spaceAvailablePx >= MIN_SPACE_PX) { // 72px mínimo
+  // dividir párrafo
+}
+
+// DESPUÉS: Reducir a 48px (2 líneas)
+const MIN_SPACE_PX = 48; // Solo necesitamos 2 líneas para justificar dividir
+```
+
+### Archivos a Modificar
+
+| Archivo | Líneas | Cambio |
+|---------|--------|--------|
+| `src/pages/SimpleWordEditor.tsx` | 27-28 | Reducir `SAFETY_BUFFER` a 16px, aumentar `MAX_HEIGHT_PX` a 910px |
+| `src/pages/SimpleWordEditor.tsx` | 247 | Reducir `MIN_SPACE_PX` de 72 a 48 |
+| `src/pages/SimpleWordEditor.tsx` | 30-64 | Corregir medición de elementos para no duplicar márgenes |
+| `src/pages/SimpleWordEditor.tsx` | 366-377 | Optimizar lógica de headings para no desperdiciar espacio |
+| `src/index.css` | 221-253 | Reducir márgenes excesivos de h2/h3/h4 |
+
+### Cambios en CSS (Márgenes más Compactos)
+
+Reducir márgenes de headings para documentos más densos:
+
+```css
+/* ANTES */
+.page-content-area h2 {
+  margin: 20pt 0 10pt 0;  /* 30pt total */
+}
+.page-content-area h3 {
+  margin: 14pt 0 8pt 0;   /* 22pt total */
+}
+
+/* DESPUÉS */
+.page-content-area h2 {
+  margin: 14pt 0 8pt 0;   /* 22pt total - reducción de 8pt */
+}
+.page-content-area h3 {
+  margin: 10pt 0 6pt 0;   /* 16pt total - reducción de 6pt */
+}
+```
+
+### Cambios en Algoritmo (SimpleWordEditor.tsx)
+
+#### Función measureElementHeightPx corregida:
+
+```typescript
+const measureElementHeightPx = (element: HTMLElement, contentWidth: number): number => {
+  // ... crear tempContainer ...
   
-  // Para <ol>: obtener el start original (default 1) y rastrear índice actual
-  const isOrderedList = tagName === 'ol';
-  const originalStart = isOrderedList 
-    ? parseInt(element.getAttribute('start') || '1', 10) 
-    : 1;
-  let currentItemIndex = 0; // Índice dentro del array de items
+  const clone = element.cloneNode(true) as HTMLElement;
+  tempContainer.appendChild(clone);
+  
+  void tempContainer.offsetHeight;
+  
+  // CORREGIDO: offsetHeight INCLUYE padding pero NO márgenes
+  // Solo agregar márgenes UNA vez, no duplicar
+  const style = window.getComputedStyle(clone);
+  const marginTop = parseFloat(style.marginTop) || 0;
+  const marginBottom = parseFloat(style.marginBottom) || 0;
+  
+  // La altura real es offsetHeight + márgenes externos
+  const height = clone.offsetHeight + marginTop + marginBottom;
+  document.body.removeChild(tempContainer);
+  
+  return height;
+};
+```
 
-  for (const item of items) {
-    const itemHtml = (item as HTMLElement).outerHTML;
-    const itemHeightPx = measureListItemHeightPx(item as HTMLElement, CONTENT_WIDTH);
+#### Lógica de headings optimizada:
 
-    if (currentHeightPx + itemHeightPx > MAX_HEIGHT_PX) {
-      if (listStarted) {
-        currentPageHtml += `</${tagName}>`;
-      }
+```typescript
+// === HEADINGS: Move complete but don't waste space ===
+if (isHeading(tagName)) {
+  const elementHeightPx = getElementHeightPx(element, CONTENT_WIDTH);
+  const spaceRemaining = MAX_HEIGHT_PX - currentHeightPx;
+
+  if (currentHeightPx + elementHeightPx > MAX_HEIGHT_PX) {
+    // Solo crear nueva página si el espacio restante es muy pequeño
+    // (menos de 100px = ~4 líneas = no vale la pena)
+    if (spaceRemaining < 100) {
       savePage();
-
-      // ✅ SOLUCIÓN: Calcular start correcto para la nueva página
-      const startAttr = isOrderedList 
-        ? ` start="${originalStart + currentItemIndex}"` 
-        : '';
-      currentPageHtml = `<${tagName}${startAttr}>${itemHtml}`;
-      currentHeightPx = itemHeightPx;
-      listStarted = true;
-    } else {
-      if (!listStarted) {
-        // ✅ SOLUCIÓN: Preservar start original en primera página
-        const startAttr = isOrderedList && originalStart !== 1 
-          ? ` start="${originalStart}"` 
-          : '';
-        currentPageHtml += `<${tagName}${startAttr}>`;
-        listStarted = true;
-      }
-      currentPageHtml += itemHtml;
-      currentHeightPx += itemHeightPx;
     }
-    
-    currentItemIndex++; // Incrementar después de procesar cada item
+    // Si hay espacio, pero no suficiente para el heading + algo útil,
+    // también crear nueva página para evitar heading huérfano al final
+    else if (spaceRemaining < elementHeightPx + 100) {
+      savePage();
+    }
   }
 
-  if (listStarted) {
-    currentPageHtml += `</${tagName}>`;
-  }
+  currentPageHtml += element.outerHTML;
+  currentHeightPx += elementHeightPx;
   continue;
 }
 ```
 
----
+### Resultado Visual Esperado
 
-### Lógica de la Solución
-
-| Variable | Propósito |
-|----------|-----------|
-| `isOrderedList` | Detecta si es `<ol>` (necesita `start`) o `<ul>` (no lo necesita) |
-| `originalStart` | Valor inicial del atributo `start` (1 por defecto) |
-| `currentItemIndex` | Contador de items procesados (0, 1, 2, 3...) |
-| `startAttr` | Atributo HTML a insertar: `start="3"` |
-
-### Ejemplo de Flujo
-
-```
-Markdown: 1. Tópico A, 2. Tópico B, 3. Tópico C, 4. Tópico D
-
-originalStart = 1
-currentItemIndex = 0, 1, 2, 3
-
-Página 1 (items 0, 1 caben):
-  <ol>              ← sin start (1 es default)
-    <li>Tópico A</li>  ← index 0, muestra "1."
-    <li>Tópico B</li>  ← index 1, muestra "2."
-  </ol>
-
-Página 2 (items 2, 3):
-  <ol start="3">    ← start = originalStart(1) + currentItemIndex(2) = 3
-    <li>Tópico C</li>  ← muestra "3."
-    <li>Tópico D</li>  ← muestra "4."
-  </ol>
+```text
+ANTES (problema):               DESPUÉS (optimizado):
++------------------+            +------------------+
+| Contenido        |            | Contenido        |
+| Contenido        |            | Contenido        |
+|                  | <- vacío   | ## Heading       |
+|                  | <- vacío   | Más contenido    |
+|                  | <- vacío   | Más contenido    |
++------------------+            +------------------+
+| ## Heading       |            | Continúa...      |
+| Más contenido    |            |                  |
++------------------+            +------------------+
 ```
 
----
+### Impacto Estimado
 
-### Resumen de Cambios
+| Métrica | Antes | Después |
+|---------|-------|---------|
+| Espacio útil por página | ~896px | ~910px (+1.5%) |
+| Líneas por página | ~37 | ~38 |
+| Páginas para 76 páginas doc | 76 | ~70-72 (-5-8%) |
+| Espacios en blanco grandes | Frecuentes | Raros |
 
-| Archivo | Líneas | Cambio |
-|---------|--------|--------|
-| `src/pages/SimpleWordEditor.tsx` | 315-347 | Agregar lógica de `start` para listas ordenadas divididas |
+### Verificación Post-Implementación
 
-### Resultado Esperado
-
-Después de aplicar el fix:
-- Cada `<ol>` dividido tendrá el atributo `start` correcto
-- La numeración fluirá naturalmente entre páginas (1, 2 → 3, 4 → 5, 6...)
-- Las listas no ordenadas (`<ul>`) no se ven afectadas
-- El renderizado visual coincidirá con el Markdown original
-
+1. Cargar un documento de 70+ páginas
+2. Verificar que no hay páginas con más del 20% de espacio vacío al final
+3. Verificar que los headings no quedan "huérfanos" sin contenido debajo
+4. Verificar que el texto no se oculta ni se corta
+5. Exportar a PDF y confirmar renderizado correcto
