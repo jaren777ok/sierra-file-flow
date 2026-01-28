@@ -7,7 +7,7 @@ import { SimpleRuler } from '@/components/editors/SimpleRuler';
 import { Trash2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import fondoA4Image from '@/assets/FONDO_A4.png';
+import fondoA4Image from '@/assets/FONDO_A4-3.png';
 import { markdownToHtml } from '@/services/markdownService';
 
 // A4 Portrait dimensions (standard document format)
