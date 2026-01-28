@@ -24,8 +24,8 @@ const LINE_HEIGHT_PX = 24;    // 11pt × 1.6 ≈ 24px per line (for reference on
 // Page capacity in PIXELS - direct comparison without conversion
 const CONTAINER_PADDING = 16; // 8px top + 8px bottom of actual container padding
 const HORIZONTAL_PADDING = 16; // 8px left + 8px right of actual container padding
-const SAFETY_BUFFER = 30; // Extra buffer for rendering discrepancies
-const MAX_HEIGHT_PX = CONTENT_HEIGHT - CONTAINER_PADDING - SAFETY_BUFFER; // 942 - 16 - 30 = 896px real capacity
+const SAFETY_BUFFER = 16; // Reduced buffer - real DOM measurement is accurate
+const MAX_HEIGHT_PX = CONTENT_HEIGHT - CONTAINER_PADDING - SAFETY_BUFFER; // 942 - 16 - 16 = 910px real capacity
 
 // REAL DOM HEIGHT MEASUREMENT - returns PIXELS directly (not lines)
 const measureElementHeightPx = (element: HTMLElement, contentWidth: number): number => {
@@ -244,7 +244,7 @@ const divideContentIntoPages = (
   }
 
   const CONTENT_WIDTH = PAGE_WIDTH - leftMargin - rightMargin - HORIZONTAL_PADDING;
-  const MIN_SPACE_PX = 72; // ~3 lines of text (24px * 3) - minimum to split paragraphs
+  const MIN_SPACE_PX = 48; // ~2 lines of text (24px * 2) - minimum to split paragraphs (more aggressive filling)
 
   // Parse HTML into elements
   const tempContainer = document.createElement('div');
@@ -363,12 +363,18 @@ const divideContentIntoPages = (
       continue;
     }
 
-    // === HEADINGS: Never split, move complete if doesn't fit ===
+    // === HEADINGS: Move complete but don't waste space ===
     if (isHeading(tagName)) {
       const elementHeightPx = getElementHeightPx(element, CONTENT_WIDTH);
+      const spaceRemaining = MAX_HEIGHT_PX - currentHeightPx;
 
       if (currentHeightPx + elementHeightPx > MAX_HEIGHT_PX) {
-        savePage();
+        // Only create new page if remaining space is very small (< 100px = ~4 lines)
+        // OR if there's not enough space for heading + some useful content (100px more)
+        if (spaceRemaining < 100 || spaceRemaining < elementHeightPx + 100) {
+          savePage();
+        }
+        // Otherwise, try to fit the heading even if it slightly exceeds - it's better than wasting space
       }
 
       currentPageHtml += element.outerHTML;
