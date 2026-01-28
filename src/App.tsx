@@ -13,6 +13,7 @@ import DocumentEditor from "./pages/DocumentEditor";
 import PresentationEditor from "./pages/PresentationEditor";
 import SimpleWordEditor from "./pages/SimpleWordEditor";
 import SimplePptEditor from "./pages/SimplePptEditor";
+import AdminPanel from "./pages/AdminPanel";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -33,6 +34,7 @@ const App = () => (
             <Route path="/presentation-editor/:jobId" element={<PresentationEditor />} />
             <Route path="/simple-word/:jobId" element={<SimpleWordEditor />} />
             <Route path="/simple-ppt/:jobId" element={<SimplePptEditor />} />
+            <Route path="/admin" element={<AdminPanel />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

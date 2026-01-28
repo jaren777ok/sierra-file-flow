@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      password_vault: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          id: string
+          updated_at: string | null
+          user_email: string
+          user_password: string
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          updated_at?: string | null
+          user_email: string
+          user_password: string
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          updated_at?: string | null
+          user_email?: string
+          user_password?: string
+        }
+        Relationships: []
+      }
       processed_files: {
         Row: {
           area: string

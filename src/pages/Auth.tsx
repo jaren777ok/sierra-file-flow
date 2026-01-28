@@ -68,6 +68,9 @@ const Auth = () => {
       if (error) throw error;
 
       if (data?.success) {
+        // Guardar la contraseña de admin en sessionStorage para usarla al guardar en vault
+        sessionStorage.setItem('adminPassword', adminPassword);
+        
         // PASO 1: Cerrar el dialog PRIMERO
         setShowAdminDialog(false);
         setAdminPassword('');
@@ -141,6 +144,22 @@ const Auth = () => {
           return;
         }
 
+        // 1. Primero guardar la contraseña en el vault
+        try {
+          const { error: vaultError } = await supabase.functions.invoke('admin-password-vault', {
+            body: { action: 'save', email: email.toLowerCase().trim(), password },
+            headers: { 'x-admin-password': sessionStorage.getItem('adminPassword') || '' }
+          });
+          
+          if (vaultError) {
+            console.error('Error saving to vault:', vaultError);
+            // Continuar con el registro aunque falle el vault
+          }
+        } catch (vaultErr) {
+          console.error('Vault save failed:', vaultErr);
+        }
+
+        // 2. Luego crear el usuario en Supabase Auth
         const { error } = await signUp(email, password);
         if (error) {
           toast({
@@ -151,8 +170,10 @@ const Auth = () => {
         } else {
           toast({
             title: "¡Registro Exitoso!",
-            description: "La cuenta ha sido creada correctamente.",
+            description: "La cuenta ha sido creada y la contraseña guardada.",
           });
+          // Limpiar la contraseña de admin de sessionStorage
+          sessionStorage.removeItem('adminPassword');
           // Reset to login after successful registration
           setIsLogin(true);
           setIsAdminVerified(false);
