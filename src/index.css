@@ -232,7 +232,7 @@
     font-size: 16pt;
     font-weight: 700;
     color: #000;
-    margin: 20pt 0 10pt 0;
+    margin: 14pt 0 8pt 0; /* Reduced from 20pt/10pt to 14pt/8pt - saves 8pt per heading */
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
@@ -241,7 +241,7 @@
     font-size: 13pt;
     font-weight: 700;
     color: #000;
-    margin: 14pt 0 8pt 0;
+    margin: 10pt 0 6pt 0; /* Reduced from 14pt/8pt to 10pt/6pt - saves 6pt per heading */
     text-transform: uppercase;
   }
 
@@ -249,7 +249,7 @@
     font-size: 12pt;
     font-weight: 600;
     color: #000;
-    margin: 12pt 0 6pt 0;
+    margin: 8pt 0 4pt 0; /* Reduced from 12pt/6pt to 8pt/4pt - saves 6pt per heading */
   }
 
   .page-content-area p {
