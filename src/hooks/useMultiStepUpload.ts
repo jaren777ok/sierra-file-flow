@@ -13,7 +13,7 @@ export interface StepConfig {
 }
 
 export const useMultiStepUpload = () => {
-  const [currentStep, setCurrentStep] = useState(0);
+  const [currentStepKey, setCurrentStepKey] = useState('project');
   const [projectName, setProjectName] = useState('');
   const [companyInfo, setCompanyInfo] = useState<File[]>([]);
   const [areaFiles, setAreaFiles] = useState<AreaFiles>({
@@ -80,11 +80,9 @@ export const useMultiStepUpload = () => {
     return steps;
   }, [companyInfo.length, customAreas]);
 
-  // Total de pasos basado en la configuración
+  // Derivar índice numérico desde el key
+  const currentStep = stepConfig.findIndex(s => s.key === currentStepKey);
   const totalSteps = stepConfig.length;
-
-  // Obtener el key del paso actual
-  const currentStepKey = stepConfig[currentStep]?.key || '';
 
   const updateAreaFiles = useCallback((area: keyof AreaFiles, files: File[]) => {
     if (files.length > PROCESSING_CONSTANTS.MAX_FILES_PER_AREA) {
@@ -164,20 +162,18 @@ export const useMultiStepUpload = () => {
       };
       setCustomAreas(prev => [...prev, newArea]);
       
-      // Ir al paso de la nueva área (el penúltimo antes de review)
-      // stepConfig ya incluirá esta área después del setState
-      const currentConfig = stepConfig;
-      const reviewIndex = currentConfig.findIndex(s => s.key === 'review');
-      if (reviewIndex > 0) {
-        setCurrentStep(reviewIndex); // Esto será el índice de la nueva área después de que se actualice
-      }
+      // Navigate to the new custom area key
+      setCurrentStepKey(`custom_${newArea.id}`);
     }
   }, [customAreas.length, stepConfig]);
 
   const removeCustomArea = useCallback((id: string) => {
     setCustomAreas(prev => prev.filter(area => area.id !== id));
-    setCurrentStep(prev => Math.max(0, prev - 1));
-  }, []);
+    // Go back to administracion if we were on the removed area
+    if (currentStepKey === `custom_${id}`) {
+      setCurrentStepKey('administracion');
+    }
+  }, [currentStepKey]);
 
   const updateCustomAreaName = useCallback((id: string, name: string) => {
     setCustomAreas(prev => 
@@ -201,7 +197,7 @@ export const useMultiStepUpload = () => {
   }, [toast]);
 
   const nextStep = useCallback(() => {
-    if (currentStep === 0 && !projectName.trim()) {
+    if (currentStepKey === 'project' && !projectName.trim()) {
       toast({
         title: "Campo requerido",
         description: "Ingresa el nombre del proyecto",
@@ -210,12 +206,18 @@ export const useMultiStepUpload = () => {
       return;
     }
     
-    setCurrentStep(prev => Math.min(prev + 1, totalSteps - 1));
-  }, [currentStep, projectName, toast, totalSteps]);
+    const idx = stepConfig.findIndex(s => s.key === currentStepKey);
+    if (idx < stepConfig.length - 1) {
+      setCurrentStepKey(stepConfig[idx + 1].key);
+    }
+  }, [currentStepKey, projectName, toast, stepConfig]);
 
   const prevStep = useCallback(() => {
-    setCurrentStep(prev => Math.max(prev - 1, 0));
-  }, []);
+    const idx = stepConfig.findIndex(s => s.key === currentStepKey);
+    if (idx > 0) {
+      setCurrentStepKey(stepConfig[idx - 1].key);
+    }
+  }, [currentStepKey, stepConfig]);
 
   const getTotalFiles = useCallback(() => {
     const companyInfoCount = companyInfo.length;
@@ -281,7 +283,7 @@ export const useMultiStepUpload = () => {
 
     try {
       await startProcessing(projectName, allFiles, projectFiles, companyAnalysis);
-      setCurrentStep(totalSteps - 1);
+      setCurrentStepKey('processing');
       return true;
     } catch (error) {
       console.error('Error processing files:', error);
@@ -290,7 +292,7 @@ export const useMultiStepUpload = () => {
   }, [startProcessing, projectName, companyInfo, areaFiles, customAreas, toast, totalSteps, companyAnalysis]);
 
   const resetFlow = useCallback(() => {
-    setCurrentStep(0);
+    setCurrentStepKey('project');
     setProjectName('');
     setCompanyInfo([]);
     setCompanyAnalysis('');
@@ -338,16 +340,22 @@ export const useMultiStepUpload = () => {
 
   const jumpToProcessing = useCallback(() => {
     console.log('Jumping directly to processing step');
-    setCurrentStep(totalSteps - 1);
-  }, [totalSteps]);
+    setCurrentStepKey('processing');
+  }, []);
 
-  // Función para navegar a un paso específico por su key
   const goToStep = useCallback((stepKey: string) => {
-    const index = stepConfig.findIndex(s => s.key === stepKey);
-    if (index >= 0) {
-      setCurrentStep(index);
+    setCurrentStepKey(stepKey);
+  }, []);
+
+  // Compatibilidad: setCurrentStep numérico
+  const setCurrentStep = useCallback((indexOrUpdater: number | ((prev: number) => number)) => {
+    const idx = typeof indexOrUpdater === 'function' 
+      ? indexOrUpdater(stepConfig.findIndex(s => s.key === currentStepKey))
+      : indexOrUpdater;
+    if (stepConfig[idx]) {
+      setCurrentStepKey(stepConfig[idx].key);
     }
-  }, [stepConfig]);
+  }, [stepConfig, currentStepKey]);
 
   return {
     currentStep,
