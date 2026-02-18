@@ -1,96 +1,68 @@
 
 
-## Plan: Corregir Desincronización de Nombres e Iconos en Pasos de Carga
+## Plan: Fix Desynchronized Icons and Names in Area Upload Steps
 
-### Problema Raíz
+### Root Cause
 
-El estado `currentStep` se guarda como un **indice numerico** (0, 1, 2, 3...), pero la lista de pasos `stepConfig` es **dinamica** (cambia cuando se agregan archivos de empresa o areas personalizadas). Cuando stepConfig cambia, el indice numerico apunta al paso equivocado.
+When navigating between area steps (Comercial -> Operaciones -> Pricing -> Administracion), React reuses the same `FileUploadStep` component instance because it renders the same component type at the same tree position. This causes stale rendering where the icon updates but the name stays from a previous area.
 
-```text
-SIN archivos empresa:          CON archivos empresa:
-Index 0 = Proyecto             Index 0 = Proyecto
-Index 1 = Empresa              Index 1 = Empresa
-Index 2 = Comercial  <--       Index 2 = Analizando
-Index 3 = Operaciones          Index 3 = Analisis
-Index 4 = Pricing              Index 4 = Comercial  <-- MISMO INDEX, DISTINTO PASO
-Index 5 = Admin                Index 5 = Operaciones
-Index 6 = Revision             Index 6 = Pricing
-                               Index 7 = Admin
-                               Index 8 = Revision
-```
+### Solution
 
-Si el usuario esta en index 4 y agrega/quita archivos de empresa, el nombre e icono cambian porque el index ahora apunta a otro paso.
+Two changes, both in `src/components/MultiStepUploader.tsx`:
 
-### Solucion: Usar stepKey como Estado Principal
+**1. Add `key={area.key}` to FileUploadStep**
 
-En lugar de guardar un numero, guardar la **clave del paso** (string como "pricing", "comercial", etc.). El indice numerico se deriva automaticamente.
-
-### Cambios en un Solo Archivo
-
-**Archivo: `src/hooks/useMultiStepUpload.ts`**
-
-1. Cambiar `currentStep` de `number` a `string` (stepKey)
-2. Derivar el indice numerico a partir del stepKey + stepConfig
-3. Todas las funciones (`nextStep`, `prevStep`, `goToStep`, etc.) trabajan con keys en vez de indices
+This forces React to fully unmount and remount the component when switching between areas, eliminating any stale state or rendering artifacts.
 
 ```typescript
-// ANTES (problematico):
-const [currentStep, setCurrentStep] = useState(0);  // indice numerico
-const currentStepKey = stepConfig[currentStep]?.key || '';
-
-// DESPUES (robusto):
-const [currentStepKey, setCurrentStepKey] = useState('project');  // clave del paso
-const currentStep = stepConfig.findIndex(s => s.key === currentStepKey);
+case 'comercial':
+case 'operaciones':
+case 'pricing':
+case 'administracion': {
+  const area = areas.find(a => a.key === currentStepKey);
+  if (!area) return null;
+  return (
+    <FileUploadStep
+      key={area.key}          // <-- ADD THIS
+      area={area}
+      files={areaFiles[area.key]}
+      onFilesChange={(files) => updateAreaFiles(area.key, files)}
+      onNext={nextStep}
+      onPrev={prevStep}
+      disabled={hasActiveJob()}
+    />
+  );
+}
 ```
 
-#### Funciones Actualizadas:
+**2. Add `key` to CustomAreaUploadStep too (same issue)**
 
 ```typescript
-// nextStep: avanza al siguiente key
-const nextStep = useCallback(() => {
-  const currentIndex = stepConfig.findIndex(s => s.key === currentStepKey);
-  if (currentIndex < stepConfig.length - 1) {
-    setCurrentStepKey(stepConfig[currentIndex + 1].key);
-  }
-}, [currentStepKey, stepConfig]);
-
-// prevStep: retrocede al key anterior
-const prevStep = useCallback(() => {
-  const currentIndex = stepConfig.findIndex(s => s.key === currentStepKey);
-  if (currentIndex > 0) {
-    setCurrentStepKey(stepConfig[currentIndex - 1].key);
-  }
-}, [currentStepKey, stepConfig]);
-
-// goToStep: ya funciona con keys, simplificar
-const goToStep = useCallback((stepKey: string) => {
-  setCurrentStepKey(stepKey);
-}, []);
-
-// setCurrentStep numerico (para compatibilidad):
-const setCurrentStepByIndex = useCallback((index: number) => {
-  if (stepConfig[index]) {
-    setCurrentStepKey(stepConfig[index].key);
-  }
-}, [stepConfig]);
+if (currentStepKey.startsWith('custom_')) {
+  // ...
+  return (
+    <CustomAreaUploadStep
+      key={customArea.id}    // <-- ADD THIS
+      area={customArea}
+      // ...
+    />
+  );
+}
 ```
 
-### Otros Ajustes Menores
+### Why This Works
 
-- `jumpToProcessing`: cambia a `setCurrentStepKey('processing')`
-- `resetFlow`: cambia a `setCurrentStepKey('project')`
-- Los valores exportados se mantienen iguales (currentStep sigue siendo un numero derivado, currentStepKey es el string)
-- `MultiStepUploader.tsx` y `StepIndicator.tsx` no necesitan cambios porque ya usan `currentStepKey`
+React uses component type + position in the tree to decide whether to reuse a component instance. When switching from "Comercial" to "Operaciones", both render `<FileUploadStep>` at the same tree position. Without a `key`, React reuses the instance and only updates props -- but this can cause stale DOM content. Adding `key={area.key}` tells React these are fundamentally different component instances, forcing a full unmount/remount.
 
-### Resultado
+### Files Modified
 
-- No importa cuantas veces cambie `stepConfig`, el paso activo siempre mantiene su identidad
-- Si el usuario esta en "pricing", vera "Pricing" con el icono correcto aunque se agreguen o quiten pasos
-- Sin tablas nuevas en la base de datos -- es un fix puramente de frontend
-- Cero impacto en la funcionalidad existente
+| File | Change |
+|------|--------|
+| `src/components/MultiStepUploader.tsx` | Add `key` prop to `FileUploadStep` and `CustomAreaUploadStep` |
 
-### Verificacion
+### Impact
 
-1. Subir archivos de empresa (activa pasos de analisis) y verificar que los nombres de cada area son correctos
-2. Navegar adelante y atras entre areas y confirmar icono + nombre correctos
-3. Agregar area personalizada y verificar que no desincroniza las demas
+- Zero risk -- only adds a React key prop
+- No logic changes, no database changes
+- Fixes the issue universally for all users and browsers
+
