@@ -1,181 +1,96 @@
 
 
-## Plan: Crear Sistema de Vault de Contraseñas para Administradores
+## Plan: Corregir Desincronización de Nombres e Iconos en Pasos de Carga
 
-### Concepto de la Solución
+### Problema Raíz
 
-Crear una tabla `password_vault` donde se guarde la contraseña en texto plano **antes** de crear el usuario en Supabase Auth. Esto permite que el administrador pueda ver las contraseñas posteriormente.
-
-### Flujo Propuesto
+El estado `currentStep` se guarda como un **indice numerico** (0, 1, 2, 3...), pero la lista de pasos `stepConfig` es **dinamica** (cambia cuando se agregan archivos de empresa o areas personalizadas). Cuando stepConfig cambia, el indice numerico apunta al paso equivocado.
 
 ```text
-FLUJO ACTUAL:
-┌─────────────────┐     ┌─────────────────┐
-│ Admin ingresa   │────>│ signUp() crea   │
-│ email + password│     │ usuario en Auth │
-└─────────────────┘     └─────────────────┘
-
-FLUJO NUEVO:
-┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│ Admin ingresa   │────>│ Guardar en      │────>│ signUp() crea   │
-│ email + password│     │ password_vault  │     │ usuario en Auth │
-└─────────────────┘     └─────────────────┘     └─────────────────┘
-                               │
-                               ▼
-                        ┌─────────────────┐
-                        │ Admin puede ver │
-                        │ contraseña luego│
-                        └─────────────────┘
+SIN archivos empresa:          CON archivos empresa:
+Index 0 = Proyecto             Index 0 = Proyecto
+Index 1 = Empresa              Index 1 = Empresa
+Index 2 = Comercial  <--       Index 2 = Analizando
+Index 3 = Operaciones          Index 3 = Analisis
+Index 4 = Pricing              Index 4 = Comercial  <-- MISMO INDEX, DISTINTO PASO
+Index 5 = Admin                Index 5 = Operaciones
+Index 6 = Revision             Index 6 = Pricing
+                               Index 7 = Admin
+                               Index 8 = Revision
 ```
 
-### Cambios Requeridos
+Si el usuario esta en index 4 y agrega/quita archivos de empresa, el nombre e icono cambian porque el index ahora apunta a otro paso.
 
-#### 1. Nueva Tabla: `password_vault`
+### Solucion: Usar stepKey como Estado Principal
 
-```sql
-CREATE TABLE public.password_vault (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_email TEXT NOT NULL UNIQUE,
-  user_password TEXT NOT NULL,
-  created_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+En lugar de guardar un numero, guardar la **clave del paso** (string como "pricing", "comercial", etc.). El indice numerico se deriva automaticamente.
 
--- RLS muy restrictivo: solo admins pueden ver/modificar
-ALTER TABLE public.password_vault ENABLE ROW LEVEL SECURITY;
+### Cambios en un Solo Archivo
 
--- Por ahora sin política de SELECT público (solo service_role puede leer)
--- Las consultas se harán via Edge Function con service_role
-```
+**Archivo: `src/hooks/useMultiStepUpload.ts`**
 
-#### 2. Nueva Edge Function: `admin-password-vault`
-
-Una edge function que:
-- **POST**: Guarda la contraseña antes de crear usuario
-- **GET**: Recupera la contraseña de un usuario (verificando admin access)
+1. Cambiar `currentStep` de `number` a `string` (stepKey)
+2. Derivar el indice numerico a partir del stepKey + stepConfig
+3. Todas las funciones (`nextStep`, `prevStep`, `goToStep`, etc.) trabajan con keys en vez de indices
 
 ```typescript
-// POST /admin-password-vault
-{ action: "save", email: "user@email.com", password: "xxx" }
+// ANTES (problematico):
+const [currentStep, setCurrentStep] = useState(0);  // indice numerico
+const currentStepKey = stepConfig[currentStep]?.key || '';
 
-// GET /admin-password-vault?email=user@email.com
-{ password: "xxx" }
+// DESPUES (robusto):
+const [currentStepKey, setCurrentStepKey] = useState('project');  // clave del paso
+const currentStep = stepConfig.findIndex(s => s.key === currentStepKey);
 ```
 
-#### 3. Modificar Auth.tsx - Flujo de Registro
-
-Antes de llamar `signUp()`, guardar la contraseña en el vault:
+#### Funciones Actualizadas:
 
 ```typescript
-// En handleSubmit, ANTES de signUp:
-if (!isLogin && isAdminVerified) {
-  // 1. Guardar en vault
-  await supabase.functions.invoke('admin-password-vault', {
-    body: { action: 'save', email, password }
-  });
-  
-  // 2. Luego crear usuario normal
-  const { error } = await signUp(email, password);
-}
+// nextStep: avanza al siguiente key
+const nextStep = useCallback(() => {
+  const currentIndex = stepConfig.findIndex(s => s.key === currentStepKey);
+  if (currentIndex < stepConfig.length - 1) {
+    setCurrentStepKey(stepConfig[currentIndex + 1].key);
+  }
+}, [currentStepKey, stepConfig]);
+
+// prevStep: retrocede al key anterior
+const prevStep = useCallback(() => {
+  const currentIndex = stepConfig.findIndex(s => s.key === currentStepKey);
+  if (currentIndex > 0) {
+    setCurrentStepKey(stepConfig[currentIndex - 1].key);
+  }
+}, [currentStepKey, stepConfig]);
+
+// goToStep: ya funciona con keys, simplificar
+const goToStep = useCallback((stepKey: string) => {
+  setCurrentStepKey(stepKey);
+}, []);
+
+// setCurrentStep numerico (para compatibilidad):
+const setCurrentStepByIndex = useCallback((index: number) => {
+  if (stepConfig[index]) {
+    setCurrentStepKey(stepConfig[index].key);
+  }
+}, [stepConfig]);
 ```
 
-#### 4. Nuevo Componente: Panel de Admin para Ver Contraseñas
+### Otros Ajustes Menores
 
-Un nuevo componente/página donde el admin puede:
-- Ver lista de usuarios con botón "Ver Contraseña"
-- Al hacer clic, consulta la edge function y muestra la contraseña
+- `jumpToProcessing`: cambia a `setCurrentStepKey('processing')`
+- `resetFlow`: cambia a `setCurrentStepKey('project')`
+- Los valores exportados se mantienen iguales (currentStep sigue siendo un numero derivado, currentStepKey es el string)
+- `MultiStepUploader.tsx` y `StepIndicator.tsx` no necesitan cambios porque ya usan `currentStepKey`
 
-### Archivos a Crear/Modificar
+### Resultado
 
-| Tipo | Archivo | Descripción |
-|------|---------|-------------|
-| Nuevo | `supabase/functions/admin-password-vault/index.ts` | Edge function para guardar/recuperar contraseñas |
-| Nuevo | `src/pages/AdminPanel.tsx` | Panel de administración con lista de usuarios |
-| Modificar | `src/pages/Auth.tsx` | Agregar lógica para guardar en vault antes de signup |
-| Modificar | `src/App.tsx` | Agregar ruta `/admin` |
-| Modificar | `src/components/Header.tsx` | Agregar enlace a Admin Panel (solo para admins) |
-| Migración | SQL | Crear tabla `password_vault` |
+- No importa cuantas veces cambie `stepConfig`, el paso activo siempre mantiene su identidad
+- Si el usuario esta en "pricing", vera "Pricing" con el icono correcto aunque se agreguen o quiten pasos
+- Sin tablas nuevas en la base de datos -- es un fix puramente de frontend
+- Cero impacto en la funcionalidad existente
 
-### Estructura del Panel de Admin
+### Verificacion
 
-```text
-┌────────────────────────────────────────────────────┐
-│ 🔐 Panel de Administración                         │
-├────────────────────────────────────────────────────┤
-│                                                    │
-│  ┌──────────────────────────────────────────────┐  │
-│  │ Usuarios Registrados                         │  │
-│  ├──────────────────────────────────────────────┤  │
-│  │ Email              │ Creado    │ Contraseña  │  │
-│  ├──────────────────────────────────────────────┤  │
-│  │ juan@email.com     │ 22-Ene    │ [👁️ Ver]   │  │
-│  │ maria@email.com    │ 23-Ene    │ [👁️ Ver]   │  │
-│  │ pedro@email.com    │ 28-Ene    │ [👁️ Ver]   │  │
-│  └──────────────────────────────────────────────┘  │
-│                                                    │
-│  Al hacer clic en "Ver":                          │
-│  ┌──────────────────────────────────────────────┐  │
-│  │ Contraseña de juan@email.com: miPassword123  │  │
-│  └──────────────────────────────────────────────┘  │
-│                                                    │
-└────────────────────────────────────────────────────┘
-```
-
-### Seguridad Implementada
-
-1. **Edge Function con verificación**: La edge function `admin-password-vault` verificará el `ADMIN_ACCESS_PASSWORD` antes de mostrar cualquier contraseña
-2. **RLS sin SELECT público**: La tabla `password_vault` no tiene política SELECT pública - solo accessible via service_role
-3. **Acceso protegido**: El panel de admin requerirá verificación de contraseña admin (igual que crear usuarios)
-
-### Edge Function: admin-password-vault
-
-```typescript
-// Estructura básica
-Deno.serve(async (req) => {
-  // CORS handling...
-  
-  // Verificar password de admin en header o body
-  const adminPassword = req.headers.get('x-admin-password');
-  const expectedPassword = Deno.env.get('ADMIN_ACCESS_PASSWORD');
-  
-  if (adminPassword !== expectedPassword) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-  
-  const supabaseAdmin = createClient(url, serviceRoleKey);
-  
-  if (req.method === 'POST') {
-    // Guardar contraseña
-    const { email, password } = await req.json();
-    await supabaseAdmin.from('password_vault').upsert({
-      user_email: email,
-      user_password: password
-    });
-  }
-  
-  if (req.method === 'GET') {
-    // Recuperar contraseña
-    const email = new URL(req.url).searchParams.get('email');
-    const { data } = await supabaseAdmin
-      .from('password_vault')
-      .select('user_password')
-      .eq('user_email', email)
-      .single();
-    return Response.json({ password: data?.user_password });
-  }
-});
-```
-
-### Flujo de Usuario Final
-
-1. **Admin va a `/auth`** → Click "Opciones de Admin" → Ingresa contraseña admin
-2. **Admin crea usuario** → Ingresa email y contraseña del nuevo usuario
-3. **Al hacer submit**:
-   - Primero se guarda en `password_vault`
-   - Luego se crea el usuario en Supabase Auth
-4. **Después, si el usuario olvida su contraseña**:
-   - Admin va a `/admin` → Ingresa contraseña admin
-   - Ve la lista de usuarios → Click "Ver Contraseña"
-   - Se muestra la contraseña guardada
-
+1. Subir archivos de empresa (activa pasos de analisis) y verificar que los nombres de cada area son correctos
+2. Navegar adelante y atras entre areas y confirmar icono + nombre correctos
+3. Agregar area personalizada y verificar que no desincroniza las demas
