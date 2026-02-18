@@ -211,6 +211,7 @@ const MultiStepUploader = () => {
         if (!area) return null;
         return (
           <FileUploadStep
+            key={area.key}
             area={area}
             files={areaFiles[area.key]}
             onFilesChange={(files) => updateAreaFiles(area.key, files)}
@@ -266,6 +267,7 @@ const MultiStepUploader = () => {
           if (customArea) {
             return (
               <CustomAreaUploadStep
+                key={customArea.id}
                 area={customArea}
                 onNameChange={updateCustomAreaName}
                 onFilesChange={updateCustomAreaFiles}
