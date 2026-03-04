@@ -144,27 +144,16 @@ const Auth = () => {
           return;
         }
 
-        // 1. Primero guardar la contraseña en el vault
-        try {
-          const { error: vaultError } = await supabase.functions.invoke('admin-password-vault', {
-            body: { action: 'save', email: email.toLowerCase().trim(), password },
-            headers: { 'x-admin-password': sessionStorage.getItem('adminPassword') || '' }
-          });
-          
-          if (vaultError) {
-            console.error('Error saving to vault:', vaultError);
-            // Continuar con el registro aunque falle el vault
-          }
-        } catch (vaultErr) {
-          console.error('Vault save failed:', vaultErr);
-        }
+        // Create user via edge function (server-side, no auto-login)
+        const { data, error: fnError } = await supabase.functions.invoke('admin-password-vault', {
+          body: { action: 'create_user', email: email.toLowerCase().trim(), password },
+          headers: { 'x-admin-password': sessionStorage.getItem('adminPassword') || '' }
+        });
 
-        // 2. Luego crear el usuario en Supabase Auth
-        const { error } = await signUp(email, password);
-        if (error) {
+        if (fnError || (data && data.error)) {
           toast({
             title: "Error de Registro",
-            description: error.message,
+            description: data?.error || fnError?.message || 'Error al crear usuario',
             variant: "destructive",
           });
         } else {
@@ -172,9 +161,7 @@ const Auth = () => {
             title: "¡Registro Exitoso!",
             description: "La cuenta ha sido creada y la contraseña guardada.",
           });
-          // Limpiar la contraseña de admin de sessionStorage
           sessionStorage.removeItem('adminPassword');
-          // Reset to login after successful registration
           setIsLogin(true);
           setIsAdminVerified(false);
           setEmail('');

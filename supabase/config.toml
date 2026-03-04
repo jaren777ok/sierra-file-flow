@@ -2,3 +2,6 @@ project_id = "bkdbzgasphacukxjqpbh"
 
 [functions.verify-admin-access]
 verify_jwt = false
+
+[functions.admin-password-vault]
+verify_jwt = false
